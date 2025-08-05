@@ -1,0 +1,10 @@
+<template>
+  <div class="min-h-screen bg-gray-50">
+    <slot />
+  </div>
+</template>
+
+<script setup lang="ts">
+// Layout component - provides the main application layout structure
+</script>
+
