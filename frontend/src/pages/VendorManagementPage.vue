@@ -451,8 +451,6 @@ const clearFilters = () => {
 }
 
 const viewVendor = (vendor) => {
-  // TODO: Implement vendor detail view
-  console.log('View vendor:', vendor)
 }
 
 const editVendor = (vendor) => {
@@ -537,7 +535,6 @@ const confirmAssignment = async () => {
     if (response.success) {
       showAssignModal.value = false
       // Show success message
-      console.log('Vendor assigned successfully')
     }
   } catch (err) {
     error.value = 'Failed to assign vendor to project'

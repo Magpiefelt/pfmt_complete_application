@@ -759,44 +759,28 @@ const clearTaskFilters = () => {
 }
 
 const editTask = (task) => {
-  // TODO: Implement task editing
-  console.log('Edit task:', task)
 }
 
 const updateTaskStatus = (task) => {
-  // TODO: Implement task status update
-  console.log('Update task status:', task)
 }
 
 const viewMeeting = (meeting) => {
-  // TODO: Implement meeting view
-  console.log('View meeting:', meeting)
 }
 
 const editMeeting = (meeting) => {
-  // TODO: Implement meeting editing
-  console.log('Edit meeting:', meeting)
 }
 
 const approveItem = (approval) => {
-  // TODO: Implement approval
-  console.log('Approve:', approval)
 }
 
 const rejectItem = (approval) => {
-  // TODO: Implement rejection
-  console.log('Reject:', approval)
 }
 
 const createTask = () => {
-  // TODO: Implement task creation
-  console.log('Create task:', taskForm.value)
   showCreateTaskModal.value = false
 }
 
 const createMeeting = () => {
-  // TODO: Implement meeting creation
-  console.log('Create meeting:', meetingForm.value)
   showCreateMeetingModal.value = false
 }
 

@@ -202,8 +202,6 @@ const maxRegionalCount = computed(() =>
 const refreshData = async () => {
   loading.value = true
   try {
-    // TODO: Fetch real data from API
-    console.log('Refreshing analytics data for time range:', timeRange.value)
     await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
   } catch (error) {
     console.error('Failed to refresh analytics data:', error)

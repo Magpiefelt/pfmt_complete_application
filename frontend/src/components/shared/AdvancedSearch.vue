@@ -221,8 +221,6 @@ const clearAllFilters = () => {
 }
 
 const saveSearch = () => {
-  // TODO: Implement save search functionality
-  console.log('Save search:', { searchTerm: searchTerm.value, filters: filters.value, activeFilters: activeFilters.value })
 }
 
 const performSearch = () => {
@@ -258,7 +256,6 @@ const performSearch = () => {
         results = results.filter(item => item.scheduleStatus === 'At Risk' || item.budgetStatus === 'At Risk')
         break
       case 'my-projects':
-        // TODO: Filter by current user
         break
     }
   })

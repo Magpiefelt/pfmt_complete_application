@@ -855,7 +855,6 @@ const saveCustomReport = async () => {
 
 const editReport = (report) => {
   // Edit report functionality
-  console.log('Edit report:', report)
 }
 
 const deleteReport = async (report) => {
@@ -882,7 +881,6 @@ const deleteReport = async (report) => {
 
 const exportReport = (format) => {
   // Export report functionality
-  console.log('Export report as:', format)
 }
 
 const getReportTypeColor = (type) => {

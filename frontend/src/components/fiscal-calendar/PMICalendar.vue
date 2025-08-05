@@ -663,7 +663,6 @@ const selectDay = (day: any) => {
     selectEvent(day.events[0])
   } else if (day.events.length > 1) {
     // Show day events list
-    console.log('Multiple events on this day:', day.events)
   } else {
     // Open new event modal with pre-filled date
     eventForm.value.start_date = day.date

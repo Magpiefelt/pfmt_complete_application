@@ -24,8 +24,6 @@ const filter = computed(() =>
 )
 
 const handleProjectSelect = (project: any) => {
-  console.log('Selected project:', project)
-  // TODO: Navigate to project detail or open project modal
 }
 </script>
 

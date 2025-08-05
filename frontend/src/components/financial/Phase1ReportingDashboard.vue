@@ -360,22 +360,18 @@ const refreshDashboard = async () => {
 
 const exportAllReports = () => {
   // Implementation for exporting all reports
-  console.log('Exporting all reports...')
 }
 
 const generateVarianceReport = () => {
   // Implementation for variance report generation
-  console.log('Generating variance report...')
 }
 
 const generateCashFlowReport = () => {
   // Implementation for cash flow report generation
-  console.log('Generating cash flow report...')
 }
 
 const generateVendorReport = () => {
   // Implementation for vendor report generation
-  console.log('Generating vendor report...')
 }
 
 // Lifecycle

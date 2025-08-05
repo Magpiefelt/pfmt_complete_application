@@ -403,6 +403,8 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-vue-next'
+import { useGateMeetings } from '@/composables/useGateMeetings'
+import { useFormat } from '@/composables/useFormat'
 
 const props = defineProps({
   projectId: {
@@ -411,9 +413,32 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits<{
+  'meeting-scheduled': [meeting: any]
+  'meeting-completed': [meeting: any]
+  'meeting-updated': [meeting: any]
+  'meeting-deleted': [meetingId: string]
+}>()
+
+// Use composables
+const {
+  meetings,
+  loading,
+  error,
+  statistics,
+  fetchProjectMeetings,
+  createMeeting,
+  updateMeeting,
+  deleteMeeting,
+  completeMeeting: completeMeetingComposable,
+  formatMeetingDate,
+  getMeetingStatus,
+  getMeetingStatusClass
+} = useGateMeetings()
+
+const { formatDate } = useFormat()
+
 // Reactive data
-const loading = ref(false)
-const meetings = ref([])
 const projectWorkflow = ref({
   currentState: '',
   nextAction: ''
@@ -448,75 +473,8 @@ const isValidMeeting = computed(() => {
 })
 
 // Methods
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('en-CA')
-}
-
-const formatMeetingDate = (meeting) => {
-  const date = meeting.actual_date || meeting.scheduled_date
-  return date ? formatDate(date) : 'Not scheduled'
-}
-
-const truncateText = (text, length) => {
-  if (!text) return ''
-  return text.length > length ? text.substring(0, length) + '...' : text
-}
-
-const getMeetingStatusClass = (status) => {
-  const classes = {
-    'scheduled': 'bg-blue-100 text-blue-600',
-    'completed': 'bg-green-100 text-green-600',
-    'cancelled': 'bg-red-100 text-red-600'
-  }
-  return classes[status] || 'bg-gray-100 text-gray-600'
-}
-
-const getMeetingStatusIcon = (status) => {
-  const icons = {
-    'scheduled': Clock,
-    'completed': Check,
-    'cancelled': X
-  }
-  return icons[status] || AlertCircle
-}
-
-const getStatusBadgeClass = (status) => {
-  const classes = {
-    'scheduled': 'bg-blue-100 text-blue-800',
-    'completed': 'bg-green-100 text-green-800',
-    'cancelled': 'bg-red-100 text-red-800'
-  }
-  return classes[status] || 'bg-gray-100 text-gray-800'
-}
-
-const getActionItemStatusClass = (status) => {
-  const classes = {
-    'completed': 'bg-green-100 text-green-800',
-    'in_progress': 'bg-yellow-100 text-yellow-800',
-    'pending': 'bg-gray-100 text-gray-800'
-  }
-  return classes[status] || 'bg-gray-100 text-gray-800'
-}
-
 const loadMeetings = async () => {
-  try {
-    loading.value = true
-    const params = new URLSearchParams({
-      limit: 50,
-      ...filters.value
-    })
-    
-    const response = await fetch(`/api/phase1/projects/${props.projectId}/gate-meetings?${params}`)
-    const data = await response.json()
-    
-    if (data.success) {
-      meetings.value = data.data.meetings
-    }
-  } catch (error) {
-    console.error('Error loading meetings:', error)
-  } finally {
-    loading.value = false
-  }
+  await fetchProjectMeetings(props.projectId)
 }
 
 const loadProjectWorkflow = async () => {
@@ -603,27 +561,19 @@ const addMeetingNote = async (meeting) => {
 }
 
 const editMeeting = (meeting) => {
-  console.log('Editing meeting:', meeting)
   // Implementation for editing meeting
 }
 
-const completeMeeting = async () => {
+const completeMeetingSimple = async () => {
   if (selectedMeeting.value) {
     try {
-      const response = await fetch(`/api/gate-meetings/${selectedMeeting.value.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          status: 'completed',
-          actual_date: new Date().toISOString().split('T')[0]
-        })
+      const success = await completeMeetingComposable(selectedMeeting.value.id, {
+        actual_date: new Date().toISOString().split('T')[0]
       })
       
-      if (response.ok) {
+      if (success) {
         showMeetingDetailsDialog.value = false
-        await loadMeetings()
+        emit('meeting-completed', selectedMeeting.value)
       }
     } catch (error) {
       console.error('Error completing meeting:', error)
@@ -632,7 +582,6 @@ const completeMeeting = async () => {
 }
 
 const updateWorkflowState = () => {
-  console.log('Updating workflow state...')
   // Implementation for updating workflow state
 }
 
@@ -641,7 +590,6 @@ const refreshMeetings = () => {
 }
 
 const exportMeetings = () => {
-  console.log('Exporting meetings...')
   // Implementation for exporting meetings
 }
 

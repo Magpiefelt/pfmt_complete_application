@@ -32,14 +32,12 @@ export const useProjects = (filter = 'all') => {
 
   // Fetch projects on mount
   onMounted(() => {
-    console.log('useProjects mounted, fetching projects')
     projectStore.fetchProjects()
   })
 
   const refetch = async () => {
     try {
       await projectStore.fetchProjects()
-      console.log('✅ Projects refetched successfully')
     } catch (error) {
       console.error('❌ Failed to refetch projects:', error)
       throw error

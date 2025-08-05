@@ -553,17 +553,14 @@ const viewTransferDetails = (transfer) => {
 
 const approveTransfer = async (transfer) => {
   // Implementation for approving transfer
-  console.log('Approving transfer:', transfer)
 }
 
 const rejectTransfer = async (transfer) => {
   // Implementation for rejecting transfer
-  console.log('Rejecting transfer:', transfer)
 }
 
 const exportTransfers = () => {
   // Implementation for exporting transfers
-  console.log('Exporting transfers...')
 }
 
 // Lifecycle

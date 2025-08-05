@@ -645,7 +645,6 @@ const loadProjects = async () => {
 
 const addReview = async () => {
   try {
-    console.log('Adding review:', newReview.value)
     
     showAddReviewDialog.value = false
     newReview.value = {
@@ -676,7 +675,6 @@ const refreshPerformanceData = () => {
 }
 
 const exportPerformanceData = () => {
-  console.log('Exporting performance data...')
 }
 
 // Lifecycle

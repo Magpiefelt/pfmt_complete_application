@@ -427,13 +427,11 @@ const createMeeting = async () => {
 const editMeeting = (meeting: GateMeeting) => {
   // Emit event to parent component or navigate to edit page
   // This would typically open a more detailed edit dialog
-  console.log('Edit meeting:', meeting)
 }
 
 const promptVersionSubmission = (meeting: GateMeeting) => {
   // Emit event to trigger version submission workflow
   // This would typically show a confirmation dialog and then submit the version
-  console.log('Prompt version submission for meeting:', meeting)
   // Emit to parent component to handle version submission
   emit('submitVersionForApproval', meeting)
 }
@@ -475,7 +473,6 @@ const completeMeeting = async (meeting: GateMeeting) => {
 
 const exportTimeline = () => {
   // Export timeline functionality
-  console.log('Export timeline')
 }
 
 const formatMeetingDate = (meeting: GateMeeting) => {

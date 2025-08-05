@@ -8,7 +8,6 @@ const StaffPortal = () => import('@/pages/StaffPortal.vue')
 const ProjectsPage = () => import('@/pages/ProjectsPage.vue')
 const ProjectDetailPage = () => import('@/pages/ProjectDetailPage.vue')
 const NewProjectPage = () => import('@/pages/NewProjectPage.vue')
-const PFMTExtractorPage = () => import('@/pages/PFMTExtractorPage.vue')
 const ReportsPage = () => import('@/pages/ReportsPage.vue')
 const SettingsPage = () => import('@/pages/SettingsPage.vue')
 const MeetingsPage = () => import('@/pages/MeetingsPage.vue')
@@ -75,25 +74,6 @@ const router = createRouter({
       name: 'meetings',
       component: MeetingsPage,
       meta: { requiresAuth: true }
-    },
-    {
-      path: '/library',
-      name: 'library',
-      component: PFMTExtractorPage,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/extractor',
-      name: 'extractor',
-      component: PFMTExtractorPage,
-      meta: { requiresAuth: true }
-    },
-    {
-      // DEPRECATED: Legacy PFMT extractor route - kept for backward compatibility
-      path: '/pfmt-extractor',
-      name: 'pfmt-extractor',
-      component: PFMTExtractorPage,
-      meta: { requiresAuth: true, deprecated: true }
     },
     {
       path: '/reports',

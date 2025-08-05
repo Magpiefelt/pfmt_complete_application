@@ -92,9 +92,13 @@ const requireDirectorOrAdmin = authorizeRoles('director', 'admin');
 // Middleware to check if user is Admin
 const requireAdmin = authorizeRoles('admin');
 
+// Alias for authorizeRoles for backward compatibility
+const requireRole = authorizeRoles;
+
 module.exports = {
     authenticateToken,
     authorizeRoles,
+    requireRole,
     requirePMOrPMI,
     requireDirectorOrAdmin,
     requireAdmin

@@ -44,7 +44,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Actions
   const setCurrentUser = (user: User) => {
-    console.log('👤 Setting current user:', user)
     currentUser.value = user
     
     // Persist user to localStorage for API service
@@ -55,17 +54,14 @@ export const useAuthStore = defineStore('auth', () => {
     // Trigger project refresh when user changes
     const projectStore = useProjectStore()
     if (projectStore.fetchProjects) {
-      console.log('🔄 Refreshing projects for new user')
       projectStore.fetchProjects()
     }
   }
 
   const setRole = async (role: string) => {
-    console.log('🔄 Switching to role:', role)
     
     // Fetch users if not already loaded
     if (users.value.length === 0) {
-      console.log('👥 Fetching users for role switch')
       await fetchUsers()
     }
     
@@ -80,7 +76,6 @@ export const useAuthStore = defineStore('auth', () => {
     const targetRole = roleMap[role]?.role
     const defaultId = roleMap[role]?.defaultId
     
-    console.log('🎯 Looking for role:', targetRole, 'defaultId:', defaultId)
     
     // Find user with matching role or use default
     let user = users.value.find(u => u.role === targetRole)
@@ -90,7 +85,6 @@ export const useAuthStore = defineStore('auth', () => {
     
     // Fallback to creating a user if not found
     if (!user) {
-      console.log('⚠️  User not found, creating fallback user')
       user = {
         id: defaultId || Date.now(),
         name: `${targetRole} User`,
@@ -98,20 +92,17 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
     
-    console.log('✅ Switching to user:', user)
     setCurrentUser(user)
   }
 
   const fetchUsers = async () => {
     loadingUsers.value = true
     try {
-      console.log('📡 Fetching users from API')
       const response = await UserAPI.getUsers()
       const fetchedUsers = response.data || []
       
       // Ensure we have default users if API returns empty
       if (fetchedUsers.length === 0) {
-        console.log('⚠️  No users from API, using fallback users')
         const fallbackUsers: User[] = [
           { id: 1, name: "Sarah Johnson", role: "Project Manager" },
           { id: 2, name: "Mike Chen", role: "Senior Project Manager" },
@@ -124,7 +115,6 @@ export const useAuthStore = defineStore('auth', () => {
         users.value = fetchedUsers
       }
       
-      console.log('✅ Users loaded:', users.value.length)
     } catch (error) {
       console.error('❌ Failed to fetch users:', error)
       
@@ -155,17 +145,14 @@ export const useAuthStore = defineStore('auth', () => {
   const getAccessibleProjects = (allProjects: any[]) => {
     if (!currentUser.value) return []
 
-    console.log('🔍 Filtering projects for user:', currentUser.value.role)
 
     // Directors and Senior Project Managers can see all projects
     if (['Director', 'Senior Project Manager'].includes(currentUser.value.role)) {
-      console.log('👑 Director/SPM access - showing all projects')
       return allProjects
     }
 
     // Project Managers can only see their own projects
     if (currentUser.value.role === 'Project Manager') {
-      console.log('👨‍💼 PM access - filtering by ownership')
       return allProjects.filter(project => 
         project.ownerId === currentUser.value.id || 
         project.createdByUserId === currentUser.value.id ||
@@ -175,7 +162,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Vendors have limited access - for demo purposes, show all projects
     if (currentUser.value.role === 'Vendor') {
-      console.log('🏢 Vendor access - showing all projects (demo)')
       return allProjects
     }
 

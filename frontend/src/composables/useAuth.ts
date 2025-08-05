@@ -10,10 +10,8 @@ export const useAuth = () => {
   const isStaff = computed(() => authStore.isStaff)
 
   const changeRole = async (newRole: string) => {
-    console.log('🔄 useAuth.changeRole called with:', newRole)
     try {
       await authStore.setRole(newRole)
-      console.log('✅ Role change completed')
     } catch (error) {
       console.error('❌ Role change failed:', error)
       throw error

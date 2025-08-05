@@ -59,7 +59,6 @@ class ApiService {
     }
     
     const currentUser = getCurrentUser()
-    console.log('🔍 API Request - Current User:', currentUser)
     
     const config: RequestInit = {
       headers: {
@@ -75,11 +74,9 @@ class ApiService {
       ...options
     }
 
-    console.log('🔍 API Request:', { method: config.method || 'GET', url, headers: config.headers })
 
     try {
       const response = await fetch(url, config)
-      console.log('✅ API Response received:', { status: response.status, statusText: response.statusText })
       
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
@@ -110,7 +107,6 @@ class ApiService {
       }
       
       const data = await response.json()
-      console.log('✅ API Response data received:', { 
         success: data.success, 
         dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
         userContext: data.userContext 
@@ -131,7 +127,6 @@ class ApiService {
 
   // Provide fallback data when backend is not available
   static getFallbackData<T>(endpoint: string, method: string): ApiResponse<T> {
-    console.log('🔄 Providing fallback data for:', { endpoint, method })
     
     // Fallback for projects
     if (endpoint.includes('/projects') && method === 'GET') {
@@ -393,11 +388,9 @@ export class ProjectAPI {
     if (phase) params.append('phase', phase)
     if (search) params.append('search', search)
 
-    console.log('🔍 ProjectAPI.getProjects called with options:', options)
     
     try {
       const result = await ApiService.request<any[]>(`/projects?${params}`)
-      console.log('✅ ProjectAPI.getProjects result:', { 
         projectCount: result.data?.length, 
         userContext: result.userContext 
       })
@@ -420,14 +413,12 @@ export class ProjectAPI {
 
   // Create new project with user context
   static async createProject(projectData: any): Promise<ApiResponse<any>> {
-    console.log('🔍 ProjectAPI.createProject called with:', projectData)
     
     try {
       const result = await ApiService.request<any>('/projects', {
         method: 'POST',
         body: JSON.stringify(projectData)
       })
-      console.log('✅ ProjectAPI.createProject result:', result)
       return result
     } catch (error: any) {
       console.error('❌ ProjectAPI.createProject failed:', error.message)

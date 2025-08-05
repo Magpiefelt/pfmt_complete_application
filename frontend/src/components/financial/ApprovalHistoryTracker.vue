@@ -434,7 +434,6 @@ const refreshHistory = () => {
 
 const exportHistory = () => {
   // Implementation for exporting history
-  console.log('Exporting approval history...')
 }
 
 // Lifecycle

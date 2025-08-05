@@ -129,6 +129,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui'
 import { useAuth } from '@/composables/useAuth'
+import { useGateMeetings } from '@/composables/useGateMeetings'
 import { 
   FolderOpen, 
   Plus, 
@@ -160,82 +161,28 @@ const stats = ref({
   reportsDue: 3
 })
 
-// Upcoming gate meetings data
-const upcomingMeetings = ref([])
+// Use gate meetings composable
+const {
+  meetings: upcomingMeetings,
+  loading: meetingsLoading,
+  error: meetingsError,
+  fetchUpcomingMeetings,
+  formatMeetingDate,
+  getMeetingStatus,
+  getMeetingStatusClass
+} = useGateMeetings()
 
 // Load upcoming gate meetings
 const loadUpcomingMeetings = async () => {
-  try {
-    const response = await fetch('/api/gate-meetings/upcoming')
-    const data = await response.json()
-    
-    if (data.success) {
-      // Filter based on user role
-      const userRoleKey = roleMap[currentUser.value.role] || 'vendor'
-      if (userRoleKey === 'director') {
-        // Directors see all upcoming meetings
-        upcomingMeetings.value = data.data
-      } else {
-        // PMs/SPMs see only their project meetings
-        upcomingMeetings.value = data.data.filter(meeting => 
-          meeting.project_manager_id === currentUser.value.id
-        )
-      }
-    }
-  } catch (error) {
-    console.error('Error loading upcoming meetings:', error)
-  }
+  await fetchUpcomingMeetings({
+    userRole: currentUser.value?.role,
+    userId: currentUser.value?.id
+  })
 }
 
 // Navigate to project detail page
 const navigateToProject = (projectId: string) => {
   router.push(`/projects/${projectId}`)
-}
-
-// Format meeting date
-const formatMeetingDate = (dateString: string) => {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffTime = date.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Tomorrow'
-  if (diffDays < 7) return `In ${diffDays} days`
-  
-  return date.toLocaleDateString('en-CA', {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-  })
-}
-
-// Get meeting status based on date
-const getMeetingStatus = (dateString: string) => {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffTime = date.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  
-  if (diffDays < 0) return 'Overdue'
-  if (diffDays === 0) return 'Today'
-  if (diffDays <= 3) return 'Soon'
-  return 'Upcoming'
-}
-
-// Get meeting status CSS class
-const getMeetingStatusClass = (dateString: string) => {
-  const status = getMeetingStatus(dateString)
-  switch (status) {
-    case 'Overdue':
-      return 'bg-red-100 text-red-800'
-    case 'Today':
-      return 'bg-orange-100 text-orange-800'
-    case 'Soon':
-      return 'bg-yellow-100 text-yellow-800'
-    default:
-      return 'bg-blue-100 text-blue-800'
-  }
 }
 
 const navigationTiles: NavigationTile[] = [

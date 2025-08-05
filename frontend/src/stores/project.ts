@@ -89,7 +89,6 @@ export const useProjectStore = defineStore('project', () => {
     setLoading(true)
     setError(null)
     
-    console.log('🔍 ProjectStore.fetchProjects called with options:', options)
     
     try {
       const apiOptions = {
@@ -118,7 +117,6 @@ export const useProjectStore = defineStore('project', () => {
               apiOptions.ownerId = currentUser.id
               apiOptions.userId = currentUser.id
               apiOptions.userRole = currentUser.role
-              console.log('👤 Filtering for user:', currentUser.id, currentUser.role)
             }
             break
         }
@@ -130,7 +128,6 @@ export const useProjectStore = defineStore('project', () => {
       if (currentUser && !apiOptions.userId) {
         apiOptions.userId = currentUser.id
         apiOptions.userRole = currentUser.role
-        console.log('👤 Adding user context:', currentUser.id, currentUser.role)
         
         // For directors, ensure only approved project data is shown
         if (currentUser.role === 'Director') {
@@ -142,13 +139,10 @@ export const useProjectStore = defineStore('project', () => {
       // Include version information for all requests
       apiOptions.includeVersions = true
 
-      console.log('📡 API call options:', apiOptions)
       const response = await ProjectAPI.getProjects(apiOptions)
-      console.log('📊 API response:', response)
       
       // Handle nested data structure from backend
       const projectsData = response.data?.projects || response.data || []
-      console.log('📊 Projects data:', projectsData.length, 'projects')
       
       setProjects(projectsData)
       
@@ -228,7 +222,6 @@ export const useProjectStore = defineStore('project', () => {
     setLoading(true)
     setError(null)
     
-    console.log('🆕 ProjectStore.addProject called with:', projectData)
     
     try {
       // Ensure user context is included in project creation
@@ -243,14 +236,11 @@ export const useProjectStore = defineStore('project', () => {
         projectWithContext.ownerId = currentUser.id
         projectWithContext.createdByUserId = currentUser.id
         projectWithContext.projectManager = currentUser.name
-        console.log('👤 Adding user context to project:', currentUser.id)
       }
       
-      console.log('📡 Creating project with context:', projectWithContext)
       const response = await ProjectAPI.createProject(projectWithContext)
       const newProject = response.data
       
-      console.log('✅ Project created successfully:', newProject.id)
       
       // Refresh the projects list to maintain proper pagination
       await fetchProjects()
@@ -291,13 +281,11 @@ export const useProjectStore = defineStore('project', () => {
     setLoading(true)
     setError(null)
     
-    console.log('🔍 Getting project by ID:', id)
     
     try {
       const response = await ProjectAPI.getProject(id)
       const project = response.data
       
-      console.log('✅ Project retrieved:', project?.id)
       setSelectedProject(project)
       return project
     } catch (err: any) {

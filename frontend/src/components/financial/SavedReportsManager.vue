@@ -426,7 +426,6 @@ const loadUsers = async () => {
 const createReport = async () => {
   try {
     // Implementation for creating report
-    console.log('Creating report:', newReport.value)
     
     showCreateReportDialog.value = false
     newReport.value = {
@@ -445,23 +444,19 @@ const createReport = async () => {
 }
 
 const viewReport = (report) => {
-  console.log('Viewing report:', report)
   // Implementation for viewing report
 }
 
 const downloadReport = (report) => {
-  console.log('Downloading report:', report)
   // Implementation for downloading report
 }
 
 const shareReport = (report) => {
-  console.log('Sharing report:', report)
   // Implementation for sharing report
 }
 
 const deleteReport = async (report) => {
   if (confirm(`Are you sure you want to delete "${report.name}"?`)) {
-    console.log('Deleting report:', report)
     // Implementation for deleting report
     await loadReports()
   }

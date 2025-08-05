@@ -34,11 +34,9 @@ import BudgetDashboard from '@/components/financial/BudgetDashboard.vue'
 
 // Methods
 const exportDashboard = () => {
-  console.log('Export dashboard')
 }
 
 const openReportBuilder = () => {
-  console.log('Open report builder')
 }
 </script>
 

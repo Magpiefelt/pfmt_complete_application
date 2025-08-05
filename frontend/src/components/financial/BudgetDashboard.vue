@@ -470,12 +470,10 @@ const getStatusText = (percent) => {
 
 const viewAllProjects = () => {
   // Navigate to projects page with budget filter
-  console.log('Navigate to projects page')
 }
 
 const viewVendorReport = () => {
   // Navigate to vendor spending report
-  console.log('Navigate to vendor report')
 }
 
 // Lifecycle

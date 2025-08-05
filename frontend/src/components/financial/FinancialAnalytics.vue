@@ -556,7 +556,6 @@ const refreshAnalytics = () => {
 }
 
 const exportAnalytics = () => {
-  console.log('Exporting financial analytics...')
 }
 
 // Lifecycle

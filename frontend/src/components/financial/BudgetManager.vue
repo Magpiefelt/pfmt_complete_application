@@ -745,17 +745,14 @@ const getUtilizationColor = (percent) => {
 
 const exportBudget = () => {
   // Export budget data
-  console.log('Export budget')
 }
 
 const viewAllEntries = () => {
   // Navigate to budget entries page
-  console.log('View all entries')
 }
 
 const openBudgetModal = () => {
   // Open budget creation modal
-  console.log('Open budget modal')
 }
 
 // Lifecycle

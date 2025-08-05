@@ -510,17 +510,14 @@ const changePage = (page) => {
 
 const viewPaymentDetails = (payment) => {
   // Implementation for viewing payment details
-  console.log('Viewing payment details:', payment)
 }
 
 const approvePayment = (payment) => {
   // Implementation for approving payment
-  console.log('Approving payment:', payment)
 }
 
 const exportPayments = () => {
   // Implementation for exporting payments
-  console.log('Exporting payments...')
 }
 
 // Lifecycle
