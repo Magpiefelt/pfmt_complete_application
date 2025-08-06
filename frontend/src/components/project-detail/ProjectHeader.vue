@@ -148,14 +148,14 @@ import {
   Trash2
 } from 'lucide-vue-next'
 import { AlbertaText } from '@/components/ui'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui"
 import { useStatusBadge } from '@/composables/useStatusBadge'
 
 interface Project {

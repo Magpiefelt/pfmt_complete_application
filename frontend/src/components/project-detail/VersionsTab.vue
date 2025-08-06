@@ -427,9 +427,9 @@ import {
   GitCompare,
   XCircle
 } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Textarea } from "@/components/ui"
 import {
   Dialog,
   DialogContent,
@@ -437,14 +437,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui"
 import { useProjectVersions } from '@/composables/useProjectVersions'
 import { useFormat } from '@/composables/useFormat'
 import { useStatusBadge } from '@/composables/useStatusBadge'

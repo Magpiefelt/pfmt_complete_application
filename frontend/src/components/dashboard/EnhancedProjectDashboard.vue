@@ -237,9 +237,9 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-vue-next'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import SearchAndFilter from '@/components/ui/SearchAndFilter.vue'
+import { Card, CardContent } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { SearchAndFilter } from "@/components/ui"
 import ProjectCard from '@/components/projects/ProjectCard.vue'
 import ProjectListItem from '@/components/projects/ProjectListItem.vue'
 import { useProjects } from '@/composables/useProjects'

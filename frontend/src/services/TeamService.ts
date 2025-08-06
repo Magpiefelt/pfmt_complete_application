@@ -1,4 +1,4 @@
-import { apiClient } from './index'
+import { apiService } from './apiService'
 
 export interface User {
   id: string
@@ -58,7 +58,7 @@ class TeamService {
    */
   async getProjectTeam(projectId: string): Promise<ProjectTeam> {
     try {
-      const response = await apiClient.get(`/teams/projects/${projectId}/team`)
+      const response = await apiService.get(`/teams/projects/${projectId}/team`)
       return response.data.data
     } catch (error) {
       console.error('Error fetching project team:', error)
@@ -71,7 +71,7 @@ class TeamService {
    */
   async updateProjectTeam(projectId: string, teamData: Partial<ProjectTeam>): Promise<ProjectTeam> {
     try {
-      const response = await apiClient.put(`/teams/projects/${projectId}/team`, teamData)
+      const response = await apiService.put(`/teams/projects/${projectId}/team`, teamData)
       return response.data.data
     } catch (error) {
       console.error('Error updating project team:', error)
@@ -84,7 +84,7 @@ class TeamService {
    */
   async addAdditionalMember(projectId: string, userId: string, role?: string): Promise<TeamMember> {
     try {
-      const response = await apiClient.post(`/teams/projects/${projectId}/team/additional`, {
+      const response = await apiService.post(`/teams/projects/${projectId}/team/additional`, {
         user_id: userId,
         role
       })
@@ -100,7 +100,7 @@ class TeamService {
    */
   async removeAdditionalMember(projectId: string, memberId: string): Promise<void> {
     try {
-      await apiClient.delete(`/teams/projects/${projectId}/team/additional/${memberId}`)
+      await apiService.delete(`/teams/projects/${projectId}/team/additional/${memberId}`)
     } catch (error) {
       console.error('Error removing additional team member:', error)
       throw new Error('Failed to remove additional team member')
@@ -119,7 +119,7 @@ class TeamService {
       if (params.department) queryParams.append('department', params.department)
       if (params.limit) queryParams.append('limit', params.limit.toString())
       
-      const response = await apiClient.get(`/teams/users/search?${queryParams.toString()}`)
+      const response = await apiService.get(`/teams/users/search?${queryParams.toString()}`)
       return response.data.data
     } catch (error) {
       console.error('Error searching users:', error)
@@ -132,7 +132,7 @@ class TeamService {
    */
   async getUserDetails(userId: string): Promise<User> {
     try {
-      const response = await apiClient.get(`/teams/users/${userId}`)
+      const response = await apiService.get(`/teams/users/${userId}`)
       return response.data.data
     } catch (error) {
       console.error('Error fetching user details:', error)

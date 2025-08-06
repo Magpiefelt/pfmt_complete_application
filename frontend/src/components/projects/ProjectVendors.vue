@@ -263,10 +263,10 @@
 import { ref, computed, watch } from 'vue'
 import { Users, Plus, Trash2, DollarSign, Clock, CheckCircle } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
-import { Input } from '@/components/ui/Input.vue'
-import { Label } from '@/components/ui/Label.vue'
-import { Button } from '@/components/ui/Button.vue'
-import { Badge } from '@/components/ui/Badge.vue'
+import { Input } from "@/components/ui"
+import { Label } from "@/components/ui"
+import { Button } from "@/components/ui"
+import { Badge } from "@/components/ui"
 
 interface Props {
   project: any

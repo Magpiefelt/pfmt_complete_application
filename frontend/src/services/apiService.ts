@@ -107,6 +107,8 @@ class ApiService {
       }
       
       const data = await response.json()
+      console.log('✅ API response received:', { 
+        endpoint, 
         success: data.success, 
         dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
         userContext: data.userContext 
@@ -391,6 +393,7 @@ export class ProjectAPI {
     
     try {
       const result = await ApiService.request<any[]>(`/projects?${params}`)
+      console.log('✅ ProjectAPI.getProjects success:', { 
         projectCount: result.data?.length, 
         userContext: result.userContext 
       })
@@ -726,4 +729,8 @@ export class MigrationAPI {
 }
 
 export default ApiService
+
+
+// Named export for compatibility
+export const apiService = ApiService
 

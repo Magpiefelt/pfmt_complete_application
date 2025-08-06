@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query, transaction, setUserContext } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const { body, validationResult } = require('express-validator');
 
 // Get all vendors
 router.get('/', async (req, res) => {

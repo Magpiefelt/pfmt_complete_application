@@ -205,8 +205,8 @@ import {
   AlertTriangle
 } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
-import { Button } from '@/components/ui/Button.vue'
-import { Badge } from '@/components/ui/Badge.vue'
+import { Button } from "@/components/ui"
+import { Badge } from "@/components/ui"
 import { formatDate } from '@/utils'
 
 interface Props {

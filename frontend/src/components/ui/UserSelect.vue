@@ -83,20 +83,20 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { Check, ChevronsUpDown, Loader2, X } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui'
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui"
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
-} from '@/components/ui/command'
+} from "@/components/ui"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from "@/components/ui"
 
 interface User {
   id: string

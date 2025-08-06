@@ -225,13 +225,13 @@ import {
   Flag,
   Tag
 } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui"
 import type { SearchFilters } from '@/composables/useSearch'
 
 interface SortOption {

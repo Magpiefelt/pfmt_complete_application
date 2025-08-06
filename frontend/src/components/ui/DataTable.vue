@@ -215,10 +215,7 @@ import {
   ChevronRight,
   FileX 
 } from 'lucide-vue-next'
-import { Button } from './Button.vue'
-import { Input } from './Input.vue'
-import { Checkbox } from './Checkbox.vue'
-import { Select } from './Select.vue'
+import { Button, Input, Checkbox, Select } from '@/components/ui'
 
 export interface DataTableColumn {
   key: string

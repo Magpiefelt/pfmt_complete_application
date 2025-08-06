@@ -87,7 +87,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { MapPin, Calendar, Users, DollarSign } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle, AlbertaText } from '@/components/ui'
-import Badge from '@/components/ui/Badge.vue'
+import { Badge } from "@/components/ui"
 import { formatCurrency, formatDate, getStatusColor } from '@/utils'
 
 interface Project {

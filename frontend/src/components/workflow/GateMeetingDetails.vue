@@ -342,13 +342,13 @@ import {
   Calendar, FileText, Users, MessageSquare, CheckCircle, ListTodo, 
   Edit, Plus, Check
 } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Input } from '@/components/ui'
+import { Label } from '@/components/ui'
+import { Textarea } from "@/components/ui"
+import { Badge } from '@/components/ui'
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui"
 import {
   Dialog,
   DialogContent,
@@ -356,7 +356,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui"
 
 interface Attendee {
   name: string

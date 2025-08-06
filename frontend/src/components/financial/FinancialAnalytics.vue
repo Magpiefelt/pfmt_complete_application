@@ -293,9 +293,9 @@
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { AlbertaText } from '@/components/ui/alberta-text'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { AlbertaText } from "@/components/ui"
 import { 
   Download, 
   RefreshCw, 

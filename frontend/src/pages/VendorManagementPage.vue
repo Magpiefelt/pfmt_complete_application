@@ -337,26 +337,7 @@ import {
   Building, 
   Award
 } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, CardDescription, Modal, Select } from '@/components/ui'
 import { useFormat } from '@/composables/useFormat'
 import { apiService } from '@/services/apiService'
 import ProjectSelectionModal from '@/components/vendors/ProjectSelectionModal.vue'

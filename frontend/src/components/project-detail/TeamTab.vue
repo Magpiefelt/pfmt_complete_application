@@ -259,11 +259,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { Save, Plus, X } from 'lucide-vue-next'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Input } from '@/components/ui'
+import { Label } from '@/components/ui'
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui"
 import {
   Dialog,
   DialogContent,
@@ -271,8 +271,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import UserSelect from '@/components/ui/UserSelect.vue'
+} from "@/components/ui"
+import { UserSelect } from "@/components/ui"
 
 interface User {
   id: string

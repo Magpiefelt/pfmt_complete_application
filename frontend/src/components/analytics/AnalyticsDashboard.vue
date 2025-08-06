@@ -152,7 +152,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { RefreshCw, MapPin } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui'
-import Select from '@/components/ui/Select.vue'
+import { Select } from "@/components/ui"
 import MetricCard from './MetricCard.vue'
 import { formatCurrency, formatDate } from '@/utils'
 

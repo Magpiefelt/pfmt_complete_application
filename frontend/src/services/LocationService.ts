@@ -1,4 +1,4 @@
-import { apiClient } from './index'
+import { apiService } from './apiService'
 
 export interface Ministry {
   id: string
@@ -67,7 +67,7 @@ class LocationService {
    */
   async getProjectLocations(projectId: string): Promise<ProjectLocation[]> {
     try {
-      const response = await apiClient.get(`/locations/projects/${projectId}/locations`)
+      const response = await apiService.get(`/locations/projects/${projectId}/locations`)
       return response.data.data
     } catch (error) {
       console.error('Error fetching project locations:', error)
@@ -80,7 +80,7 @@ class LocationService {
    */
   async createProjectLocation(projectId: string, locationData: Omit<ProjectLocation, 'id' | 'project_id' | 'created_at' | 'updated_at'>): Promise<ProjectLocation> {
     try {
-      const response = await apiClient.post(`/locations/projects/${projectId}/locations`, {
+      const response = await apiService.post(`/locations/projects/${projectId}/locations`, {
         ...locationData,
         project_id: projectId
       })
@@ -96,7 +96,7 @@ class LocationService {
    */
   async updateProjectLocation(projectId: string, locationId: string, locationData: Partial<ProjectLocation>): Promise<ProjectLocation> {
     try {
-      const response = await apiClient.put(`/locations/projects/${projectId}/locations/${locationId}`, locationData)
+      const response = await apiService.put(`/locations/projects/${projectId}/locations/${locationId}`, locationData)
       return response.data.data
     } catch (error) {
       console.error('Error updating project location:', error)
@@ -109,7 +109,7 @@ class LocationService {
    */
   async deleteProjectLocation(projectId: string, locationId: string): Promise<void> {
     try {
-      await apiClient.delete(`/locations/projects/${projectId}/locations/${locationId}`)
+      await apiService.delete(`/locations/projects/${projectId}/locations/${locationId}`)
     } catch (error) {
       console.error('Error deleting project location:', error)
       throw new Error('Failed to delete project location')
@@ -121,7 +121,7 @@ class LocationService {
    */
   async getMinistries(): Promise<Ministry[]> {
     try {
-      const response = await apiClient.get('/locations/ministries')
+      const response = await apiService.get('/locations/ministries')
       return response.data.data
     } catch (error) {
       console.error('Error fetching ministries:', error)
@@ -135,7 +135,7 @@ class LocationService {
   async getJurisdictions(ministryId?: string): Promise<Jurisdiction[]> {
     try {
       const params = ministryId ? `?ministry_id=${ministryId}` : ''
-      const response = await apiClient.get(`/locations/jurisdictions${params}`)
+      const response = await apiService.get(`/locations/jurisdictions${params}`)
       return response.data.data
     } catch (error) {
       console.error('Error fetching jurisdictions:', error)
@@ -148,7 +148,7 @@ class LocationService {
    */
   async getMLAs(): Promise<MLA[]> {
     try {
-      const response = await apiClient.get('/locations/mlas')
+      const response = await apiService.get('/locations/mlas')
       return response.data.data
     } catch (error) {
       console.error('Error fetching MLAs:', error)
@@ -161,7 +161,7 @@ class LocationService {
    */
   async geocodeAddress(address: string): Promise<GeocodeResult> {
     try {
-      const response = await apiClient.post('/locations/geocode', { address })
+      const response = await apiService.post('/locations/geocode', { address })
       return response.data.data
     } catch (error) {
       console.error('Error geocoding address:', error)

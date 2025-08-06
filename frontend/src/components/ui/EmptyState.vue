@@ -86,7 +86,7 @@ import {
   Wifi,
   Database
 } from 'lucide-vue-next'
-import { Button } from './Button.vue'
+import { Button } from "@/components/ui"
 
 export interface EmptyStateAction {
   text: string

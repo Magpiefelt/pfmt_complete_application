@@ -352,15 +352,15 @@ import {
   MoreHorizontal,
   UserMinus
 } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui"
 import { useFormat } from '@/composables/useFormat'
 import { apiService } from '@/services/apiService'
 import ProjectSelectionModal from '@/components/vendors/ProjectSelectionModal.vue'

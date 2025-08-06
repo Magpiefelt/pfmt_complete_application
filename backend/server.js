@@ -90,6 +90,7 @@ app.use('/api/vendor-portal', require('./routes/vendorPortal'));
 app.use('/api/vendor-qualification', require('./routes/vendorQualification'));
 app.use('/api/budget', require('./routes/budget'));
 app.use('/api/reporting', require('./routes/reporting'));
+app.use('/api/reports', require('./routes/reports'));
 app.use('/api/approval', require('./routes/approval'));
 app.use('/api/fiscal-calendar', require('./routes/fiscal-calendar'));
 app.use('/api/gate-meetings', require('./routes/gateMeetings'));
@@ -98,6 +99,7 @@ app.use('/api/invitations', require('./routes/invitations'));
 app.use('/api/migration', require('./routes/migration'));
 app.use('/api/teams', require('./routes/teams'));
 app.use('/api/locations', require('./routes/locations'));
+app.use('/api/pfmt', require('./routes/pfmt'));
 
 // Phase 1 Enhancement Routes
 app.use('/api/phase1', require('./routes/phase1'));

@@ -163,7 +163,7 @@ import {
   Clock,
   AlertTriangle
 } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 import { useFormat } from '@/composables/useFormat'
 import { useStatusBadge } from '@/composables/useStatusBadge'
 

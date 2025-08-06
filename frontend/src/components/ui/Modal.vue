@@ -123,7 +123,7 @@
 <script setup lang="ts">
 import { computed, watch, nextTick } from 'vue'
 import { X } from 'lucide-vue-next'
-import { Button } from './Button.vue'
+import { Button } from "@/components/ui"
 
 interface Props {
   modelValue: boolean

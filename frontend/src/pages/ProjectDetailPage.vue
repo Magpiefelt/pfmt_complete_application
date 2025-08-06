@@ -2,7 +2,7 @@
   <div class="container mx-auto px-4 py-8">
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
-      <LoadingSpinner size="lg" />
+      <Loading as LoadingSpinner size="lg" />
     </div>
 
     <!-- Error State -->
@@ -116,6 +116,7 @@
               :project-id="projectId"
               :can-edit="canEdit"
               :user-role="currentUser?.role || ''"
+              :view-mode="viewMode"
               @meeting-completed="handleMeetingCompleted"
               @meeting-created="handleMeetingCreated"
               @meeting-updated="handleMeetingUpdated"
@@ -180,10 +181,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import ErrorMessage from '@/components/ui/ErrorMessage.vue'
-import NotificationContainer from '@/components/ui/NotificationContainer.vue'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
+import { Loading as LoadingSpinner } from "@/components/ui"
+import { EmptyState } from "@/components/ui"
+import { NotificationContainer } from "@/components/ui"
 
 // Import modular components
 import ProjectHeader from '@/components/project-detail/ProjectHeader.vue'
@@ -191,7 +192,7 @@ import OverviewTab from '@/components/project-detail/OverviewTab.vue'
 import DetailsTab from '@/components/project-detail/DetailsTab.vue'
 import LocationTab from '@/components/project-detail/LocationTab.vue'
 import VendorsTab from '@/components/project-detail/VendorsTab.vue'
-import MilestonesTab from '@/components/project-detail/MilestonesTab.vue'
+import MilestonesTab from '@/components/project-detail/MilestonesTab_Enhanced.vue'
 import BudgetTab from '@/components/project-detail/BudgetTab.vue'
 import ReportsTab from '@/components/project-detail/ReportsTab.vue'
 import WorkflowTab from '@/components/project-detail/WorkflowTab.vue'
@@ -509,18 +510,6 @@ const handleTaskUpdated = (task: any) => {
   console.log('Task updated:', task)
 }
 
-const handleMeetingCompleted = (meeting: any) => {
-  notifications.meetingCompleted(meeting.gate_type || 'Meeting', meeting.decision)
-}
 
-const handleMeetingCreated = (meeting: any) => {
-  notifications.meetingScheduled(meeting.gate_type || 'Meeting', meeting.planned_date)
-}
+</script>
 
-const handleMeetingUpdated = (meeting: any) => {
-  notifications.info('Meeting Updated', `${meeting.gate_type || 'Meeting'} has been updated.`)
-}
-
-const handleMeetingDeleted = (meetingId: string) => {
-  notifications.warning('Meeting Cancelled', 'A scheduled meeting has been cancelled.')
-}
