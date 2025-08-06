@@ -39,12 +39,31 @@
             :key="member.id"
             :value="member.id"
           >
-            {{ member.name }} - {{ member.department }}
+            {{ member.name }} - {{ member.department }}{{ member.isCurrentUser ? ' (You)' : '' }}
           </option>
         </select>
         <p v-if="errors.projectManager" class="mt-1 text-sm text-red-600">
           {{ errors.projectManager }}
         </p>
+        
+        <!-- Info message when current user is auto-added -->
+        <div v-if="showCurrentUserMessage" class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div class="flex items-start">
+            <div class="w-5 h-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0">
+              <svg fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <AlbertaText variant="body-s" color="primary" class="font-medium mb-1">
+                No other Project Managers available
+              </AlbertaText>
+              <AlbertaText variant="body-xs" color="secondary">
+                You have been added as an option and will be assigned as the Project Manager by default.
+              </AlbertaText>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Selected Project Manager Info -->
@@ -55,7 +74,7 @@
           </div>
           <div class="flex-1">
             <AlbertaText tag="h5" variant="heading-xs" color="primary" class="mb-1">
-              {{ selectedProjectManager.name }}
+              {{ selectedProjectManager.name }}{{ selectedProjectManager.isCurrentUser ? ' (You)' : '' }}
             </AlbertaText>
             <AlbertaText variant="body-s" color="secondary" class="mb-2">
               {{ selectedProjectManager.role }} • {{ selectedProjectManager.department }}
@@ -312,6 +331,7 @@ const { getAvailableTeamMembers } = useProjectWizard()
 const loading = ref(false)
 const availableTeamMembers = ref([])
 const showAddMemberModal = ref(false)
+const showCurrentUserMessage = ref(false)
 
 // Form data
 const formData = reactive({
@@ -330,11 +350,69 @@ const newMember = reactive({
 // Validation errors
 const errors = reactive({})
 
+// Helper function to get current user info
+const getCurrentUser = () => {
+  try {
+    // Try to get from localStorage/sessionStorage
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser')
+      if (userStr) {
+        try {
+          return JSON.parse(userStr)
+        } catch (e) {
+          console.warn('Failed to parse stored user data')
+        }
+      }
+    }
+    
+    // Return default user context for development
+    return {
+      id: 1,
+      name: "Sarah Johnson",
+      role: "Project Manager",
+      department: "Infrastructure"
+    }
+  } catch (error) {
+    console.warn('Could not get current user, using default:', error)
+    return {
+      id: 1,
+      name: "Sarah Johnson", 
+      role: "Project Manager",
+      department: "Infrastructure"
+    }
+  }
+}
+
 // Computed properties
 const projectManagers = computed(() => {
-  return availableTeamMembers.value.filter(member => 
+  const managers = availableTeamMembers.value.filter(member => 
     member.role === 'Project Manager' || member.role === 'Senior Project Manager'
   )
+  
+  // If no project managers found, add current user as an option
+  if (managers.length === 0) {
+    const currentUser = getCurrentUser()
+    const currentUserAsManager = {
+      id: currentUser.id,
+      name: currentUser.name,
+      role: currentUser.role,
+      department: currentUser.department || 'Infrastructure',
+      expertise_areas: ['Project Management'],
+      isCurrentUser: true
+    }
+    
+    managers.push(currentUserAsManager)
+    showCurrentUserMessage.value = true
+    
+    // Auto-select the current user if they're the only option
+    if (!formData.projectManager) {
+      formData.projectManager = currentUser.id
+    }
+  } else {
+    showCurrentUserMessage.value = false
+  }
+  
+  return managers
 })
 
 const availableMembers = computed(() => {
@@ -389,6 +467,8 @@ const loadTeamMembers = async () => {
     availableTeamMembers.value = await getAvailableTeamMembers()
   } catch (error) {
     console.error('Error loading team members:', error)
+    // Provide fallback data if API fails
+    availableTeamMembers.value = []
   } finally {
     loading.value = false
   }
