@@ -490,3 +490,147 @@ module.exports = router;
 module.exports.projectVendorRouter = projectVendorRouter;
 module.exports.companyVendorRouter = companyVendorRouter;
 
+
+// Get projects assigned to a vendor
+router.get('/:id/projects', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const queryText = `
+            SELECT 
+                pv.id as assignment_id,
+                pv.role,
+                pv.contract_value,
+                pv.start_date,
+                pv.end_date,
+                pv.status as assignment_status,
+                p.id as project_id,
+                p.project_name,
+                p.project_status,
+                p.project_phase,
+                p.program,
+                p.geographic_region,
+                p.project_type
+            FROM project_vendors pv
+            JOIN projects p ON pv.project_id = p.id
+            WHERE pv.vendor_id = $1
+            ORDER BY pv.created_at DESC
+        `;
+
+        const result = await query(queryText, [id]);
+
+        res.json({
+            success: true,
+            data: result.rows
+        });
+
+    } catch (error) {
+        console.error('Error fetching vendor projects:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch vendor projects',
+            message: error.message
+        });
+    }
+});
+
+// Assign vendor to project (alternative endpoint from vendor side)
+router.post('/:id/assign-to-project', 
+    [
+        body('project_id').isUUID().withMessage('Valid project ID is required'),
+        body('role').notEmpty().withMessage('Role is required'),
+        body('contract_value').optional().isNumeric().withMessage('Contract value must be numeric'),
+        body('start_date').optional().isISO8601().withMessage('Start date must be valid date'),
+        body('end_date').optional().isISO8601().withMessage('End date must be valid date')
+    ],
+    async (req, res) => {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'Validation failed',
+                        details: errors.array()
+                    }
+                });
+            }
+
+            const { id: vendor_id } = req.params;
+            const { project_id, role, contract_value, start_date, end_date } = req.body;
+
+            // Check if vendor is already assigned to this project with the same role
+            const existingAssignment = await query(
+                'SELECT id FROM project_vendors WHERE project_id = $1 AND vendor_id = $2 AND role = $3',
+                [project_id, vendor_id, role]
+            );
+
+            if (existingAssignment.rows.length > 0) {
+                return res.status(409).json({
+                    success: false,
+                    error: {
+                        message: 'Vendor is already assigned to this project with the same role',
+                        code: 'DUPLICATE_ASSIGNMENT'
+                    }
+                });
+            }
+
+            // Verify project exists
+            const projectCheck = await query('SELECT id, project_name FROM projects WHERE id = $1', [project_id]);
+            if (projectCheck.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        message: 'Project not found'
+                    }
+                });
+            }
+
+            // Verify vendor exists
+            const vendorCheck = await query('SELECT id, name FROM vendors WHERE id = $1', [vendor_id]);
+            if (vendorCheck.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        message: 'Vendor not found'
+                    }
+                });
+            }
+
+            // Insert the assignment
+            const insertQuery = `
+                INSERT INTO project_vendors (project_id, vendor_id, role, contract_value, start_date, end_date)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id, created_at
+            `;
+
+            const result = await query(insertQuery, [
+                project_id,
+                vendor_id,
+                role,
+                contract_value || null,
+                start_date || null,
+                end_date || null
+            ]);
+
+            res.status(201).json({
+                success: true,
+                data: {
+                    assignment_id: result.rows[0].id,
+                    message: `Vendor ${vendorCheck.rows[0].name} assigned to project ${projectCheck.rows[0].project_name} successfully`
+                }
+            });
+
+        } catch (error) {
+            console.error('Assign vendor to project error:', error);
+            res.status(500).json({
+                success: false,
+                error: {
+                    message: 'Failed to assign vendor to project',
+                    details: error.message
+                }
+            });
+        }
+    }
+);
+

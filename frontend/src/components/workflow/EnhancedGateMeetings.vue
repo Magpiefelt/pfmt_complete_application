@@ -3,12 +3,10 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <AlbertaText tag="h3" variant="heading-m" color="primary" class="mb-2">
-          Gate Meetings & Workflow
-        </AlbertaText>
-        <AlbertaText variant="body-s" color="secondary">
+        <h3 class="text-lg font-semibold">Gate Meetings & Workflow</h3>
+        <p class="text-sm text-gray-600">
           Manage project gate meetings, decisions, and workflow progression
-        </AlbertaText>
+        </p>
       </div>
       <div class="flex items-center space-x-3">
         <Button variant="outline" @click="exportMeetings">
@@ -34,12 +32,12 @@
         <div class="space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <AlbertaText variant="body-m" color="primary" class="font-medium">
+              <p class="font-medium">
                 Current State: {{ projectWorkflow.currentState || 'Not Set' }}
-              </AlbertaText>
-              <AlbertaText variant="body-s" color="secondary">
+              </p>
+              <p class="text-sm text-gray-600">
                 {{ projectWorkflow.nextAction || 'No next action defined' }}
-              </AlbertaText>
+              </p>
             </div>
             <Button variant="outline" @click="updateWorkflowState">
               <Edit class="w-4 h-4 mr-2" />
@@ -69,46 +67,49 @@
       <CardContent class="p-4">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              v-model="filters.status"
-              @change="loadMeetings"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Statuses</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+            <Label class="block text-sm font-medium text-gray-700 mb-1">Status</Label>
+            <Select v-model="filters.status" @update:model-value="loadMeetings">
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Gate Type</label>
-            <select
-              v-model="filters.gateType"
-              @change="loadMeetings"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Types</option>
-              <option value="Gate 1 - Project Initiation">Gate 1 - Project Initiation</option>
-              <option value="Gate 2 - Design Approval">Gate 2 - Design Approval</option>
-              <option value="Gate 3 - Construction Progress Review">Gate 3 - Construction Progress Review</option>
-              <option value="Gate 4 - Project Completion">Gate 4 - Project Completion</option>
-            </select>
+            <Label class="block text-sm font-medium text-gray-700 mb-1">Gate Type</Label>
+            <Select v-model="filters.gateType" @update:model-value="loadMeetings">
+              <SelectTrigger>
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="Gate 1 - Project Initiation">Gate 1 - Project Initiation</SelectItem>
+                <SelectItem value="Gate 2 - Design Approval">Gate 2 - Design Approval</SelectItem>
+                <SelectItem value="Gate 3 - Construction Progress Review">Gate 3 - Construction Progress Review</SelectItem>
+                <SelectItem value="Gate 4 - Project Completion">Gate 4 - Project Completion</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Upcoming Only</label>
-            <select
-              v-model="filters.upcoming"
-              @change="loadMeetings"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="false">All Meetings</option>
-              <option value="true">Upcoming Only</option>
-            </select>
+            <Label class="block text-sm font-medium text-gray-700 mb-1">Upcoming Only</Label>
+            <Select v-model="filters.upcomingOnly" @update:model-value="loadMeetings">
+              <SelectTrigger>
+                <SelectValue placeholder="All Meetings" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Meetings</SelectItem>
+                <SelectItem value="true">Upcoming Only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div class="flex items-end">
-            <Button @click="refreshMeetings" class="w-full">
-              <RefreshCw class="w-4 h-4 mr-2" :class="{ 'animate-spin': loading }" />
+            <Button variant="outline" @click="refreshMeetings" class="w-full">
+              <RefreshCw class="w-4 h-4 mr-2" />
               Refresh
             </Button>
           </div>
@@ -116,91 +117,80 @@
       </CardContent>
     </Card>
 
-    <!-- Meetings Timeline -->
-    <Card>
-      <CardHeader>
-        <CardTitle>Gate Meetings Timeline</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div v-if="loading" class="flex justify-center py-8">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-        
-        <div v-else-if="meetings.length === 0" class="text-center py-8">
-          <Calendar class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <AlbertaText variant="body-m" color="secondary">
-            No gate meetings found. Schedule your first meeting to get started.
-          </AlbertaText>
-        </div>
+    <!-- Loading State -->
+    <div v-if="loading" class="flex justify-center py-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    </div>
 
-        <div v-else class="space-y-4">
+    <!-- Error State -->
+    <div v-else-if="error" class="text-center py-8">
+      <p class="text-red-600">{{ error }}</p>
+      <Button variant="outline" @click="loadMeetings" class="mt-2">
+        Try Again
+      </Button>
+    </div>
+
+    <!-- Meetings List -->
+    <div v-else class="space-y-4">
+      <div v-if="filteredMeetings.length === 0" class="text-center py-8">
+        <Calendar class="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p class="text-gray-500">No gate meetings found.</p>
+        <Button 
+          variant="outline" 
+          @click="showScheduleMeetingDialog = true"
+          class="mt-4"
+        >
+          Schedule First Meeting
+        </Button>
+      </div>
+
+      <div v-else class="space-y-4">
+        <div 
+          v-for="meeting in filteredMeetings" 
+          :key="meeting.id"
+          class="border rounded-lg overflow-hidden"
+        >
+          <!-- Meeting Header -->
           <div 
-            v-for="meeting in meetings" 
-            :key="meeting.id" 
-            class="flex items-start space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-            @click="viewMeetingDetails(meeting)"
+            class="p-4 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors"
+            @click="toggleMeetingDetails(meeting.id)"
           >
-            <!-- Timeline Icon -->
-            <div class="flex-shrink-0">
-              <div class="w-10 h-10 rounded-full flex items-center justify-center"
-                   :class="getMeetingStatusClass(meeting.status)">
-                <component :is="getMeetingStatusIcon(meeting.status)" class="w-5 h-5" />
-              </div>
-            </div>
-
-            <!-- Content -->
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <div>
-                  <AlbertaText variant="body-m" color="primary" class="font-medium">
-                    {{ meeting.gate_type }}
-                  </AlbertaText>
-                  <div class="flex items-center space-x-2 mt-1">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                          :class="getStatusBadgeClass(meeting.status)">
-                      {{ meeting.status }}
-                    </span>
-                    <span class="text-sm text-gray-500">
-                      {{ formatMeetingDate(meeting) }}
-                    </span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="flex-shrink-0">
+                  <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Calendar class="h-5 w-5 text-blue-600" />
                   </div>
                 </div>
-                <div class="flex items-center space-x-2">
-                  <Button variant="outline" size="sm" @click.stop="addMeetingNote(meeting)">
-                    <MessageSquare class="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" @click.stop="editMeeting(meeting)">
-                    <Edit class="w-4 h-4" />
-                  </Button>
+                <div>
+                  <h4 class="font-medium text-gray-900">{{ meeting.gate_type }}</h4>
+                  <p class="text-sm text-gray-600">{{ formatMeetingDate(meeting) }}</p>
                 </div>
               </div>
-
-              <!-- Meeting Details -->
-              <div class="mt-3 space-y-2">
-                <div v-if="meeting.attendees && meeting.attendees.length" class="flex items-center space-x-1">
-                  <Users class="w-4 h-4 text-gray-400" />
-                  <span class="text-sm text-gray-600">
-                    {{ meeting.attendees.length }} attendees
-                  </span>
-                </div>
-                
-                <div v-if="meeting.agenda" class="text-sm text-gray-600">
-                  <strong>Agenda:</strong> {{ truncateText(meeting.agenda, 100) }}
-                </div>
-                
-                <div v-if="meeting.decisions && meeting.decisions.length" class="text-sm text-gray-600">
-                  <strong>Decisions:</strong> {{ meeting.decisions.length }} decision(s) made
-                </div>
-                
-                <div v-if="meeting.action_items && meeting.action_items.length" class="text-sm text-gray-600">
-                  <strong>Action Items:</strong> {{ meeting.action_items.length }} item(s)
-                </div>
+              <div class="flex items-center space-x-2">
+                <Badge :variant="getStatusVariant(meeting.status)">
+                  {{ formatStatus(meeting.status) }}
+                </Badge>
+                <ChevronDown 
+                  class="h-4 w-4 text-gray-400 transition-transform"
+                  :class="{ 'rotate-180': expandedMeetings.has(meeting.id) }"
+                />
               </div>
             </div>
           </div>
+
+          <!-- Meeting Details (Expandable) -->
+          <div v-if="expandedMeetings.has(meeting.id)" class="p-4">
+            <GateMeetingDetails
+              :meeting="meeting"
+              :can-edit="canEdit"
+              @meeting-updated="handleMeetingUpdated"
+              @action-item-updated="handleActionItemUpdated"
+            />
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
 
     <!-- Schedule Meeting Dialog -->
     <Dialog v-model:open="showScheduleMeetingDialog">
@@ -213,52 +203,54 @@
         </DialogHeader>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Gate Type *</label>
-            <select
-              v-model="newMeeting.gateType"
-              required
-              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select Gate Type</option>
-              <option value="Gate 1 - Project Initiation">Gate 1 - Project Initiation</option>
-              <option value="Gate 2 - Design Approval">Gate 2 - Design Approval</option>
-              <option value="Gate 3 - Construction Progress Review">Gate 3 - Construction Progress Review</option>
-              <option value="Gate 4 - Project Completion">Gate 4 - Project Completion</option>
-            </select>
+            <Label for="gate-type">Gate Type *</Label>
+            <Select v-model="newMeeting.gateType" required>
+              <SelectTrigger class="mt-1">
+                <SelectValue placeholder="Select Gate Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Gate 1 - Project Initiation">Gate 1 - Project Initiation</SelectItem>
+                <SelectItem value="Gate 2 - Design Approval">Gate 2 - Design Approval</SelectItem>
+                <SelectItem value="Gate 3 - Construction Progress Review">Gate 3 - Construction Progress Review</SelectItem>
+                <SelectItem value="Gate 4 - Project Completion">Gate 4 - Project Completion</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Scheduled Date *</label>
-            <input
+            <Label for="scheduled-date">Scheduled Date *</Label>
+            <Input
+              id="scheduled-date"
               v-model="newMeeting.scheduledDate"
               type="date"
               required
-              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="mt-1"
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Agenda</label>
-            <textarea
+            <Label for="agenda">Agenda</Label>
+            <Textarea
+              id="agenda"
               v-model="newMeeting.agenda"
               rows="4"
               placeholder="Meeting agenda and topics to discuss..."
-              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            ></textarea>
+              class="mt-1"
+            />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
-            <div class="space-y-2">
+            <Label>Attendees</Label>
+            <div class="space-y-2 mt-1">
               <div v-for="(attendee, index) in newMeeting.attendees" :key="index" class="flex items-center space-x-2">
-                <input
+                <Input
                   v-model="attendee.name"
                   type="text"
                   placeholder="Name"
-                  class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="flex-1"
                 />
-                <input
+                <Input
                   v-model="attendee.email"
                   type="email"
                   placeholder="Email"
-                  class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="flex-1"
                 />
                 <Button variant="outline" size="sm" @click="removeAttendee(index)">
                   <X class="w-4 h-4" />
@@ -281,177 +273,89 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-    <!-- Meeting Details Dialog -->
-    <Dialog v-model:open="showMeetingDetailsDialog">
-      <DialogContent class="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{{ selectedMeeting?.gate_type }}</DialogTitle>
-          <DialogDescription>
-            Meeting details and documentation
-          </DialogDescription>
-        </DialogHeader>
-        <div v-if="selectedMeeting" class="space-y-6">
-          <!-- Meeting Info -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Status</label>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                    :class="getStatusBadgeClass(selectedMeeting.status)">
-                {{ selectedMeeting.status }}
-              </span>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Date</label>
-              <p class="text-sm text-gray-900">{{ formatMeetingDate(selectedMeeting) }}</p>
-            </div>
-          </div>
-
-          <!-- Agenda -->
-          <div v-if="selectedMeeting.agenda">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Agenda</label>
-            <div class="p-3 bg-gray-50 rounded-md">
-              <pre class="text-sm text-gray-900 whitespace-pre-wrap">{{ selectedMeeting.agenda }}</pre>
-            </div>
-          </div>
-
-          <!-- Attendees -->
-          <div v-if="selectedMeeting.attendees && selectedMeeting.attendees.length">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Attendees</label>
-            <div class="space-y-2">
-              <div v-for="attendee in selectedMeeting.attendees" :key="attendee.email" 
-                   class="flex items-center space-x-2 p-2 bg-gray-50 rounded">
-                <User class="w-4 h-4 text-gray-400" />
-                <span class="text-sm font-medium">{{ attendee.name }}</span>
-                <span class="text-sm text-gray-500">{{ attendee.role }}</span>
-                <span class="text-sm text-gray-400">{{ attendee.email }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Minutes -->
-          <div v-if="selectedMeeting.minutes">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Meeting Minutes</label>
-            <div class="p-3 bg-gray-50 rounded-md">
-              <pre class="text-sm text-gray-900 whitespace-pre-wrap">{{ selectedMeeting.minutes }}</pre>
-            </div>
-          </div>
-
-          <!-- Decisions -->
-          <div v-if="selectedMeeting.decisions && selectedMeeting.decisions.length">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Decisions Made</label>
-            <div class="space-y-2">
-              <div v-for="(decision, index) in selectedMeeting.decisions" :key="index" 
-                   class="p-3 border border-green-200 bg-green-50 rounded-md">
-                <div class="font-medium text-green-800">{{ decision.decision }}</div>
-                <div class="text-sm text-green-600 mt-1">{{ decision.rationale }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Action Items -->
-          <div v-if="selectedMeeting.action_items && selectedMeeting.action_items.length">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Action Items</label>
-            <div class="space-y-2">
-              <div v-for="(item, index) in selectedMeeting.action_items" :key="index" 
-                   class="p-3 border border-blue-200 bg-blue-50 rounded-md">
-                <div class="flex items-center justify-between">
-                  <div class="font-medium text-blue-800">{{ item.action }}</div>
-                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                        :class="getActionItemStatusClass(item.status)">
-                    {{ item.status }}
-                  </span>
-                </div>
-                <div class="text-sm text-blue-600 mt-1">
-                  Assigned to: {{ item.assignee }} | Due: {{ formatDate(item.due_date) }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" @click="showMeetingDetailsDialog = false">
-            Close
-          </Button>
-          <Button v-if="selectedMeeting?.status === 'scheduled'" @click="completeMeeting">
-            Mark Complete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { 
+  Download, Plus, RefreshCw, GitBranch, Edit, Calendar, 
+  ChevronDown, X
+} from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlbertaText } from '@/components/ui/alberta-text'
-import { 
-  Download, 
-  Plus, 
-  RefreshCw,
-  GitBranch,
-  Edit,
-  Calendar,
-  MessageSquare,
-  Users,
-  User,
-  X,
-  Check,
-  Clock,
-  AlertCircle
-} from 'lucide-vue-next'
-import { useGateMeetings } from '@/composables/useGateMeetings'
-import { useFormat } from '@/composables/useFormat'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import GateMeetingDetails from './GateMeetingDetails.vue'
 
-const props = defineProps({
-  projectId: {
-    type: String,
-    required: true
-  }
-})
+interface Attendee {
+  name: string
+  email: string
+  role?: string
+}
+
+interface GateMeeting {
+  id: string
+  project_id: string
+  gate_type: string
+  scheduled_date: string
+  actual_date?: string
+  status: 'scheduled' | 'completed' | 'cancelled'
+  attendees?: Attendee[]
+  agenda?: string
+  minutes?: string
+  decisions?: any[]
+  action_items?: any[]
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+interface Props {
+  projectId: string
+  canEdit: boolean
+}
+
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  'meeting-scheduled': [meeting: any]
-  'meeting-completed': [meeting: any]
-  'meeting-updated': [meeting: any]
-  'meeting-deleted': [meetingId: string]
+  'meeting-completed': [meeting: GateMeeting]
+  'trigger-version-submission': [data: any]
 }>()
 
-// Use composables
-const {
-  meetings,
-  loading,
-  error,
-  statistics,
-  fetchProjectMeetings,
-  createMeeting,
-  updateMeeting,
-  deleteMeeting,
-  completeMeeting: completeMeetingComposable,
-  formatMeetingDate,
-  getMeetingStatus,
-  getMeetingStatusClass
-} = useGateMeetings()
+// State
+const meetings = ref<GateMeeting[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
+const showScheduleMeetingDialog = ref(false)
+const expandedMeetings = ref(new Set<string>())
 
-const { formatDate } = useFormat()
-
-// Reactive data
 const projectWorkflow = ref({
   currentState: '',
   nextAction: ''
 })
 
-const showScheduleMeetingDialog = ref(false)
-const showMeetingDetailsDialog = ref(false)
-const selectedMeeting = ref(null)
-
 const filters = ref({
   status: '',
   gateType: '',
-  upcoming: 'false'
+  upcomingOnly: ''
 })
 
 const newMeeting = ref({
@@ -461,11 +365,30 @@ const newMeeting = ref({
   attendees: [{ name: '', email: '', role: '' }]
 })
 
-// Computed properties
+// Computed
+const filteredMeetings = computed(() => {
+  let filtered = meetings.value
+
+  if (filters.value.status) {
+    filtered = filtered.filter(m => m.status === filters.value.status)
+  }
+
+  if (filters.value.gateType) {
+    filtered = filtered.filter(m => m.gate_type === filters.value.gateType)
+  }
+
+  if (filters.value.upcomingOnly === 'true') {
+    const now = new Date()
+    filtered = filtered.filter(m => new Date(m.scheduled_date) > now)
+  }
+
+  return filtered.sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+})
+
 const workflowProgress = computed(() => {
-  const completedMeetings = meetings.value.filter(m => m.status === 'completed').length
-  const totalMeetings = meetings.value.length || 1
-  return Math.round((completedMeetings / totalMeetings) * 100)
+  const completedMeetings = meetings.value.filter(m => m.status === 'completed')
+  const totalMeetings = 4 // Assuming 4 gate meetings
+  return Math.round((completedMeetings.length / totalMeetings) * 100)
 })
 
 const isValidMeeting = computed(() => {
@@ -474,22 +397,78 @@ const isValidMeeting = computed(() => {
 
 // Methods
 const loadMeetings = async () => {
-  await fetchProjectMeetings(props.projectId)
+  loading.value = true
+  error.value = null
+  
+  try {
+    // Mock data - replace with actual API call
+    meetings.value = [
+      {
+        id: '1',
+        project_id: props.projectId,
+        gate_type: 'Gate 1 - Project Initiation',
+        scheduled_date: '2024-02-15',
+        actual_date: '2024-02-15',
+        status: 'completed',
+        attendees: [
+          { name: 'John Smith', email: 'john.smith@gov.ab.ca', role: 'Project Manager' },
+          { name: 'Sarah Johnson', email: 'sarah.johnson@gov.ab.ca', role: 'Director' }
+        ],
+        agenda: 'Project initiation review, scope confirmation, budget approval',
+        minutes: 'Meeting held to review project initiation documents. All stakeholders present. Project scope and budget approved.',
+        decisions: [
+          { decision: 'Project approved to proceed to design phase', rationale: 'All requirements met', decision_maker: 'Sarah Johnson' }
+        ],
+        action_items: [
+          { action: 'Finalize design team selection', assignee: 'John Smith', due_date: '2024-02-28', status: 'completed' },
+          { action: 'Submit environmental assessment', assignee: 'Mike Wilson', due_date: '2024-03-15', status: 'in_progress' }
+        ],
+        created_by: 'user1',
+        created_at: '2024-02-01T10:00:00Z',
+        updated_at: '2024-02-15T14:30:00Z'
+      }
+    ]
+  } catch (err) {
+    error.value = 'Failed to load gate meetings'
+    console.error('Error loading meetings:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
-const loadProjectWorkflow = async () => {
-  try {
-    const response = await fetch(`/api/projects/${props.projectId}`)
-    const data = await response.json()
-    
-    if (data.success) {
-      projectWorkflow.value = {
-        currentState: data.data.workflow_state,
-        nextAction: data.data.next_action
-      }
-    }
-  } catch (error) {
-    console.error('Error loading project workflow:', error)
+const formatMeetingDate = (meeting: GateMeeting) => {
+  if (meeting.actual_date) {
+    return `Held on ${formatDate(meeting.actual_date)}`
+  }
+  return `Scheduled for ${formatDate(meeting.scheduled_date)}`
+}
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-CA')
+}
+
+const formatStatus = (status: string) => {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
+const getStatusVariant = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'default'
+    case 'scheduled':
+      return 'secondary'
+    case 'cancelled':
+      return 'destructive'
+    default:
+      return 'outline'
+  }
+}
+
+const toggleMeetingDetails = (meetingId: string) => {
+  if (expandedMeetings.value.has(meetingId)) {
+    expandedMeetings.value.delete(meetingId)
+  } else {
+    expandedMeetings.value.add(meetingId)
   }
 }
 
@@ -497,92 +476,59 @@ const addAttendee = () => {
   newMeeting.value.attendees.push({ name: '', email: '', role: '' })
 }
 
-const removeAttendee = (index) => {
+const removeAttendee = (index: number) => {
   newMeeting.value.attendees.splice(index, 1)
 }
 
 const scheduleMeeting = async () => {
   try {
-    const response = await fetch(`/api/gate-meetings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        project_id: props.projectId,
-        gate_type: newMeeting.value.gateType,
-        scheduled_date: newMeeting.value.scheduledDate,
-        agenda: newMeeting.value.agenda,
-        attendees: newMeeting.value.attendees.filter(a => a.name && a.email)
-      })
-    })
+    // API call to schedule meeting
+    const meetingData = {
+      project_id: props.projectId,
+      gate_type: newMeeting.value.gateType,
+      scheduled_date: newMeeting.value.scheduledDate,
+      agenda: newMeeting.value.agenda,
+      attendees: newMeeting.value.attendees.filter(a => a.name && a.email)
+    }
     
-    const data = await response.json()
+    // Mock success - replace with actual API call
+    const newMeetingRecord: GateMeeting = {
+      id: Date.now().toString(),
+      ...meetingData,
+      status: 'scheduled',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
     
-    if (data.success) {
-      showScheduleMeetingDialog.value = false
-      newMeeting.value = {
-        gateType: '',
-        scheduledDate: '',
-        agenda: '',
-        attendees: [{ name: '', email: '', role: '' }]
-      }
-      await loadMeetings()
+    meetings.value.push(newMeetingRecord)
+    
+    showScheduleMeetingDialog.value = false
+    newMeeting.value = {
+      gateType: '',
+      scheduledDate: '',
+      agenda: '',
+      attendees: [{ name: '', email: '', role: '' }]
     }
   } catch (error) {
     console.error('Error scheduling meeting:', error)
   }
 }
 
-const viewMeetingDetails = (meeting) => {
-  selectedMeeting.value = meeting
-  showMeetingDetailsDialog.value = true
-}
-
-const addMeetingNote = async (meeting) => {
-  const note = prompt('Add a note to this meeting:')
-  if (note) {
-    try {
-      const response = await fetch(`/api/phase1/gate-meetings/${meeting.id}/notes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ note })
-      })
-      
-      if (response.ok) {
-        await loadMeetings()
-      }
-    } catch (error) {
-      console.error('Error adding meeting note:', error)
-    }
+const handleMeetingUpdated = (updatedMeeting: GateMeeting) => {
+  const index = meetings.value.findIndex(m => m.id === updatedMeeting.id)
+  if (index !== -1) {
+    meetings.value[index] = updatedMeeting
   }
 }
 
-const editMeeting = (meeting) => {
-  // Implementation for editing meeting
-}
-
-const completeMeetingSimple = async () => {
-  if (selectedMeeting.value) {
-    try {
-      const success = await completeMeetingComposable(selectedMeeting.value.id, {
-        actual_date: new Date().toISOString().split('T')[0]
-      })
-      
-      if (success) {
-        showMeetingDetailsDialog.value = false
-        emit('meeting-completed', selectedMeeting.value)
-      }
-    } catch (error) {
-      console.error('Error completing meeting:', error)
-    }
-  }
+const handleActionItemUpdated = (actionItem: any, index: number) => {
+  // Handle action item updates
+  console.log('Action item updated:', actionItem, index)
 }
 
 const updateWorkflowState = () => {
   // Implementation for updating workflow state
+  console.log('Update workflow state')
 }
 
 const refreshMeetings = () => {
@@ -591,113 +537,15 @@ const refreshMeetings = () => {
 
 const exportMeetings = () => {
   // Implementation for exporting meetings
+  console.log('Export meetings')
 }
 
-// Enhanced workflow synchronization
-const syncWorkflowWithMeetings = () => {
-  const completedMeetings = meetings.value.filter(m => m.status === 'completed')
-  const upcomingMeetings = meetings.value.filter(m => 
-    m.status === 'scheduled' && new Date(m.scheduled_date) > new Date()
-  )
-  
-  // Update current state based on last completed meeting
-  if (completedMeetings.length > 0) {
-    const lastCompleted = completedMeetings[completedMeetings.length - 1]
-    if (lastCompleted.gate_type.includes('Gate 1')) {
-      projectWorkflow.value.currentState = 'Design Phase'
-    } else if (lastCompleted.gate_type.includes('Gate 2')) {
-      projectWorkflow.value.currentState = 'Construction Phase'
-    } else if (lastCompleted.gate_type.includes('Gate 3')) {
-      projectWorkflow.value.currentState = 'Project Completion'
-    } else if (lastCompleted.gate_type.includes('Gate 4')) {
-      projectWorkflow.value.currentState = 'Project Completed'
-    }
-  }
-  
-  // Update next action based on upcoming meetings
-  if (upcomingMeetings.length > 0) {
-    const nextMeeting = upcomingMeetings[0]
-    projectWorkflow.value.nextAction = `Prepare for ${nextMeeting.gate_type} on ${formatDate(nextMeeting.scheduled_date)}`
-  } else {
-    projectWorkflow.value.nextAction = 'Schedule next gate meeting'
-  }
-}
-
-// Meeting completion handler with version submission trigger
-const completeMeeting = async (meeting) => {
-  try {
-    // Mark meeting as completed
-    const response = await fetch(`/api/gate-meetings/${meeting.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        status: 'completed',
-        actual_date: new Date().toISOString(),
-        decision: meeting.decision || 'approved'
-      })
-    })
-    
-    if (response.ok) {
-      // Reload meetings and sync workflow
-      await loadMeetings()
-      syncWorkflowWithMeetings()
-      
-      // Show version submission prompt if decision was made and user can submit
-      if (meeting.decision && canCreateMeetings.value) {
-        showVersionSubmissionPrompt(meeting)
-      }
-      
-      // Emit event to parent component
-      emit('meetingCompleted', {
-        meeting,
-        shouldPromptVersionSubmission: meeting.decision && canCreateMeetings.value
-      })
-    }
-  } catch (error) {
-    console.error('Error completing meeting:', error)
-  }
-}
-
-// Show version submission prompt after meeting completion
-const showVersionSubmissionPrompt = (meeting) => {
-  const message = `Gate meeting "${meeting.gate_type}" has been completed with decision: ${meeting.decision}. 
-    Would you like to update the project draft with the meeting outcomes and submit it for approval?`
-  
-  if (confirm(message)) {
-    // Emit event to trigger version submission workflow
-    emit('triggerVersionSubmission', {
-      meeting,
-      outcomes: meeting.decision,
-      actionItems: meeting.action_items || []
-    })
-  }
-}
-
-// Watch for meetings changes to sync workflow
-watch(meetings, () => {
-  syncWorkflowWithMeetings()
-}, { deep: true })
-
-// Emit events
-const emit = defineEmits(['meetingCompleted'])
-
-// Lifecycle
 onMounted(() => {
-  loadProjectWorkflow()
   loadMeetings()
 })
 
-// Watch for filter changes
 watch(filters, () => {
-  loadMeetings()
+  // Filters are reactive, no need to reload
 }, { deep: true })
 </script>
-
-<style scoped>
-.transition-colors {
-  transition: background-color 0.2s ease-in-out;
-}
-</style>
 

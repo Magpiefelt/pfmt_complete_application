@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <AlbertaText tag="h1" size="heading-xl" mb="xs">Vendor Management</AlbertaText>
-        <AlbertaText color="secondary">Manage vendor profiles, capabilities, and project assignments</AlbertaText>
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Vendor Management</h1>
+        <p class="text-gray-600">Manage vendor profiles, capabilities, and project assignments</p>
       </div>
       <Button @click="showAddVendorModal = true" class="flex items-center space-x-2">
         <Plus class="h-4 w-4" />
@@ -18,40 +18,46 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <Label for="search">Search Vendors</Label>
-            <input
+            <Input
               id="search"
               v-model="searchTerm"
               type="text"
               placeholder="Search by name or capability..."
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              @input="debouncedSearch"
             />
           </div>
           <div>
             <Label for="capability">Capability</Label>
-            <select
-              id="capability"
-              v-model="selectedCapability"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Capabilities</option>
-              <option value="construction">Construction</option>
-              <option value="design">Design</option>
-              <option value="consulting">Consulting</option>
-              <option value="engineering">Engineering</option>
-            </select>
+            <Select v-model="selectedCapability" @update:model-value="loadVendors">
+              <SelectTrigger>
+                <SelectValue placeholder="All Capabilities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Capabilities</SelectItem>
+                <SelectItem value="construction">Construction</SelectItem>
+                <SelectItem value="design">Design</SelectItem>
+                <SelectItem value="consulting">Consulting</SelectItem>
+                <SelectItem value="engineering">Engineering</SelectItem>
+                <SelectItem value="architecture">Architecture</SelectItem>
+                <SelectItem value="electrical">Electrical</SelectItem>
+                <SelectItem value="plumbing">Plumbing</SelectItem>
+                <SelectItem value="hvac">HVAC</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label for="status">Status</Label>
-            <select
-              id="status"
-              v-model="selectedStatus"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
-            </select>
+            <Select v-model="selectedStatus" @update:model-value="loadVendors">
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div class="flex items-end">
             <Button @click="clearFilters" variant="outline" class="w-full">
@@ -64,55 +70,56 @@
 
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
-      <LoadingSpinner size="lg" />
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
     </div>
 
     <!-- Error State -->
-    <ErrorMessage 
-      v-else-if="error" 
-      :message="error"
-      @retry="loadVendors"
-    />
+    <div v-else-if="error" class="text-center py-8">
+      <p class="text-red-600 mb-2">{{ error }}</p>
+      <Button variant="outline" @click="loadVendors">
+        Try Again
+      </Button>
+    </div>
 
     <!-- Vendors Grid -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <Card v-for="vendor in filteredVendors" :key="vendor.id" class="hover:shadow-lg transition-shadow">
+      <Card v-for="vendor in vendors" :key="vendor.id" class="hover:shadow-lg transition-shadow">
         <CardHeader>
           <div class="flex items-start justify-between">
-            <div>
+            <div class="flex-1">
               <CardTitle class="text-lg">{{ vendor.name }}</CardTitle>
-              <CardDescription>{{ vendor.industry }}</CardDescription>
+              <CardDescription>{{ vendor.description || 'No description available' }}</CardDescription>
             </div>
             <span 
               :class="getStatusBadgeClass(vendor.status)"
               class="px-2 py-1 rounded-full text-xs font-medium"
             >
-              {{ vendor.status }}
+              {{ formatStatus(vendor.status) }}
             </span>
           </div>
         </CardHeader>
         <CardContent>
           <div class="space-y-3">
             <!-- Contact Info -->
-            <div class="flex items-center space-x-2 text-sm text-gray-600">
+            <div v-if="vendor.contact_email" class="flex items-center space-x-2 text-sm text-gray-600">
               <Mail class="h-4 w-4" />
-              <span>{{ vendor.email }}</span>
+              <span class="truncate">{{ vendor.contact_email }}</span>
             </div>
-            <div class="flex items-center space-x-2 text-sm text-gray-600">
+            <div v-if="vendor.contact_phone" class="flex items-center space-x-2 text-sm text-gray-600">
               <Phone class="h-4 w-4" />
-              <span>{{ vendor.phone }}</span>
+              <span>{{ vendor.contact_phone }}</span>
             </div>
-            <div class="flex items-center space-x-2 text-sm text-gray-600">
+            <div v-if="vendor.address" class="flex items-center space-x-2 text-sm text-gray-600">
               <MapPin class="h-4 w-4" />
-              <span>{{ vendor.location }}</span>
+              <span class="truncate">{{ vendor.address }}</span>
             </div>
 
             <!-- Capabilities -->
-            <div>
+            <div v-if="vendor.capabilities">
               <Label class="text-sm font-medium">Capabilities</Label>
               <div class="flex flex-wrap gap-1 mt-1">
                 <span 
-                  v-for="capability in vendor.capabilities" 
+                  v-for="capability in getCapabilities(vendor.capabilities)" 
                   :key="capability"
                   class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
                 >
@@ -122,17 +129,23 @@
             </div>
 
             <!-- Performance Rating -->
-            <div class="flex items-center justify-between">
+            <div v-if="vendor.performance_rating" class="flex items-center justify-between">
               <Label class="text-sm font-medium">Performance</Label>
               <div class="flex items-center space-x-1">
                 <Star 
                   v-for="i in 5" 
                   :key="i"
-                  :class="i <= vendor.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'"
+                  :class="i <= vendor.performance_rating ? 'text-yellow-400 fill-current' : 'text-gray-300'"
                   class="h-4 w-4"
                 />
-                <span class="text-sm text-gray-600 ml-1">({{ vendor.rating }}/5)</span>
+                <span class="text-sm text-gray-600 ml-1">({{ vendor.performance_rating }}/5)</span>
               </div>
+            </div>
+
+            <!-- Certification Level -->
+            <div v-if="vendor.certification_level" class="flex items-center space-x-2 text-sm text-gray-600">
+              <Award class="h-4 w-4" />
+              <span>{{ vendor.certification_level }}</span>
             </div>
 
             <!-- Actions -->
@@ -170,179 +183,208 @@
     </div>
 
     <!-- Empty State -->
-    <div v-if="!loading && !error && filteredVendors.length === 0" class="text-center py-12">
+    <div v-if="!loading && !error && vendors.length === 0" class="text-center py-12">
       <Building class="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <AlbertaText size="heading-m" color="secondary" mb="xs">No vendors found</AlbertaText>
-      <AlbertaText color="secondary">Try adjusting your search criteria or add a new vendor.</AlbertaText>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">No vendors found</h3>
+      <p class="text-gray-600">Try adjusting your search criteria or add a new vendor.</p>
     </div>
 
     <!-- Add/Edit Vendor Modal -->
-    <div v-if="showAddVendorModal || showEditVendorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold">
-            {{ showAddVendorModal ? 'Add New Vendor' : 'Edit Vendor' }}
-          </h2>
-          <Button @click="closeModals" variant="outline" size="sm">
-            <X class="h-4 w-4" />
-          </Button>
-        </div>
+    <Dialog v-model:open="showAddVendorModal">
+      <DialogContent class="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add New Vendor</DialogTitle>
+          <DialogDescription>
+            Create a new vendor profile with contact information and capabilities.
+          </DialogDescription>
+        </DialogHeader>
 
         <form @submit.prevent="saveVendor" class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label for="vendorName">Vendor Name *</Label>
-              <input
+              <Input
                 id="vendorName"
                 v-model="vendorForm.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter vendor name"
               />
             </div>
             <div>
-              <Label for="industry">Industry</Label>
-              <input
-                id="industry"
-                v-model="vendorForm.industry"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label for="email">Email *</Label>
-              <input
-                id="email"
-                v-model="vendorForm.email"
+              <Label for="vendorEmail">Contact Email *</Label>
+              <Input
+                id="vendorEmail"
+                v-model="vendorForm.contact_email"
                 type="email"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="contact@vendor.com"
               />
             </div>
             <div>
-              <Label for="phone">Phone</Label>
-              <input
-                id="phone"
-                v-model="vendorForm.phone"
+              <Label for="vendorPhone">Contact Phone</Label>
+              <Input
+                id="vendorPhone"
+                v-model="vendorForm.contact_phone"
                 type="tel"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="(403) 555-0123"
+              />
+            </div>
+            <div>
+              <Label for="vendorWebsite">Website</Label>
+              <Input
+                id="vendorWebsite"
+                v-model="vendorForm.website"
+                type="url"
+                placeholder="https://vendor.com"
               />
             </div>
           </div>
 
           <div>
-            <Label for="location">Location</Label>
-            <input
-              id="location"
-              v-model="vendorForm.location"
+            <Label for="vendorAddress">Address</Label>
+            <Input
+              id="vendorAddress"
+              v-model="vendorForm.address"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Full address"
             />
           </div>
 
           <div>
-            <Label for="capabilities">Capabilities (comma-separated)</Label>
-            <input
-              id="capabilities"
-              v-model="vendorForm.capabilitiesText"
+            <Label for="vendorCapabilities">Capabilities</Label>
+            <Input
+              id="vendorCapabilities"
+              v-model="vendorForm.capabilities"
               type="text"
-              placeholder="e.g., construction, design, consulting"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g., construction, design, consulting (comma-separated)"
             />
           </div>
 
           <div>
-            <Label for="description">Description</Label>
-            <textarea
-              id="description"
+            <Label for="vendorDescription">Description</Label>
+            <Textarea
+              id="vendorDescription"
               v-model="vendorForm.description"
               rows="3"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            ></textarea>
-          </div>
-
-          <div class="flex justify-end space-x-2 pt-4">
-            <Button @click="closeModals" variant="outline" type="button">
-              Cancel
-            </Button>
-            <Button type="submit" :disabled="saving">
-              {{ saving ? 'Saving...' : (showAddVendorModal ? 'Add Vendor' : 'Update Vendor') }}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Project Assignment Modal -->
-    <div v-if="showAssignModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-lg">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold">Assign to Project</h2>
-          <Button @click="showAssignModal = false" variant="outline" size="sm">
-            <X class="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div class="space-y-4">
-          <div>
-            <Label>Vendor: {{ selectedVendor?.name }}</Label>
-          </div>
-          <div>
-            <Label for="project">Select Project</Label>
-            <select
-              id="project"
-              v-model="selectedProjectId"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Choose a project...</option>
-              <option v-for="project in projects" :key="project.id" :value="project.id">
-                {{ project.name }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <Label for="role">Role</Label>
-            <input
-              id="role"
-              v-model="assignmentRole"
-              type="text"
-              placeholder="e.g., General Contractor, Architect"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Brief description of the vendor's services and expertise..."
             />
           </div>
-        </div>
 
-        <div class="flex justify-end space-x-2 pt-4">
-          <Button @click="showAssignModal = false" variant="outline">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label for="certificationLevel">Certification Level</Label>
+              <Select v-model="vendorForm.certification_level">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select certification" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Basic</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="expert">Expert</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label for="vendorStatus">Status</Label>
+              <Select v-model="vendorForm.status">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </form>
+
+        <DialogFooter>
+          <Button variant="outline" @click="showAddVendorModal = false">
             Cancel
           </Button>
-          <Button @click="confirmAssignment" :disabled="!selectedProjectId">
-            Assign Vendor
+          <Button @click="saveVendor" :disabled="saving">
+            {{ saving ? 'Saving...' : 'Save Vendor' }}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Project Assignment Modal -->
+    <ProjectSelectionModal
+      v-model:open="showProjectAssignmentModal"
+      :vendor-id="selectedVendor?.id || ''"
+      :vendor-name="selectedVendor?.name || ''"
+      @project-assigned="handleProjectAssigned"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { 
-  Plus, Mail, Phone, MapPin, Star, Eye, Edit, Building, X
+  Plus, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Star, 
+  Eye, 
+  Edit, 
+  Building, 
+  Award
 } from 'lucide-vue-next'
-import { Button, AlbertaText } from '@/components/ui'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui'
-import { Label } from '@/components/ui'
-import LoadingSpinner from '@/components/shared/LoadingSpinner.vue'
-import ErrorMessage from '@/components/shared/ErrorMessage.vue'
-import { VendorAPI, ProjectAPI } from '@/services/apiService'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useFormat } from '@/composables/useFormat'
+import { apiService } from '@/services/apiService'
+import ProjectSelectionModal from '@/components/vendors/ProjectSelectionModal.vue'
+
+interface Vendor {
+  id: string
+  name: string
+  description?: string
+  capabilities?: string
+  contact_email?: string
+  contact_phone?: string
+  website?: string
+  address?: string
+  certification_level?: string
+  performance_rating?: number
+  status: 'active' | 'inactive' | 'pending'
+  created_at: string
+  updated_at: string
+}
+
+const router = useRouter()
+const { formatStatus } = useFormat()
 
 // Reactive state
 const loading = ref(false)
-const error = ref('')
+const error = ref<string | null>(null)
 const saving = ref(false)
-const vendors = ref([])
-const projects = ref([])
+const vendors = ref<Vendor[]>([])
 
 // Search and filters
 const searchTerm = ref('')
@@ -351,92 +393,128 @@ const selectedStatus = ref('')
 
 // Modals
 const showAddVendorModal = ref(false)
-const showEditVendorModal = ref(false)
-const showAssignModal = ref(false)
+const showProjectAssignmentModal = ref(false)
 
 // Form data
 const vendorForm = ref({
-  id: null,
   name: '',
-  industry: '',
-  email: '',
-  phone: '',
-  location: '',
-  capabilitiesText: '',
+  contact_email: '',
+  contact_phone: '',
+  website: '',
+  address: '',
+  capabilities: '',
   description: '',
+  certification_level: '',
   status: 'active'
 })
 
 // Assignment data
-const selectedVendor = ref(null)
-const selectedProjectId = ref('')
-const assignmentRole = ref('')
-
-// Computed properties
-const filteredVendors = computed(() => {
-  let filtered = vendors.value
-
-  if (searchTerm.value) {
-    const search = searchTerm.value.toLowerCase()
-    filtered = filtered.filter(vendor => 
-      vendor.name.toLowerCase().includes(search) ||
-      vendor.capabilities.some(cap => cap.toLowerCase().includes(search))
-    )
-  }
-
-  if (selectedCapability.value) {
-    filtered = filtered.filter(vendor => 
-      vendor.capabilities.includes(selectedCapability.value)
-    )
-  }
-
-  if (selectedStatus.value) {
-    filtered = filtered.filter(vendor => vendor.status === selectedStatus.value)
-  }
-
-  return filtered
-})
+const selectedVendor = ref<Vendor | null>(null)
 
 // Methods
 const loadVendors = async () => {
-  loading.value = true
-  error.value = ''
-  
   try {
-    const response = await VendorAPI.getVendors()
+    loading.value = true
+    error.value = null
+
+    const params = new URLSearchParams()
+    if (searchTerm.value) params.append('search', searchTerm.value)
+    if (selectedCapability.value) params.append('capability', selectedCapability.value)
+    if (selectedStatus.value) params.append('status', selectedStatus.value)
+    params.append('limit', '50')
+
+    const response = await apiService.get(`/vendors?${params.toString()}`)
+    
     if (response.success) {
-      vendors.value = response.data.map(vendor => ({
-        ...vendor,
-        capabilities: vendor.capabilities || [],
-        rating: vendor.rating || 4.0,
-        status: vendor.status || 'active'
-      }))
+      vendors.value = response.data || []
+    } else {
+      throw new Error(response.error?.message || 'Failed to load vendors')
     }
   } catch (err) {
-    error.value = 'Failed to load vendors'
     console.error('Error loading vendors:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to load vendors'
   } finally {
     loading.value = false
   }
 }
 
-const loadProjects = async () => {
+const debouncedSearch = (() => {
+  let timeout: NodeJS.Timeout
+  return () => {
+    clearTimeout(timeout)
+    timeout = setTimeout(() => {
+      loadVendors()
+    }, 300)
+  }
+})()
+
+const clearFilters = () => {
+  searchTerm.value = ''
+  selectedCapability.value = ''
+  selectedStatus.value = ''
+  loadVendors()
+}
+
+const viewVendor = (vendor: Vendor) => {
+  router.push(`/vendors/${vendor.id}`)
+}
+
+const editVendor = (vendor: Vendor) => {
+  // TODO: Implement edit functionality
+  console.log('Edit vendor:', vendor)
+}
+
+const assignToProject = (vendor: Vendor) => {
+  selectedVendor.value = vendor
+  showProjectAssignmentModal.value = true
+}
+
+const saveVendor = async () => {
   try {
-    const response = await ProjectAPI.getProjects()
-    if (response.success && response.data?.projects) {
-      projects.value = response.data.projects
+    saving.value = true
+
+    const response = await apiService.post('/vendors', vendorForm.value)
+    
+    if (response.success) {
+      showAddVendorModal.value = false
+      resetVendorForm()
+      loadVendors() // Refresh the list
+    } else {
+      throw new Error(response.error?.message || 'Failed to save vendor')
     }
   } catch (err) {
-    console.error('Error loading projects:', err)
+    console.error('Error saving vendor:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to save vendor'
+  } finally {
+    saving.value = false
   }
 }
 
-const getStatusBadgeClass = (status) => {
+const handleProjectAssigned = (project: any, assignmentData: any) => {
+  console.log('Vendor assigned to project:', { project, assignmentData })
+  // Could show a success notification here
+}
+
+const resetVendorForm = () => {
+  vendorForm.value = {
+    name: '',
+    contact_email: '',
+    contact_phone: '',
+    website: '',
+    address: '',
+    capabilities: '',
+    description: '',
+    certification_level: '',
+    status: 'active'
+  }
+}
+
+const getStatusBadgeClass = (status: string) => {
   switch (status) {
     case 'active':
       return 'bg-green-100 text-green-800'
     case 'inactive':
-      return 'bg-red-100 text-red-800'
+      return 'bg-gray-100 text-gray-800'
     case 'pending':
       return 'bg-yellow-100 text-yellow-800'
     default:
@@ -444,108 +522,14 @@ const getStatusBadgeClass = (status) => {
   }
 }
 
-const clearFilters = () => {
-  searchTerm.value = ''
-  selectedCapability.value = ''
-  selectedStatus.value = ''
-}
-
-const viewVendor = (vendor) => {
-}
-
-const editVendor = (vendor) => {
-  vendorForm.value = {
-    id: vendor.id,
-    name: vendor.name,
-    industry: vendor.industry || '',
-    email: vendor.email || '',
-    phone: vendor.phone || '',
-    location: vendor.location || '',
-    capabilitiesText: vendor.capabilities.join(', '),
-    description: vendor.description || '',
-    status: vendor.status || 'active'
-  }
-  showEditVendorModal.value = true
-}
-
-const assignToProject = (vendor) => {
-  selectedVendor.value = vendor
-  selectedProjectId.value = ''
-  assignmentRole.value = ''
-  showAssignModal.value = true
-}
-
-const closeModals = () => {
-  showAddVendorModal.value = false
-  showEditVendorModal.value = false
-  showAssignModal.value = false
-  
-  // Reset form
-  vendorForm.value = {
-    id: null,
-    name: '',
-    industry: '',
-    email: '',
-    phone: '',
-    location: '',
-    capabilitiesText: '',
-    description: '',
-    status: 'active'
-  }
-}
-
-const saveVendor = async () => {
-  saving.value = true
-  
-  try {
-    const vendorData = {
-      ...vendorForm.value,
-      capabilities: vendorForm.value.capabilitiesText
-        .split(',')
-        .map(cap => cap.trim())
-        .filter(cap => cap.length > 0)
-    }
-    
-    let response
-    if (showAddVendorModal.value) {
-      response = await VendorAPI.createVendor(vendorData)
-    } else {
-      response = await VendorAPI.updateVendor(vendorData.id, vendorData)
-    }
-    
-    if (response.success) {
-      await loadVendors()
-      closeModals()
-    }
-  } catch (err) {
-    error.value = 'Failed to save vendor'
-    console.error('Error saving vendor:', err)
-  } finally {
-    saving.value = false
-  }
-}
-
-const confirmAssignment = async () => {
-  try {
-    const response = await VendorAPI.addVendorToProject(selectedProjectId.value, {
-      vendorId: selectedVendor.value.id,
-      role: assignmentRole.value
-    })
-    
-    if (response.success) {
-      showAssignModal.value = false
-      // Show success message
-    }
-  } catch (err) {
-    error.value = 'Failed to assign vendor to project'
-    console.error('Error assigning vendor:', err)
-  }
+const getCapabilities = (capabilities: string): string[] => {
+  if (!capabilities) return []
+  return capabilities.split(',').map(cap => cap.trim()).filter(Boolean)
 }
 
 // Lifecycle
 onMounted(() => {
   loadVendors()
-  loadProjects()
 })
 </script>
 

@@ -446,3 +446,349 @@ router.get('/:id/audit-logs', authenticateToken, async (req, res) => {
 
 module.exports = router;
 
+
+// Get vendors assigned to a project
+router.get('/:id/vendors', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const queryText = `
+            SELECT 
+                pv.id as assignment_id,
+                pv.role,
+                pv.contract_value,
+                pv.start_date,
+                pv.end_date,
+                pv.status,
+                v.id as vendor_id,
+                v.name as company_name,
+                v.contact_email,
+                v.contact_phone,
+                v.description,
+                v.capabilities,
+                v.certification_level,
+                v.performance_rating
+            FROM project_vendors pv
+            JOIN vendors v ON pv.vendor_id = v.id
+            WHERE pv.project_id = $1
+            ORDER BY pv.created_at DESC
+        `;
+
+        const result = await query(queryText, [id]);
+
+        res.json({
+            success: true,
+            data: result.rows
+        });
+
+    } catch (error) {
+        console.error('Get project vendors error:', error);
+        res.status(500).json({
+            success: false,
+            error: {
+                message: 'Failed to retrieve project vendors',
+                details: error.message
+            }
+        });
+    }
+});
+
+// Assign vendor to project
+router.post('/:id/vendors', 
+    authenticateToken, 
+    requirePMOrPMI,
+    [
+        body('vendor_id').isUUID().withMessage('Valid vendor ID is required'),
+        body('role').notEmpty().withMessage('Role is required'),
+        body('contract_value').optional().isNumeric().withMessage('Contract value must be numeric'),
+        body('start_date').optional().isISO8601().withMessage('Start date must be valid date'),
+        body('end_date').optional().isISO8601().withMessage('End date must be valid date')
+    ],
+    async (req, res) => {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'Validation failed',
+                        details: errors.array()
+                    }
+                });
+            }
+
+            const { id: project_id } = req.params;
+            const { vendor_id, role, contract_value, start_date, end_date } = req.body;
+
+            // Check if vendor is already assigned to this project with the same role
+            const existingAssignment = await query(
+                'SELECT id FROM project_vendors WHERE project_id = $1 AND vendor_id = $2 AND role = $3',
+                [project_id, vendor_id, role]
+            );
+
+            if (existingAssignment.rows.length > 0) {
+                return res.status(409).json({
+                    success: false,
+                    error: {
+                        message: 'Vendor is already assigned to this project with the same role',
+                        code: 'DUPLICATE_ASSIGNMENT'
+                    }
+                });
+            }
+
+            // Verify project exists
+            const projectCheck = await query('SELECT id FROM projects WHERE id = $1', [project_id]);
+            if (projectCheck.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        message: 'Project not found'
+                    }
+                });
+            }
+
+            // Verify vendor exists
+            const vendorCheck = await query('SELECT id, name FROM vendors WHERE id = $1', [vendor_id]);
+            if (vendorCheck.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        message: 'Vendor not found'
+                    }
+                });
+            }
+
+            // Insert the assignment
+            const insertQuery = `
+                INSERT INTO project_vendors (project_id, vendor_id, role, contract_value, start_date, end_date)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id, created_at
+            `;
+
+            const result = await query(insertQuery, [
+                project_id,
+                vendor_id,
+                role,
+                contract_value || null,
+                start_date || null,
+                end_date || null
+            ]);
+
+            // Log the assignment
+            await auditLog(req, 'project_vendors', result.rows[0].id, 'INSERT', null, {
+                project_id,
+                vendor_id,
+                role,
+                contract_value,
+                start_date,
+                end_date
+            });
+
+            res.status(201).json({
+                success: true,
+                data: {
+                    assignment_id: result.rows[0].id,
+                    message: `Vendor ${vendorCheck.rows[0].name} assigned to project successfully`
+                }
+            });
+
+        } catch (error) {
+            console.error('Assign vendor to project error:', error);
+            res.status(500).json({
+                success: false,
+                error: {
+                    message: 'Failed to assign vendor to project',
+                    details: error.message
+                }
+            });
+        }
+    }
+);
+
+// Remove vendor from project
+router.delete('/:id/vendors/:vendorId', 
+    authenticateToken, 
+    requirePMOrPMI,
+    async (req, res) => {
+        try {
+            const { id: project_id, vendorId: vendor_id } = req.params;
+
+            // Get the assignment details before deletion for audit log
+            const assignmentQuery = await query(
+                'SELECT * FROM project_vendors WHERE project_id = $1 AND vendor_id = $2',
+                [project_id, vendor_id]
+            );
+
+            if (assignmentQuery.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        message: 'Vendor assignment not found'
+                    }
+                });
+            }
+
+            const assignment = assignmentQuery.rows[0];
+
+            // Delete the assignment
+            await query(
+                'DELETE FROM project_vendors WHERE project_id = $1 AND vendor_id = $2',
+                [project_id, vendor_id]
+            );
+
+            // Log the removal
+            await auditLog(req, 'project_vendors', assignment.id, 'DELETE', assignment, null);
+
+            res.json({
+                success: true,
+                data: {
+                    message: 'Vendor removed from project successfully'
+                }
+            });
+
+        } catch (error) {
+            console.error('Remove vendor from project error:', error);
+            res.status(500).json({
+                success: false,
+                error: {
+                    message: 'Failed to remove vendor from project',
+                    details: error.message
+                }
+            });
+        }
+    }
+);
+
+// Update vendor assignment in project
+router.put('/:id/vendors/:vendorId', 
+    authenticateToken, 
+    requirePMOrPMI,
+    captureOriginalData('project_vendors', 'id'),
+    [
+        body('role').optional().notEmpty().withMessage('Role cannot be empty'),
+        body('contract_value').optional().isNumeric().withMessage('Contract value must be numeric'),
+        body('start_date').optional().isISO8601().withMessage('Start date must be valid date'),
+        body('end_date').optional().isISO8601().withMessage('End date must be valid date'),
+        body('status').optional().isIn(['active', 'inactive', 'pending']).withMessage('Invalid status')
+    ],
+    async (req, res) => {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'Validation failed',
+                        details: errors.array()
+                    }
+                });
+            }
+
+            const { id: project_id, vendorId: vendor_id } = req.params;
+            const { role, contract_value, start_date, end_date, status } = req.body;
+
+            // Check if assignment exists
+            const assignmentCheck = await query(
+                'SELECT id FROM project_vendors WHERE project_id = $1 AND vendor_id = $2',
+                [project_id, vendor_id]
+            );
+
+            if (assignmentCheck.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        message: 'Vendor assignment not found'
+                    }
+                });
+            }
+
+            const assignmentId = assignmentCheck.rows[0].id;
+
+            // Build update query dynamically
+            const updateFields = [];
+            const updateValues = [];
+            let paramCount = 0;
+
+            if (role !== undefined) {
+                paramCount++;
+                updateFields.push(`role = $${paramCount}`);
+                updateValues.push(role);
+            }
+
+            if (contract_value !== undefined) {
+                paramCount++;
+                updateFields.push(`contract_value = $${paramCount}`);
+                updateValues.push(contract_value);
+            }
+
+            if (start_date !== undefined) {
+                paramCount++;
+                updateFields.push(`start_date = $${paramCount}`);
+                updateValues.push(start_date);
+            }
+
+            if (end_date !== undefined) {
+                paramCount++;
+                updateFields.push(`end_date = $${paramCount}`);
+                updateValues.push(end_date);
+            }
+
+            if (status !== undefined) {
+                paramCount++;
+                updateFields.push(`status = $${paramCount}`);
+                updateValues.push(status);
+            }
+
+            if (updateFields.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'No fields to update'
+                    }
+                });
+            }
+
+            // Add updated_at field
+            paramCount++;
+            updateFields.push(`updated_at = $${paramCount}`);
+            updateValues.push(new Date());
+
+            // Add WHERE clause parameters
+            paramCount++;
+            updateValues.push(project_id);
+            paramCount++;
+            updateValues.push(vendor_id);
+
+            const updateQuery = `
+                UPDATE project_vendors 
+                SET ${updateFields.join(', ')}
+                WHERE project_id = $${paramCount - 1} AND vendor_id = $${paramCount}
+                RETURNING *
+            `;
+
+            const result = await query(updateQuery, updateValues);
+
+            // Log the update
+            await auditLog(req, 'project_vendors', assignmentId, 'UPDATE', req.originalData, result.rows[0]);
+
+            res.json({
+                success: true,
+                data: {
+                    assignment: result.rows[0],
+                    message: 'Vendor assignment updated successfully'
+                }
+            });
+
+        } catch (error) {
+            console.error('Update vendor assignment error:', error);
+            res.status(500).json({
+                success: false,
+                error: {
+                    message: 'Failed to update vendor assignment',
+                    details: error.message
+                }
+            });
+        }
+    }
+);
+

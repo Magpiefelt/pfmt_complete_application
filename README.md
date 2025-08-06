@@ -2,12 +2,6 @@
 
 ## 🎯 Complete Repository Replacement Package
 
-This package contains the **complete integrated PFMT Enhanced application** that combines:
-- **PFMT Enhanced** (Vue.js frontend with Alberta Government design)
-- **AIM-PFMT** (Node.js/PostgreSQL backend)
-- **New Vendor Management System**
-- **New Workflow Management System**
-
 **This package is designed to completely replace your existing PFMT repository.**
 
 ## 📦 What's Included

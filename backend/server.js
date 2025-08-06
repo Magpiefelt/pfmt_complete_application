@@ -96,6 +96,8 @@ app.use('/api/gate-meetings', require('./routes/gateMeetings'));
 app.use('/api/workflow', require('./routes/workflow'));
 app.use('/api/invitations', require('./routes/invitations'));
 app.use('/api/migration', require('./routes/migration'));
+app.use('/api/teams', require('./routes/teams'));
+app.use('/api/locations', require('./routes/locations'));
 
 // Phase 1 Enhancement Routes
 app.use('/api/phase1', require('./routes/phase1'));

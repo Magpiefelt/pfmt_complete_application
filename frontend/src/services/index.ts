@@ -5,6 +5,9 @@ export { GateMeetingService } from './GateMeetingService'
 export { ProjectService } from './ProjectService'
 export { BudgetService } from './BudgetService'
 export { WorkflowService } from './WorkflowService'
+export { VendorService } from './VendorService'
+export { default as TeamService } from './TeamService'
+export { default as LocationService } from './LocationService'
 
 // Export types
 export type { CreateGateMeetingRequest, UpdateGateMeetingRequest, GateMeetingResponse } from './GateMeetingService'
@@ -17,4 +20,26 @@ export type {
 } from './ProjectService'
 export type { Budget, BudgetTransfer, BudgetFilters, BudgetReport } from './BudgetService'
 export type { Task, Approval, Notification, WorkflowFilters, WorkflowMetrics } from './WorkflowService'
+export type { 
+  Vendor, 
+  VendorProject, 
+  CreateVendorData, 
+  UpdateVendorData, 
+  VendorFilters, 
+  AssignToProjectData, 
+  VendorListResponse 
+} from './VendorService'
+export type { 
+  User, 
+  TeamMember, 
+  ProjectTeam, 
+  UserSearchParams 
+} from './TeamService'
+export type { 
+  Ministry, 
+  Jurisdiction, 
+  MLA, 
+  ProjectLocation, 
+  GeocodeResult 
+} from './LocationService'
 
