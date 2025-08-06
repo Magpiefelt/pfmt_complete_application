@@ -1,0 +1,31 @@
+# Development overrides for docker-compose.yml
+# This file is automatically loaded by docker-compose for development
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    volumes:
+      # Mount source code for development (hot reload)
+      - ./backend:/app:ro
+      - /app/node_modules
+      - uploads_data:/app/uploads
+    command: npm run dev
+
+  frontend:
+    environment:
+      VITE_DEV_MODE: true
+      VITE_LOG_LEVEL: debug
+    # For development, you might want to run frontend separately with hot reload
+    # Comment out this service and run `npm run dev` in the frontend directory
+
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      # Enable logging for development
+      POSTGRES_LOG_STATEMENT: all
+      POSTGRES_LOG_MIN_DURATION_STATEMENT: 0
+

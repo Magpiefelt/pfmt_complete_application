@@ -1,0 +1,81 @@
+# Production configuration for PFMT application
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+version: '3.8'
+
+services:
+  postgres:
+    # Use specific version for production stability
+    image: postgres:15.4-alpine
+    restart: always
+    environment:
+      # Production database settings
+      POSTGRES_SHARED_PRELOAD_LIBRARIES: pg_stat_statements
+      POSTGRES_MAX_CONNECTIONS: 200
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+    volumes:
+      # Use named volume for production data persistence
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    # Don't expose database port in production
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    restart: always
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: warn
+      # Use production-grade secrets (should be set via environment or secrets)
+      JWT_SECRET: ${JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      DB_PASSWORD: ${DB_PASSWORD}
+    # Don't expose backend port directly in production (use reverse proxy)
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    restart: always
+    environment:
+      # Production API URL (adjust based on your domain)
+      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:3002/api}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Reverse proxy for production (optional)
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: pfmt-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - pfmt-network
+    depends_on:
+      - frontend
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_prod_data:
+    name: pfmt-postgres-prod-data
+

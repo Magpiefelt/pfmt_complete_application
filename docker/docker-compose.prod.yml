@@ -1,0 +1,98 @@
+version: "3.9"
+
+services:
+  # Production PostgreSQL database
+  db:
+    image: postgres:16-alpine
+    container_name: pfmt_db_prod
+    restart: always
+    env_file: ./.env
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      # Production database tuning
+      POSTGRES_SHARED_PRELOAD_LIBRARIES: pg_stat_statements
+      POSTGRES_MAX_CONNECTIONS: 100
+      POSTGRES_SHARED_BUFFERS: 128MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 512MB
+    volumes:
+      - pfmt_db_prod_data:/var/lib/postgresql/data
+      # Initialize with schema and seed data
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ../database/seeds/001_phase1_sample_data.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pfmt} -d ${POSTGRES_DB:-pfmt}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - pfmt-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Production backend
+  backend:
+    build:
+      context: ..
+      dockerfile: ./docker/backend.Dockerfile
+      target: production
+    container_name: pfmt_backend_prod
+    restart: always
+    env_file: ./.env
+    environment:
+      NODE_ENV: production
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-pfmt}
+      DB_USER: ${POSTGRES_USER:-pfmt}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-pfmt}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads_prod_data:/app/uploads
+    networks:
+      - pfmt-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Production frontend with Nginx
+  frontend:
+    build:
+      context: ..
+      dockerfile: ./docker/frontend.Dockerfile
+      target: production
+    container_name: pfmt_frontend_prod
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - pfmt-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  pfmt-network:
+    driver: bridge
+    name: pfmt-prod-network
+
+volumes:
+  pfmt_db_prod_data:
+    name: pfmt-db-prod-data
+  uploads_prod_data:
+    name: pfmt-uploads-prod-data
+
