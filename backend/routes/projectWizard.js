@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const projectWizardController = require('../controllers/projectWizardController');
-const { authenticateToken } = require('../middleware/auth');
+const { flexibleAuth } = require('../middleware/flexibleAuth');
 
-// Apply authentication middleware to all routes
-router.use(authenticateToken);
+// Apply flexible authentication middleware to all routes
+router.use(flexibleAuth);
 
 // Initialize new project wizard session
 router.post('/init', projectWizardController.initializeWizard);

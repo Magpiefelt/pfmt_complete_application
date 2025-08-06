@@ -1,5 +1,5 @@
-const pool = require('../config/database');
 const jwt = require('jsonwebtoken');
+const { query, pool } = require('../config/database');
 
 class ProjectWizardController {
   // Initialize wizard session
@@ -11,13 +11,13 @@ class ProjectWizardController {
       console.log('Initializing wizard for user:', userId, 'sessionId:', sessionId);
       
       // Create wizard session in database
-      const query = `
+      const queryText = `
         INSERT INTO project_wizard_sessions (session_id, user_id, current_step, created_at, updated_at)
         VALUES ($1, $2, 1, NOW(), NOW())
         RETURNING *
       `;
       
-      const result = await pool.query(query, [sessionId, userId]);
+      const result = await query(queryText, [sessionId, userId]);
       
       res.json({
         success: true,
@@ -39,7 +39,7 @@ class ProjectWizardController {
   // Get project templates
   async getProjectTemplates(req, res) {
     try {
-      const query = `
+      const queryText = `
         SELECT 
           id,
           name,
@@ -55,7 +55,7 @@ class ProjectWizardController {
         ORDER BY category, name
       `;
       
-      const result = await pool.query(query);
+      const result = await query(queryText);
       
       res.json({
         success: true,
@@ -82,7 +82,7 @@ class ProjectWizardController {
         SELECT * FROM project_wizard_sessions 
         WHERE session_id = $1 AND user_id = $2
       `;
-      const sessionResult = await pool.query(sessionQuery, [sessionId, userId]);
+      const sessionResult = await query(sessionQuery, [sessionId, userId]);
       
       if (sessionResult.rows.length === 0) {
         return res.status(404).json({ 
@@ -100,7 +100,7 @@ class ProjectWizardController {
         RETURNING *
       `;
       
-      const saveResult = await pool.query(saveQuery, [
+      const saveResult = await query(saveQuery, [
         sessionId, 
         parseInt(stepId), 
         JSON.stringify(stepData)
@@ -112,7 +112,7 @@ class ProjectWizardController {
         SET current_step = $1, updated_at = NOW()
         WHERE session_id = $2
       `;
-      await pool.query(updateSessionQuery, [parseInt(stepId), sessionId]);
+      await query(updateSessionQuery, [parseInt(stepId), sessionId]);
 
       res.json({
         success: true,
@@ -139,7 +139,7 @@ class ProjectWizardController {
         SELECT * FROM project_wizard_sessions 
         WHERE session_id = $1 AND user_id = $2
       `;
-      const sessionResult = await pool.query(sessionQuery, [sessionId, userId]);
+      const sessionResult = await query(sessionQuery, [sessionId, userId]);
       
       if (sessionResult.rows.length === 0) {
         return res.status(404).json({ 
@@ -155,7 +155,7 @@ class ProjectWizardController {
         WHERE session_id = $1
         ORDER BY step_id
       `;
-      const stepDataResult = await pool.query(stepDataQuery, [sessionId]);
+      const stepDataResult = await query(stepDataQuery, [sessionId]);
 
       const stepData = {};
       stepDataResult.rows.forEach(row => {
@@ -208,7 +208,7 @@ class ProjectWizardController {
       });
 
       // Validate required steps
-      const requiredSteps = [1, 2, 3, 4]; // Basic Info, Budget, Team, Review
+      const requiredSteps = [1, 2, 3, 4]; // Template, Basic Info, Budget, Team
       for (const step of requiredSteps) {
         if (!stepData[step]) {
           throw new Error(`Missing data for step ${step}`);
@@ -216,30 +216,32 @@ class ProjectWizardController {
       }
 
       // Create project from wizard data
-      const basicInfo = stepData[1];
-      const budgetInfo = stepData[2];
-      const teamInfo = stepData[3];
+      const templateInfo = stepData[1];
+      const basicInfo = stepData[2];
+      const budgetInfo = stepData[3];
+      const teamInfo = stepData[4];
 
       // Insert project
       const projectQuery = `
         INSERT INTO projects (
-          name, description, category, project_type, region, ministry,
-          total_approved_funding, current_budget, project_phase,
-          start_date, expected_completion, created_by, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+          project_name, project_description, project_status, project_phase, project_type, 
+          delivery_type, program, geographic_region, total_approved_funding, 
+          current_budget, start_date, expected_completion, created_by, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
         RETURNING *
       `;
 
       const projectResult = await client.query(projectQuery, [
         basicInfo.projectName,
         basicInfo.description,
-        basicInfo.category,
+        'planning', // project_status
+        'initiation', // project_phase
         basicInfo.projectType || 'Standard',
-        basicInfo.region || 'Alberta',
-        basicInfo.ministry || 'Infrastructure',
+        basicInfo.deliveryType || 'Traditional',
+        basicInfo.program || 'Infrastructure',
+        basicInfo.region || 'Central',
         budgetInfo.totalBudget,
         budgetInfo.initialBudget || budgetInfo.totalBudget,
-        'Planning',
         basicInfo.startDate || new Date(),
         basicInfo.expectedCompletion,
         userId
@@ -247,23 +249,31 @@ class ProjectWizardController {
 
       const projectId = projectResult.rows[0].id;
 
-      // Create initial project version
-      const versionQuery = `
-        INSERT INTO project_versions (
-          project_id, version_number, name, description, category,
-          total_approved_funding, current_budget, status, created_by, created_at
-        ) VALUES ($1, 1, $2, $3, $4, $5, $6, 'Draft', $7, NOW())
-        RETURNING *
-      `;
+      // Create project location if provided
+      if (basicInfo.location || basicInfo.municipality) {
+        const locationQuery = `
+          INSERT INTO project_locations (
+            project_id, location, municipality, building_name
+          ) VALUES ($1, $2, $3, $4)
+        `;
+        await client.query(locationQuery, [
+          projectId,
+          basicInfo.location || '',
+          basicInfo.municipality || '',
+          basicInfo.buildingName || basicInfo.projectName
+        ]);
+      }
 
-      await client.query(versionQuery, [
+      // Create project team entry
+      const teamQuery = `
+        INSERT INTO project_teams (
+          project_id, project_manager_id, director_id
+        ) VALUES ($1, $2, $3)
+      `;
+      await client.query(teamQuery, [
         projectId,
-        basicInfo.projectName,
-        basicInfo.description,
-        basicInfo.category,
-        budgetInfo.totalBudget,
-        budgetInfo.initialBudget || budgetInfo.totalBudget,
-        userId
+        teamInfo.projectManager || userId,
+        teamInfo.director || userId
       ]);
 
       // Assign team members if provided
@@ -279,14 +289,6 @@ class ProjectWizardController {
           ]);
         }
       }
-
-      // Create initial workflow state
-      const workflowQuery = `
-        INSERT INTO gate_meeting_workflow_states (
-          project_id, current_state, state_entered_at, entered_by
-        ) VALUES ($1, 'Planning Required', NOW(), $2)
-      `;
-      await client.query(workflowQuery, [projectId, userId]);
 
       // Clean up wizard session
       await client.query('DELETE FROM project_wizard_step_data WHERE session_id = $1', [sessionId]);
@@ -315,7 +317,7 @@ class ProjectWizardController {
   // Get available team members for assignment
   async getAvailableTeamMembers(req, res) {
     try {
-      const query = `
+      const queryText = `
         SELECT 
           id, name, email, role,
           department, expertise_areas
@@ -325,7 +327,7 @@ class ProjectWizardController {
         ORDER BY name
       `;
       
-      const result = await pool.query(query);
+      const result = await query(queryText);
       
       res.json({
         success: true,
@@ -349,7 +351,13 @@ class ProjectWizardController {
       let validation = { isValid: true, errors: [] };
 
       switch (parseInt(stepId)) {
-        case 1: // Basic Information
+        case 1: // Template Selection
+          if (!stepData.selectedTemplate) {
+            validation.errors.push('Please select a project template');
+          }
+          break;
+
+        case 2: // Basic Information
           if (!stepData.projectName || stepData.projectName.trim().length < 3) {
             validation.errors.push('Project name must be at least 3 characters');
           }
@@ -361,7 +369,7 @@ class ProjectWizardController {
           }
           break;
 
-        case 2: // Budget Setup
+        case 3: // Budget Setup
           if (!stepData.totalBudget || stepData.totalBudget <= 0) {
             validation.errors.push('Total budget must be greater than 0');
           }
@@ -370,13 +378,13 @@ class ProjectWizardController {
           }
           break;
 
-        case 3: // Team Assignment
+        case 4: // Team Assignment
           if (!stepData.projectManager) {
             validation.errors.push('Project manager is required');
           }
           break;
 
-        case 4: // Review
+        case 5: // Review
           // Final validation of all data
           break;
       }

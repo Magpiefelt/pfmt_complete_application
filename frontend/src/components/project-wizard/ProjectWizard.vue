@@ -75,33 +75,33 @@
 
         <!-- Step 2: Basic Information -->
         <BasicInformationStep
-          v-if="currentStep === 2"
+          v-else-if="currentStep === 2"
           :template="selectedTemplate"
-          :data="wizardData.basicInfo"
+          :data="wizardData.basicInfo || {}"
           @data-updated="updateBasicInfo"
           @step-completed="handleStepCompleted"
         />
 
         <!-- Step 3: Budget Setup -->
         <BudgetSetupStep
-          v-if="currentStep === 3"
+          v-else-if="currentStep === 3"
           :template="selectedTemplate"
-          :data="wizardData.budgetInfo"
+          :data="wizardData.budgetInfo || {}"
           @data-updated="updateBudgetInfo"
           @step-completed="handleStepCompleted"
         />
 
         <!-- Step 4: Team Assignment -->
         <TeamAssignmentStep
-          v-if="currentStep === 4"
-          :data="wizardData.teamInfo"
+          v-else-if="currentStep === 4"
+          :data="wizardData.teamInfo || {}"
           @data-updated="updateTeamInfo"
           @step-completed="handleStepCompleted"
         />
 
         <!-- Step 5: Review and Create -->
         <ReviewStep
-          v-if="currentStep === 5"
+          v-else-if="currentStep === 5"
           :wizard-data="wizardData"
           :selected-template="selectedTemplate"
           @project-created="handleProjectCreated"
@@ -222,13 +222,13 @@ const canProceed = computed(() => {
     case 1:
       return selectedTemplate.value !== null
     case 2:
-      return wizardData.value.basicInfo.projectName && 
-             wizardData.value.basicInfo.description && 
-             wizardData.value.basicInfo.category
+      return wizardData.basicInfo.projectName && 
+             wizardData.basicInfo.description && 
+             wizardData.basicInfo.category
     case 3:
-      return wizardData.value.budgetInfo.totalBudget > 0
+      return wizardData.budgetInfo.totalBudget > 0
     case 4:
-      return wizardData.value.teamInfo.projectManager
+      return wizardData.teamInfo.projectManager
     case 5:
       return true
     default:
@@ -256,15 +256,15 @@ const handleStepCompleted = (stepData: any) => {
 }
 
 const updateBasicInfo = (data: any) => {
-  wizardData.value.basicInfo = { ...wizardData.value.basicInfo, ...data }
+  Object.assign(wizardData.basicInfo, data)
 }
 
 const updateBudgetInfo = (data: any) => {
-  wizardData.value.budgetInfo = { ...wizardData.value.budgetInfo, ...data }
+  Object.assign(wizardData.budgetInfo, data)
 }
 
 const updateTeamInfo = (data: any) => {
-  wizardData.value.teamInfo = { ...wizardData.value.teamInfo, ...data }
+  Object.assign(wizardData.teamInfo, data)
 }
 
 const nextStep = async () => {
@@ -296,11 +296,11 @@ const getCurrentStepData = () => {
     case 1:
       return { selectedTemplate: selectedTemplate.value }
     case 2:
-      return wizardData.value.basicInfo
+      return wizardData.basicInfo
     case 3:
-      return wizardData.value.budgetInfo
+      return wizardData.budgetInfo
     case 4:
-      return wizardData.value.teamInfo
+      return wizardData.teamInfo
     case 5:
       return { reviewCompleted: true }
     default:
@@ -357,12 +357,12 @@ watch(() => props.selectedTemplate, (newTemplate) => {
         : newTemplate.template_data
       
       // Pre-fill basic info
-      wizardData.value.basicInfo.category = newTemplate.category
-      wizardData.value.basicInfo.projectType = templateData.type || 'Standard'
+      wizardData.basicInfo.category = newTemplate.category
+      wizardData.basicInfo.projectType = templateData.type || 'Standard'
       
       // Pre-fill budget info
-      wizardData.value.budgetInfo.totalBudget = newTemplate.default_budget || 0
-      wizardData.value.budgetInfo.estimatedDuration = newTemplate.estimated_duration || 365
+      wizardData.budgetInfo.totalBudget = newTemplate.default_budget || 0
+      wizardData.budgetInfo.estimatedDuration = newTemplate.estimated_duration || 365
     }
   }
 }, { immediate: true })

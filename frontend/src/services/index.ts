@@ -6,6 +6,7 @@ export { ProjectService } from './ProjectService'
 export { BudgetService } from './BudgetService'
 export { WorkflowService } from './WorkflowService'
 export { VendorService } from './VendorService'
+export { ProjectWizardService } from './projectWizardService'
 export { default as TeamService } from './TeamService'
 export { default as LocationService } from './LocationService'
 
@@ -29,6 +30,12 @@ export type {
   AssignToProjectData, 
   VendorListResponse 
 } from './VendorService'
+export type { 
+  WizardSession,
+  ProjectTemplate,
+  TeamMember as WizardTeamMember,
+  ValidationResult
+} from './projectWizardService'
 export type { 
   User, 
   TeamMember, 

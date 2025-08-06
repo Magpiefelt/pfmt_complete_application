@@ -23,6 +23,12 @@ export default defineConfig({
     cors: true,
     hmr: {
       host: 'localhost'
-    }
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+      },
+    },
   }
 })

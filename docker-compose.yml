@@ -33,7 +33,8 @@ services:
     container_name: pfmt-backend
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
+      BYPASS_AUTH: ${BYPASS_AUTH:-true}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-pfmt_integrated}

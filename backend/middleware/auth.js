@@ -5,14 +5,32 @@ const { query } = require('../config/database');
 const authenticateToken = async (req, res, next) => {
     // Development mode bypass
     if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
-        // Create a default user for development
-        req.user = {
-            id: 1,
-            username: 'sarah.johnson',
-            email: 'sarah.johnson@gov.ab.ca',
-            role: 'project_manager',
-            is_active: true
-        };
+        // Get the first user from the database for development
+        try {
+            const userResult = await query('SELECT id, username, email, role, is_active FROM users LIMIT 1');
+            if (userResult.rows.length > 0) {
+                req.user = userResult.rows[0];
+            } else {
+                // Fallback if no users exist
+                req.user = {
+                    id: '00000000-0000-0000-0000-000000000001',
+                    username: 'sarah.johnson',
+                    email: 'sarah.johnson@gov.ab.ca',
+                    role: 'project_manager',
+                    is_active: true
+                };
+            }
+        } catch (error) {
+            console.error('Error getting user for auth bypass:', error);
+            // Fallback user
+            req.user = {
+                id: '00000000-0000-0000-0000-000000000001',
+                username: 'sarah.johnson',
+                email: 'sarah.johnson@gov.ab.ca',
+                role: 'project_manager',
+                is_active: true
+            };
+        }
         return next();
     }
 

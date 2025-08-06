@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue'
-import axios from 'axios'
+import { ProjectWizardService } from '@/services/projectWizardService'
 
 export function useProjectWizard() {
   // State
@@ -33,26 +33,14 @@ export function useProjectWizard() {
     }
   })
 
-  // API helpers
-  const getAuthHeaders = () => ({
-    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-    'Content-Type': 'application/json'
-  })
-
   // Initialize wizard session
   const initializeWizard = async () => {
     try {
       isProcessing.value = true
-      const response = await axios.post('/api/project-wizard/init', {}, {
-        headers: getAuthHeaders()
-      })
-
-      if (response.data.success) {
-        sessionId.value = response.data.sessionId
-        currentStep.value = response.data.currentStep || 1
-      } else {
-        throw new Error('Failed to initialize wizard')
-      }
+      const result = await ProjectWizardService.initializeWizard()
+      
+      sessionId.value = result.sessionId
+      currentStep.value = result.currentStep || 1
     } catch (error) {
       console.error('Error initializing wizard:', error)
       throw error
@@ -63,39 +51,31 @@ export function useProjectWizard() {
 
   // Save step data
   const saveStepData = async (stepId: number, stepData: any) => {
-    if (!sessionId.value) return
-
     try {
+      isProcessing.value = true
       autoSaveStatus.value = 'saving'
       
-      const response = await axios.post(
-        `/api/project-wizard/session/${sessionId.value}/step/${stepId}`,
-        stepData,
-        { headers: getAuthHeaders() }
-      )
-
-      if (response.data.success) {
-        autoSaveStatus.value = 'saved'
-        setTimeout(() => {
-          autoSaveStatus.value = null
-        }, 2000)
-      }
+      const result = await ProjectWizardService.saveStepData(sessionId.value!, stepId, stepData)
+      
+      autoSaveStatus.value = 'saved'
+      setTimeout(() => {
+        autoSaveStatus.value = null
+      }, 2000)
+      
+      return result
     } catch (error) {
       console.error('Error saving step data:', error)
       autoSaveStatus.value = null
+      throw error
+    } finally {
+      isProcessing.value = false
     }
   }
 
   // Validate step
   const validateStep = async (stepId: number, stepData: any) => {
     try {
-      const response = await axios.post(
-        `/api/project-wizard/validate/step/${stepId}`,
-        stepData,
-        { headers: getAuthHeaders() }
-      )
-
-      return response.data.validation || { isValid: false, errors: ['Validation failed'] }
+      return await ProjectWizardService.validateStep(stepId, stepData)
     } catch (error) {
       console.error('Error validating step:', error)
       return { isValid: false, errors: ['Validation error occurred'] }
@@ -129,17 +109,8 @@ export function useProjectWizard() {
     try {
       isProcessing.value = true
       
-      const response = await axios.post(
-        `/api/project-wizard/session/${sessionId.value}/complete`,
-        {},
-        { headers: getAuthHeaders() }
-      )
-
-      if (response.data.success) {
-        return response.data.project
-      } else {
-        throw new Error(response.data.message || 'Failed to create project')
-      }
+      const project = await ProjectWizardService.completeWizard(sessionId.value)
+      return project
     } catch (error) {
       console.error('Error completing wizard:', error)
       throw error
@@ -151,11 +122,7 @@ export function useProjectWizard() {
   // Get project templates
   const getProjectTemplates = async () => {
     try {
-      const response = await axios.get('/api/project-wizard/templates', {
-        headers: getAuthHeaders()
-      })
-
-      return response.data.templates || []
+      return await ProjectWizardService.getProjectTemplates()
     } catch (error) {
       console.error('Error fetching templates:', error)
       return []
@@ -165,11 +132,7 @@ export function useProjectWizard() {
   // Get available team members
   const getAvailableTeamMembers = async () => {
     try {
-      const response = await axios.get('/api/project-wizard/team-members', {
-        headers: getAuthHeaders()
-      })
-
-      return response.data.teamMembers || []
+      return await ProjectWizardService.getAvailableTeamMembers()
     } catch (error) {
       console.error('Error fetching team members:', error)
       return []
@@ -179,31 +142,25 @@ export function useProjectWizard() {
   // Load wizard session (for resuming)
   const loadWizardSession = async (sessionId: string) => {
     try {
-      const response = await axios.get(
-        `/api/project-wizard/session/${sessionId}`,
-        { headers: getAuthHeaders() }
-      )
-
-      if (response.data.success) {
-        const { session, stepData } = response.data
-        
-        // Restore session state
-        currentStep.value = session.current_step
-        
-        // Restore step data
-        if (stepData[1]) {
-          // Template selection
-          // Handle template restoration if needed
-        }
-        if (stepData[2]) {
-          Object.assign(wizardData.basicInfo, stepData[2])
-        }
-        if (stepData[3]) {
-          Object.assign(wizardData.budgetInfo, stepData[3])
-        }
-        if (stepData[4]) {
-          Object.assign(wizardData.teamInfo, stepData[4])
-        }
+      const result = await ProjectWizardService.loadWizardSession(sessionId)
+      const { session, stepData } = result
+      
+      // Restore session state
+      currentStep.value = session.current_step
+      
+      // Restore step data
+      if (stepData[1]) {
+        // Template selection
+        // Handle template restoration if needed
+      }
+      if (stepData[2]) {
+        Object.assign(wizardData.basicInfo, stepData[2])
+      }
+      if (stepData[3]) {
+        Object.assign(wizardData.budgetInfo, stepData[3])
+      }
+      if (stepData[4]) {
+        Object.assign(wizardData.teamInfo, stepData[4])
       }
     } catch (error) {
       console.error('Error loading wizard session:', error)
