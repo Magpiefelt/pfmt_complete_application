@@ -130,13 +130,12 @@ router.beforeEach((to, from, next) => {
   if (to.meta.roles && currentUser) {
     const hasRequiredRole = (to.meta.roles as string[]).includes(currentUser.role)
     if (!hasRequiredRole) {
-      // Redirect to appropriate page based on role
-      if (currentUser.role === 'Vendor') {
-        next('/vendor')
-      } else {
-        next('/staff')
+      // Prevent infinite redirect by checking if we're already going to the target
+      const targetRoute = currentUser.role === 'Vendor' ? '/vendor' : '/staff'
+      if (to.path !== targetRoute) {
+        next(targetRoute)
+        return
       }
-      return
     }
   }
   

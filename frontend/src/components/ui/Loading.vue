@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Loader2, RefreshCw, Spinner } from 'lucide-vue-next'
+import { Loader2, RefreshCw } from 'lucide-vue-next'
 
 interface Props {
   size?: 'sm' | 'md' | 'lg' | 'xl'

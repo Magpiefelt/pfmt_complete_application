@@ -250,14 +250,31 @@ const roleMap: Record<string, string> = {
   'Project Manager': 'pm',
   'Senior Project Manager': 'spm',
   'Director': 'director',
+  'Admin': 'admin',
+  'Administrator': 'admin',
   'Vendor': 'vendor'
 }
 
 const visibleTiles = computed(() => {
-  const userRoleKey = roleMap[currentUser.value.role] || 'vendor'
-  return navigationTiles.filter(tile => 
-    tile.roles.includes(userRoleKey)
-  )
+  if (!currentUser.value || !currentUser.value.role) {
+    console.log('No current user or role found')
+    return []
+  }
+  
+  const userRole = currentUser.value.role
+  const userRoleKey = roleMap[userRole] || 'vendor'
+  
+  console.log('Current user role:', userRole)
+  console.log('Mapped role key:', userRoleKey)
+  
+  const filtered = navigationTiles.filter(tile => {
+    const hasAccess = tile.roles.includes(userRoleKey)
+    console.log(`Tile "${tile.title}": roles=${tile.roles}, hasAccess=${hasAccess}`)
+    return hasAccess
+  })
+  
+  console.log('Visible tiles count:', filtered.length)
+  return filtered
 })
 
 const handleTileClick = (path: string, filter?: string) => {
