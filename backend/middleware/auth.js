@@ -3,6 +3,19 @@ const { query } = require('../config/database');
 
 // Middleware to verify JWT token
 const authenticateToken = async (req, res, next) => {
+    // Development mode bypass
+    if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
+        // Create a default user for development
+        req.user = {
+            id: 1,
+            username: 'sarah.johnson',
+            email: 'sarah.johnson@gov.ab.ca',
+            role: 'project_manager',
+            is_active: true
+        };
+        return next();
+    }
+
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 

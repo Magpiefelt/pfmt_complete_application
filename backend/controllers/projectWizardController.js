@@ -8,6 +8,8 @@ class ProjectWizardController {
       const userId = req.user.id;
       const sessionId = `wizard_${userId}_${Date.now()}`;
       
+      console.log('Initializing wizard for user:', userId, 'sessionId:', sessionId);
+      
       // Create wizard session in database
       const query = `
         INSERT INTO project_wizard_sessions (session_id, user_id, current_step, created_at, updated_at)
@@ -26,6 +28,7 @@ class ProjectWizardController {
       });
     } catch (error) {
       console.error('Error initializing wizard:', error);
+      console.error('User object:', req.user);
       res.status(500).json({ 
         success: false, 
         message: 'Failed to initialize project wizard' 

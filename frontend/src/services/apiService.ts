@@ -1,5 +1,5 @@
 // Enhanced API service with comprehensive error handling and PostgreSQL backend support
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'
 
 export interface ApiResponse<T> {
   success: boolean
@@ -107,8 +107,7 @@ class ApiService {
       }
       
       const data = await response.json()
-      console.log('✅ API response received:', { 
-        endpoint, 
+      console.log('✅ API request successful:', { 
         success: data.success, 
         dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
         userContext: data.userContext 
@@ -393,7 +392,7 @@ export class ProjectAPI {
     
     try {
       const result = await ApiService.request<any[]>(`/projects?${params}`)
-      console.log('✅ ProjectAPI.getProjects success:', { 
+      console.log('✅ ProjectAPI.getProjects successful:', { 
         projectCount: result.data?.length, 
         userContext: result.userContext 
       })
@@ -731,6 +730,5 @@ export class MigrationAPI {
 export default ApiService
 
 
-// Named export for compatibility
-export const apiService = ApiService
-
+// Export the main ApiService class as both default and named export
+export { ApiService as apiService };

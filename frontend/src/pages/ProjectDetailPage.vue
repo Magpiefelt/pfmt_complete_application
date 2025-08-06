@@ -2,7 +2,7 @@
   <div class="container mx-auto px-4 py-8">
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
-      <Loading as LoadingSpinner size="lg" />
+      <LoadingSpinner size="lg" />
     </div>
 
     <!-- Error State -->
@@ -116,7 +116,6 @@
               :project-id="projectId"
               :can-edit="canEdit"
               :user-role="currentUser?.role || ''"
-              :view-mode="viewMode"
               @meeting-completed="handleMeetingCompleted"
               @meeting-created="handleMeetingCreated"
               @meeting-updated="handleMeetingUpdated"
@@ -147,14 +146,9 @@
           </TabsContent>
 
           <TabsContent value="workflow">
-            <WorkflowTab
-              :project-id="projectId"
-              :can-edit="canEdit"
-              :user-role="currentUser?.role || ''"
-              @task-completed="handleTaskCompleted"
-              @task-created="handleTaskCreated"
-              @task-updated="handleTaskUpdated"
-            />
+            <div class="text-center py-8">
+              <p class="text-gray-500">Workflow management coming soon...</p>
+            </div>
           </TabsContent>
 
           <TabsContent value="versions">
@@ -172,19 +166,15 @@
         </div>
       </Tabs>
     </div>
-
-    <!-- Notification Container -->
-    <NotificationContainer />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
-import { Loading as LoadingSpinner } from "@/components/ui"
-import { EmptyState } from "@/components/ui"
-import { NotificationContainer } from "@/components/ui"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import LoadingSpinner from '@/components/shared/LoadingSpinner.vue'
+import ErrorMessage from '@/components/shared/ErrorMessage.vue'
 
 // Import modular components
 import ProjectHeader from '@/components/project-detail/ProjectHeader.vue'
@@ -192,21 +182,18 @@ import OverviewTab from '@/components/project-detail/OverviewTab.vue'
 import DetailsTab from '@/components/project-detail/DetailsTab.vue'
 import LocationTab from '@/components/project-detail/LocationTab.vue'
 import VendorsTab from '@/components/project-detail/VendorsTab.vue'
-import MilestonesTab from '@/components/project-detail/MilestonesTab_Enhanced.vue'
+import MilestonesTab from '@/components/project-detail/MilestonesTab.vue'
 import BudgetTab from '@/components/project-detail/BudgetTab.vue'
 import ReportsTab from '@/components/project-detail/ReportsTab.vue'
-import WorkflowTab from '@/components/project-detail/WorkflowTab.vue'
 import VersionsTab from '@/components/project-detail/VersionsTab.vue'
 
 // Import composables and services
 import { useProjectVersions } from '@/composables/useProjectVersions'
 import { useAuthStore } from '@/stores/auth'
-import { useNotifications } from '@/composables/useNotifications'
 import { ProjectService } from '@/services/ProjectService'
 
 const route = useRoute()
 const authStore = useAuthStore()
-const notifications = useNotifications()
 
 // Project data
 const projectId = computed(() => route.params.id as string)
@@ -474,42 +461,30 @@ const handleReportGenerated = (report: any) => {
 
 const handleVersionCreated = () => {
   loadProject() // Refresh project data
-  notifications.versionCreated(currentVersionNumber.value + 1)
 }
 
 const handleVersionSubmitted = () => {
   loadProject() // Refresh project data
-  notifications.versionSubmitted(currentVersionNumber.value)
 }
 
 const handleVersionApproved = () => {
   loadProject() // Refresh project data
-  notifications.versionApproved(currentVersionNumber.value)
 }
 
 const handleVersionRejected = () => {
   loadProject() // Refresh project data
-  notifications.versionRejected(currentVersionNumber.value, 'Please review the feedback and make necessary changes.')
 }
 
-const handleTaskCompleted = (taskId: string) => {
-  // Handle task completion
-  notifications.taskCompleted('Project task')
-  console.log('Task completed:', taskId)
-}
+// Lifecycle
+onMounted(() => {
+  loadProject()
+})
 
-const handleTaskCreated = (task: any) => {
-  // Handle new task creation
-  notifications.taskAssigned(task.title || 'New task', task.assignedTo || 'team member')
-  console.log('Task created:', task)
-}
-
-const handleTaskUpdated = (task: any) => {
-  // Handle task update
-  notifications.info('Task Updated', `"${task.title || 'Task'}" has been updated.`)
-  console.log('Task updated:', task)
-}
-
-
+// Watch for route changes
+watch(() => route.params.id, () => {
+  if (route.params.id) {
+    loadProject()
+  }
+})
 </script>
 
