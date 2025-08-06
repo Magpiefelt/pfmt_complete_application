@@ -12,6 +12,9 @@
       @data-extracted="handlePFMTDataExtracted"
       @close="closePFMTExtractor"
     />
+
+    <!-- Toast Notifications -->
+    <Toast />
   </Layout>
 </template>
 
@@ -22,6 +25,7 @@ import { usePFMTExtractor } from '@/composables/usePFMTExtractor'
 import Layout from '@/components/shared/Layout.vue'
 import Header from '@/components/shared/Header.vue'
 import PFMTDataExtractor from '@/components/PFMTDataExtractor.vue'
+import Toast from '@/components/ui/toast.vue'
 
 const router = useRouter()
 const { currentUser, changeRole } = useAuth()

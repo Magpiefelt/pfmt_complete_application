@@ -1,71 +1,86 @@
 const { query } = require('../config/database');
+const { 
+  AppError, 
+  createSuccessResponse, 
+  createErrorResponse,
+  handleDatabaseError,
+  handleNotFoundError,
+  asyncHandler 
+} = require('../utils/errorHandler');
 
 // Project Versions Management
-const getProjectVersions = async (req, res) => {
-    try {
-        const { projectId } = req.params;
-        
-        const versionsQuery = `
-            SELECT 
-                pv.*,
-                creator.name as created_by_name,
-                submitter.name as submitted_by_name,
-                approver.name as approved_by_name,
-                rejector.name as rejected_by_name
-            FROM project_versions pv
-            LEFT JOIN users creator ON pv.created_by = creator.id
-            LEFT JOIN users submitter ON pv.submitted_by = submitter.id
-            LEFT JOIN users approver ON pv.approved_by = approver.id
-            LEFT JOIN users rejector ON pv.rejected_by = rejector.id
-            WHERE pv.project_id = $1
-            ORDER BY pv.created_at DESC
-        `;
-        
-        const versions = await query(versionsQuery, [projectId]);
-        
-        res.json({
-            success: true,
-            data: versions.rows
-        });
-    } catch (error) {
-        console.error('Error fetching project versions:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch project versions'
-        });
-    }
-};
+const getProjectVersions = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+  
+  // Check if project exists
+  const projectCheck = await query('SELECT id FROM projects WHERE id = $1', [projectId]);
+  if (projectCheck.rows.length === 0) {
+    throw handleNotFoundError('Project');
+  }
+  
+  const versionsQuery = `
+    SELECT 
+      pv.*,
+      creator.name as created_by_name,
+      submitter.name as submitted_by_name,
+      approver.name as approved_by_name,
+      rejector.name as rejected_by_name
+    FROM project_versions pv
+    LEFT JOIN users creator ON pv.created_by = creator.id
+    LEFT JOIN users submitter ON pv.submitted_by = submitter.id
+    LEFT JOIN users approver ON pv.approved_by = approver.id
+    LEFT JOIN users rejector ON pv.rejected_by = rejector.id
+    WHERE pv.project_id = $1
+    ORDER BY pv.created_at DESC
+  `;
+  
+  const versions = await query(versionsQuery, [projectId]);
+  
+  res.json(createSuccessResponse(
+    versions.rows,
+    `Found ${versions.rows.length} version(s) for project ${projectId}`,
+    { count: versions.rows.length }
+  ));
+});
 
-const createProjectVersion = async (req, res) => {
-    try {
-        const { projectId } = req.params;
-        const { versionNumber, dataSnapshot, changeSummary } = req.body;
-        const userId = req.user.id;
-        
-        const insertQuery = `
-            INSERT INTO project_versions (
-                project_id, version_number, status, version_data, 
-                created_by, change_summary
-            ) VALUES ($1, $2, 'Draft', $3, $4, $5)
-            RETURNING *
-        `;
-        
-        const result = await query(insertQuery, [
-            projectId, versionNumber, JSON.stringify(dataSnapshot), userId, changeSummary
-        ]);
-        
-        res.status(201).json({
-            success: true,
-            data: result.rows[0]
-        });
-    } catch (error) {
-        console.error('Error creating project version:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to create project version'
-        });
-    }
-};
+const createProjectVersion = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+  const { versionNumber, dataSnapshot, changeSummary } = req.body;
+  const userId = req.user.id;
+  
+  // Check if project exists
+  const projectCheck = await query('SELECT id FROM projects WHERE id = $1', [projectId]);
+  if (projectCheck.rows.length === 0) {
+    throw handleNotFoundError('Project');
+  }
+  
+  // Check if version number already exists
+  const versionCheck = await query(
+    'SELECT id FROM project_versions WHERE project_id = $1 AND version_number = $2',
+    [projectId, versionNumber]
+  );
+  if (versionCheck.rows.length > 0) {
+    throw new AppError(`Version ${versionNumber} already exists for this project`, 409, 'VERSION_EXISTS');
+  }
+  
+  const insertQuery = `
+    INSERT INTO project_versions (
+      project_id, version_number, status, version_data, 
+      created_by, change_summary
+    ) VALUES ($1, $2, 'Draft', $3, $4, $5)
+    RETURNING *
+  `;
+  
+  const result = await query(insertQuery, [
+    projectId, versionNumber, JSON.stringify(dataSnapshot), userId, changeSummary
+  ]);
+  
+  res.status(201).json(createSuccessResponse(
+    result.rows[0],
+    `Version ${versionNumber} created successfully as draft`,
+    { projectId: parseInt(projectId), versionNumber }
+  ));
+});
 
 const submitVersionForApproval = async (req, res) => {
     try {

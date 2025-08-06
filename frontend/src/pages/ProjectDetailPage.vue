@@ -146,9 +146,14 @@
           </TabsContent>
 
           <TabsContent value="workflow">
-            <div class="text-center py-8">
-              <p class="text-gray-500">Workflow management coming soon...</p>
-            </div>
+            <WorkflowTab
+              :project-id="projectId"
+              :can-edit="canEdit"
+              :user-role="currentUser?.role || ''"
+              @task-completed="handleTaskCompleted"
+              @task-created="handleTaskCreated"
+              @task-updated="handleTaskUpdated"
+            />
           </TabsContent>
 
           <TabsContent value="versions">
@@ -166,6 +171,9 @@
         </div>
       </Tabs>
     </div>
+
+    <!-- Notification Container -->
+    <NotificationContainer />
   </div>
 </template>
 
@@ -175,6 +183,7 @@ import { useRoute } from 'vue-router'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ui/ErrorMessage.vue'
+import NotificationContainer from '@/components/ui/NotificationContainer.vue'
 
 // Import modular components
 import ProjectHeader from '@/components/project-detail/ProjectHeader.vue'
@@ -185,15 +194,18 @@ import VendorsTab from '@/components/project-detail/VendorsTab.vue'
 import MilestonesTab from '@/components/project-detail/MilestonesTab.vue'
 import BudgetTab from '@/components/project-detail/BudgetTab.vue'
 import ReportsTab from '@/components/project-detail/ReportsTab.vue'
+import WorkflowTab from '@/components/project-detail/WorkflowTab.vue'
 import VersionsTab from '@/components/project-detail/VersionsTab.vue'
 
 // Import composables and services
 import { useProjectVersions } from '@/composables/useProjectVersions'
 import { useAuthStore } from '@/stores/auth'
+import { useNotifications } from '@/composables/useNotifications'
 import { ProjectService } from '@/services/ProjectService'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const notifications = useNotifications()
 
 // Project data
 const projectId = computed(() => route.params.id as string)
@@ -461,30 +473,54 @@ const handleReportGenerated = (report: any) => {
 
 const handleVersionCreated = () => {
   loadProject() // Refresh project data
+  notifications.versionCreated(currentVersionNumber.value + 1)
 }
 
 const handleVersionSubmitted = () => {
   loadProject() // Refresh project data
+  notifications.versionSubmitted(currentVersionNumber.value)
 }
 
 const handleVersionApproved = () => {
   loadProject() // Refresh project data
+  notifications.versionApproved(currentVersionNumber.value)
 }
 
 const handleVersionRejected = () => {
   loadProject() // Refresh project data
+  notifications.versionRejected(currentVersionNumber.value, 'Please review the feedback and make necessary changes.')
 }
 
-// Lifecycle
-onMounted(() => {
-  loadProject()
-})
+const handleTaskCompleted = (taskId: string) => {
+  // Handle task completion
+  notifications.taskCompleted('Project task')
+  console.log('Task completed:', taskId)
+}
 
-// Watch for route changes
-watch(() => route.params.id, () => {
-  if (route.params.id) {
-    loadProject()
-  }
-})
-</script>
+const handleTaskCreated = (task: any) => {
+  // Handle new task creation
+  notifications.taskAssigned(task.title || 'New task', task.assignedTo || 'team member')
+  console.log('Task created:', task)
+}
 
+const handleTaskUpdated = (task: any) => {
+  // Handle task update
+  notifications.info('Task Updated', `"${task.title || 'Task'}" has been updated.`)
+  console.log('Task updated:', task)
+}
+
+const handleMeetingCompleted = (meeting: any) => {
+  notifications.meetingCompleted(meeting.gate_type || 'Meeting', meeting.decision)
+}
+
+const handleMeetingCreated = (meeting: any) => {
+  notifications.meetingScheduled(meeting.gate_type || 'Meeting', meeting.planned_date)
+}
+
+const handleMeetingUpdated = (meeting: any) => {
+  notifications.info('Meeting Updated', `${meeting.gate_type || 'Meeting'} has been updated.`)
+}
+
+const handleMeetingDeleted = (meetingId: string) => {
+  notifications.warning('Meeting Cancelled', 'A scheduled meeting has been cancelled.')
+}

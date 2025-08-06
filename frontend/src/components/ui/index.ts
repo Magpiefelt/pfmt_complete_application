@@ -21,3 +21,15 @@ export { default as AlbertaText } from './AlbertaText.vue'
 export { default as AlbertaInput } from './AlbertaInput.vue'
 export { default as AlbertaFormItem } from './AlbertaFormItem.vue'
 
+// Enhanced UI Components
+export { default as DataTable } from './DataTable.vue'
+export { default as Modal } from './Modal.vue'
+export { default as Loading } from './Loading.vue'
+export { default as EmptyState } from './EmptyState.vue'
+export { default as Tooltip } from './Tooltip.vue'
+export { default as NotificationContainer } from './NotificationContainer.vue'
+
+// Re-export types
+export type { DataTableColumn, DataTableFilter } from './DataTable.vue'
+export type { EmptyStateAction } from './EmptyState.vue'
+
