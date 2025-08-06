@@ -33,31 +33,55 @@ export interface ValidationResult {
 export class ProjectWizardService {
   // Initialize a new wizard session
   static async initializeWizard(): Promise<{ sessionId: string; currentStep: number }> {
-    const response = await ApiService.request<any>('/project-wizard/init', {
-      method: 'POST'
-    })
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to initialize wizard')
-    }
-    
-    return {
-      sessionId: response.sessionId,
-      currentStep: response.currentStep
+    try {
+      const response = await ApiService.request<any>('/project-wizard/init', {
+        method: 'POST'
+      })
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to initialize wizard')
+      }
+      
+      return {
+        sessionId: response.sessionId,
+        currentStep: response.currentStep
+      }
+    } catch (error: any) {
+      console.error('Error initializing wizard:', error)
+      
+      // If it's an authentication error, provide a more helpful message
+      if (error.message.includes('Authentication required') || error.message.includes('401')) {
+        throw new Error('Authentication required. Please check user context.')
+      }
+      
+      // For other errors, provide a generic server error message
+      if (error.message.includes('500') || error.message.includes('Server error')) {
+        throw new Error('Server error occurred. Please check the backend service.')
+      }
+      
+      throw error
     }
   }
 
   // Get project templates
   static async getProjectTemplates(): Promise<ProjectTemplate[]> {
-    const response = await ApiService.request<any>('/project-wizard/templates', {
-      method: 'GET'
-    })
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to fetch templates')
+    try {
+      const response = await ApiService.request<any>('/project-wizard/templates', {
+        method: 'GET'
+      })
+      
+      if (!response.success) {
+        console.warn('Failed to fetch templates:', response.error)
+        return []
+      }
+      
+      return response.templates || []
+    } catch (error: any) {
+      console.error('Error fetching templates:', error)
+      // Return empty array instead of throwing error
+      // This allows the UI to continue working without templates
+      return []
     }
-    
-    return response.templates || []
   }
 
   // Get available team members

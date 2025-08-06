@@ -41,8 +41,18 @@ export function useProjectWizard() {
       
       sessionId.value = result.sessionId
       currentStep.value = result.currentStep || 1
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing wizard:', error)
+      
+      // Handle authentication errors gracefully
+      if (error.message.includes('Authentication required')) {
+        console.warn('User not authenticated, wizard may have limited functionality')
+        // Don't throw error, allow wizard to continue with limited functionality
+        sessionId.value = `demo_${Date.now()}`
+        currentStep.value = 1
+        return
+      }
+      
       throw error
     } finally {
       isProcessing.value = false

@@ -1,10 +1,18 @@
-const jwt = require('jsonwebtoken');
 const { query, pool } = require('../config/database');
 
 class ProjectWizardController {
   // Initialize wizard session
   async initializeWizard(req, res) {
     try {
+      // Validate that user exists and has proper UUID
+      if (!req.user || !req.user.id) {
+        console.error('No user ID found in request');
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Authentication required' 
+        });
+      }
+
       const userId = req.user.id;
       const sessionId = `wizard_${userId}_${Date.now()}`;
       

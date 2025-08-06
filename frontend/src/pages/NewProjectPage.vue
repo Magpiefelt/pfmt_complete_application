@@ -168,7 +168,7 @@ import { Button, AlbertaText } from '@/components/ui'
 import { Card, CardContent } from '@/components/ui'
 import ProjectWizard from '@/components/project-wizard/ProjectWizard.vue'
 import { formatCurrency } from '@/utils'
-import axios from 'axios'
+import { ProjectWizardService } from '@/services/projectWizardService'
 
 const router = useRouter()
 
@@ -211,18 +211,14 @@ const showQuickFormNotice = () => {
 const loadRecentTemplates = async () => {
   try {
     loading.value = true
-    const response = await axios.get('/api/project-wizard/templates', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    })
+    const templates = await ProjectWizardService.getProjectTemplates()
     
-    if (response.data.success) {
-      // Show first 3 templates as "recent"
-      recentTemplates.value = response.data.templates.slice(0, 3)
-    }
+    // Show first 3 templates as "recent"
+    recentTemplates.value = templates.slice(0, 3)
   } catch (error) {
     console.error('Error loading templates:', error)
+    // Don't show error to user for template loading failure
+    // The wizard can still work without templates
   } finally {
     loading.value = false
   }

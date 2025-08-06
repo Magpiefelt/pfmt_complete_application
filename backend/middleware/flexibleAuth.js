@@ -34,14 +34,17 @@ const flexibleAuth = async (req, res, next) => {
         
         if (userId && userRole && userName) {
             // Create a mock user object for demo purposes
+            // Use a default UUID instead of integer to match database schema
+            const defaultUuid = '550e8400-e29b-41d4-a716-446655440002';
             req.user = {
-                id: parseInt(userId),
+                id: defaultUuid, // Use UUID instead of parseInt(userId)
                 username: userName.toLowerCase().replace(/\s+/g, ''),
                 email: `${userName.toLowerCase().replace(/\s+/g, '.')}@gov.ab.ca`,
                 role: mapFrontendRoleToBackend(userRole),
                 is_active: true,
                 name: userName
             };
+            console.log('🔧 FlexibleAuth: Using default UUID for demo user:', defaultUuid);
             return next();
         }
         
