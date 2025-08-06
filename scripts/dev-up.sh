@@ -31,8 +31,16 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is available
-if ! docker compose version &> /dev/null; then
-    echo -e "${RED}❌ Docker Compose is not available. Please install Docker Compose.${NC}"
+COMPOSE_CMD=""
+if docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+    echo -e "${GREEN}✅ Using Docker Compose plugin${NC}"
+elif command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+    echo -e "${GREEN}✅ Using Docker Compose standalone${NC}"
+else
+    echo -e "${RED}❌ Neither 'docker compose' nor 'docker-compose' is available.${NC}"
+    echo "Please install Docker Compose: https://docs.docker.com/compose/install/"
     exit 1
 fi
 
@@ -55,35 +63,35 @@ cd "$COMPOSE_DIR"
 
 # Stop any existing containers
 echo -e "${YELLOW}🛑 Stopping any existing containers...${NC}"
-docker compose -f docker-compose.dev.yml down --remove-orphans 2>/dev/null || true
+$COMPOSE_CMD -f docker-compose.dev.yml down --remove-orphans 2>/dev/null || true
 
 # Build and start services
 echo -e "${BLUE}🔨 Building and starting services...${NC}"
-docker compose -f docker-compose.dev.yml up --build -d
+$COMPOSE_CMD -f docker-compose.dev.yml up --build -d
 
 # Wait for services to be healthy
 echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
-sleep 5
+sleep 10
 
 # Check service health
 echo -e "${BLUE}🔍 Checking service health...${NC}"
 
 # Check database
-if docker compose -f docker-compose.dev.yml exec -T db pg_isready -U pfmt -d pfmt &>/dev/null; then
+if $COMPOSE_CMD -f docker-compose.dev.yml exec -T db pg_isready -U pfmt -d pfmt &>/dev/null; then
     echo -e "${GREEN}✅ Database is healthy${NC}"
 else
     echo -e "${YELLOW}⚠️  Database is starting up...${NC}"
 fi
 
 # Check backend (with retry)
-for i in {1..10}; do
-    if curl -f http://localhost:3000/api/health &>/dev/null; then
+for i in {1..15}; do
+    if curl -f http://localhost:3000/health &>/dev/null; then
         echo -e "${GREEN}✅ Backend is healthy${NC}"
         break
-    elif [ $i -eq 10 ]; then
+    elif [ $i -eq 15 ]; then
         echo -e "${YELLOW}⚠️  Backend is still starting up...${NC}"
     else
-        sleep 2
+        sleep 3
     fi
 done
 

@@ -7,8 +7,38 @@ const path = require('path');
 const { testConnection } = require('./config/database');
 require('dotenv').config();
 
+// Enhanced error handling for development
+if (process.env.NODE_ENV !== 'production') {
+    // Handle unhandled promise rejections in development
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('🚨 Unhandled Promise Rejection at:', promise, 'reason:', reason);
+        // In development, log the error but don't exit to allow debugging
+        console.error('Stack trace:', reason.stack || reason);
+    });
+
+    // Handle uncaught exceptions in development
+    process.on('uncaughtException', (error) => {
+        console.error('🚨 Uncaught Exception:', error);
+        console.error('Stack trace:', error.stack);
+        // In development, log but continue running for debugging
+        console.log('🔄 Server continuing in development mode for debugging...');
+    });
+}
+
 const app = express();
 const PORT = process.env.PORT || 3002;
+
+// Environment validation and logging for development
+if (process.env.NODE_ENV !== 'production') {
+    console.log('🔧 Development Environment Configuration:');
+    console.log('   📊 Port:', PORT);
+    console.log('   🗄️  DB Host:', process.env.DB_HOST || 'localhost (default)');
+    console.log('   🗄️  DB Port:', process.env.DB_PORT || '5432 (default)');
+    console.log('   🗄️  DB Name:', process.env.DB_NAME || 'pfmt_integrated (default)');
+    console.log('   🗄️  DB User:', process.env.DB_USER || 'postgres (default)');
+    console.log('   🔐 DB Password:', process.env.DB_PASSWORD ? '[SET]' : '[NOT SET - using default]');
+    console.log('');
+}
 
 // Security middleware
 app.use(helmet({
@@ -163,8 +193,14 @@ const startServer = async () => {
         // Test database connection
         const dbConnected = await testConnection();
         if (!dbConnected) {
-            console.error('❌ Failed to connect to database. Server not started.');
-            process.exit(1);
+            if (process.env.NODE_ENV === 'production') {
+                console.error('❌ Failed to connect to database. Server not started.');
+                process.exit(1);
+            } else {
+                console.error('⚠️ Failed to connect to database in development mode.');
+                console.error('🔄 Server will start anyway for debugging. Some features may not work.');
+                console.error('💡 Please check your database configuration and ensure PostgreSQL is running.');
+            }
         }
 
         // Initialize scheduled task service

@@ -19,8 +19,17 @@ const pool = new Pool(dbConfig);
 
 // Handle pool errors
 pool.on('error', (err, client) => {
-    console.error('Unexpected error on idle client', err);
-    process.exit(-1);
+    console.error('🚨 Unexpected error on idle client:', err);
+    
+    if (process.env.NODE_ENV === 'production') {
+        // In production, exit on database errors
+        console.error('💥 Exiting due to database error in production');
+        process.exit(-1);
+    } else {
+        // In development, log the error but continue running for debugging
+        console.error('🔄 Continuing in development mode for debugging...');
+        console.error('💡 Check your database connection and configuration');
+    }
 });
 
 // Test database connection
