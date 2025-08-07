@@ -201,9 +201,29 @@ class ProjectWizardController {
         LEFT JOIN project_wizard_step_data pwsd ON pws.session_id = pwsd.session_id
         WHERE pws.session_id = $1 AND pws.user_id = $2
       `;
+      
+      console.log('Searching for wizard session:', {
+        sessionId,
+        userId,
+        query: sessionQuery
+      });
+      
       const sessionResult = await client.query(sessionQuery, [sessionId, userId]);
       
+      console.log('Session query result:', {
+        rowCount: sessionResult.rows.length,
+        rows: sessionResult.rows.length > 0 ? sessionResult.rows[0] : 'No rows found'
+      });
+      
       if (sessionResult.rows.length === 0) {
+        // Try to find session without user restriction to debug
+        const debugQuery = `SELECT * FROM project_wizard_sessions WHERE session_id = $1`;
+        const debugResult = await client.query(debugQuery, [sessionId]);
+        console.log('Debug - Session exists without user filter:', {
+          found: debugResult.rows.length > 0,
+          session: debugResult.rows[0] || 'Not found'
+        });
+        
         throw new Error('Wizard session not found');
       }
 
@@ -243,11 +263,18 @@ class ProjectWizardController {
       const budgetInfo = stepData[3];
       const teamInfo = stepData[4];
 
-      console.log('Creating project with team info:', {
+      console.log('Creating project with data:', {
+        projectName: basicInfo.projectName,
+        category: basicInfo.category,
         projectManager: teamInfo.projectManager,
         teamMembersCount: teamInfo.teamMembers?.length || 0,
         currentUserId: userId
       });
+
+      // Validate required fields
+      if (!basicInfo.projectName || !basicInfo.description) {
+        throw new Error('Project name and description are required');
+      }
 
       // Insert project
       const projectQuery = `
@@ -263,20 +290,27 @@ class ProjectWizardController {
       const cpdNumber = `CPD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const currentYear = new Date().getFullYear().toString();
 
-      const projectResult = await client.query(projectQuery, [
-        basicInfo.projectName,
-        basicInfo.description,
-        'underway', // project_status (must match CHECK constraint)
-        'planning', // project_phase (must match CHECK constraint)
-        basicInfo.projectType || 'new_construction', // project_type
-        basicInfo.deliveryType || 'design_bid_build', // delivery_type
-        basicInfo.program || 'government_facilities', // program
-        basicInfo.region || 'central', // geographic_region
-        cpdNumber, // cpd_number (required unique field)
-        currentYear, // approval_year (required field)
-        'construction', // project_category (required field)
-        'construction' // funded_to_complete (required field)
-      ]);
+      // Prepare parameters with proper data types
+      const projectParams = [
+        basicInfo.projectName,                           // $1: project_name (text)
+        basicInfo.description,                           // $2: project_description (text)
+        'underway',                                      // $3: project_status (text)
+        'planning',                                      // $4: project_phase (text)
+        basicInfo.projectType || 'new_construction',    // $5: project_type (text)
+        basicInfo.deliveryType || 'design_bid_build',   // $6: delivery_type (text)
+        basicInfo.program || 'government_facilities',   // $7: program (text)
+        basicInfo.region || 'central',                  // $8: geographic_region (text)
+        cpdNumber,                                       // $9: cpd_number (text)
+        currentYear,                                     // $10: approval_year (text)
+        basicInfo.category || 'construction',           // $11: project_category (text)
+        Boolean(basicInfo.fundedToComplete || false)    // $12: funded_to_complete (boolean)
+      ];
+
+      console.log('Project parameters:', projectParams.map((param, index) => 
+        `$${index + 1}: ${param} (${typeof param})`
+      ));
+
+      const projectResult = await client.query(projectQuery, projectParams);
 
       const projectId = projectResult.rows[0].id;
 
@@ -370,12 +404,14 @@ class ProjectWizardController {
     try {
       const queryText = `
         SELECT 
-          id, name, email, role,
-          department, expertise_areas
+          id, 
+          first_name || ' ' || last_name as name, 
+          email, 
+          role
         FROM users 
         WHERE is_active = true 
         AND role IN ('Project Manager', 'Senior Project Manager', 'Team Lead', 'Specialist')
-        ORDER BY name
+        ORDER BY first_name, last_name
       `;
       
       const result = await query(queryText);
@@ -390,11 +426,11 @@ class ProjectWizardController {
         // Add current user as a Project Manager option
         const currentUserAsManager = {
           id: req.user.id,
-          name: req.user.name || 'Current User',
+          name: req.user.first_name && req.user.last_name 
+            ? `${req.user.first_name} ${req.user.last_name}` 
+            : req.user.name || 'Current User',
           email: req.user.email || '',
           role: 'Project Manager',
-          department: req.user.department || 'Infrastructure',
-          expertise_areas: ['Project Management'],
           isCurrentUser: true
         };
         
@@ -419,11 +455,11 @@ class ProjectWizardController {
       if (req.user) {
         fallbackMembers.push({
           id: req.user.id,
-          name: req.user.name || 'Current User',
+          name: req.user.first_name && req.user.last_name 
+            ? `${req.user.first_name} ${req.user.last_name}` 
+            : req.user.name || 'Current User',
           email: req.user.email || '',
           role: 'Project Manager',
-          department: req.user.department || 'Infrastructure',
-          expertise_areas: ['Project Management'],
           isCurrentUser: true
         });
       }

@@ -52,7 +52,6 @@ export abstract class BaseService {
     const url = endpoint.startsWith('http') ? endpoint : `${this.API_BASE}${endpoint}`
     
     const config: RequestInit = {
-      headers: this.getAuthHeaders(),
       ...options,
       headers: {
         ...this.getAuthHeaders(),

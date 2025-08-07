@@ -310,6 +310,15 @@ const getCurrentStepData = () => {
 
 const createProject = async () => {
   try {
+    // Save all step data before completing the wizard
+    for (let step = 1; step <= 4; step++) {
+      const stepData = getStepData(step)
+      if (stepData && Object.keys(stepData).length > 0) {
+        await saveStepData(step, stepData)
+      }
+    }
+    
+    // Now complete the wizard
     const project = await completeWizard()
     emit('wizardCompleted', project)
   } catch (error) {
@@ -333,7 +342,8 @@ let autoSaveInterval: NodeJS.Timeout | null = null
 
 const startAutoSave = () => {
   autoSaveInterval = setInterval(async () => {
-    if (currentStep.value > 1) {
+    // Skip auto-save for step 1 (template selection) and step 5 (review step)
+    if (currentStep.value > 1 && currentStep.value < 5) {
       await saveStepData(currentStep.value, getCurrentStepData())
     }
   }, 30000) // Auto-save every 30 seconds

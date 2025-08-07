@@ -152,7 +152,8 @@ export class ProjectWizardService {
       throw new Error(response.error || 'Failed to create project')
     }
     
-    return response.data
+    // Return the project object directly, not the entire response
+    return response.project
   }
 
   // Delete wizard session
