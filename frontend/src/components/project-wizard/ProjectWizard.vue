@@ -177,6 +177,7 @@ import BudgetSetupStep from './steps/BudgetSetupStep.vue'
 import TeamAssignmentStep from './steps/TeamAssignmentStep.vue'
 import ReviewStep from './steps/ReviewStep.vue'
 import { useProjectWizard } from '@/composables/useProjectWizard'
+import { useProjectStore } from '@/stores/project'
 
 // Props
 const props = defineProps<{
@@ -189,7 +190,7 @@ const emit = defineEmits<{
   wizardCancelled: []
 }>()
 
-// Composable
+// Composables
 const {
   sessionId,
   currentStep,
@@ -202,6 +203,8 @@ const {
   completeWizard,
   validateStep
 } = useProjectWizard()
+
+const projectStore = useProjectStore()
 
 // Local state
 const selectedTemplate = ref(props.selectedTemplate)
@@ -308,6 +311,21 @@ const getCurrentStepData = () => {
   }
 }
 
+const getStepData = (step: number) => {
+  switch (step) {
+    case 1:
+      return { selectedTemplate: selectedTemplate.value }
+    case 2:
+      return wizardData.basicInfo
+    case 3:
+      return wizardData.budgetInfo
+    case 4:
+      return wizardData.teamInfo
+    default:
+      return {}
+  }
+}
+
 const createProject = async () => {
   try {
     // Save all step data before completing the wizard
@@ -318,12 +336,35 @@ const createProject = async () => {
       }
     }
     
-    // Now complete the wizard
+    // Complete the wizard and get the project
     const project = await completeWizard()
+    
+    // Update the project store to refresh the projects list
+    try {
+      await projectStore.addProject(project)
+    } catch (storeError) {
+      console.warn('Failed to update project store, but project was created:', storeError)
+      // Don't fail the entire process if store update fails
+    }
+    
+    // Emit the completion event with the project data
     emit('wizardCompleted', project)
   } catch (error) {
     console.error('Error creating project:', error)
-    alert('Failed to create project. Please try again.')
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create project. Please try again.'
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication')) {
+        errorMessage = 'Authentication error. Please refresh the page and try again.'
+      } else if (error.message.includes('validation')) {
+        errorMessage = 'Please check all required fields and try again.'
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.'
+      }
+    }
+    
+    alert(errorMessage)
   }
 }
 
@@ -333,8 +374,20 @@ const cancelWizard = () => {
   }
 }
 
-const handleProjectCreated = (project: any) => {
-  emit('wizardCompleted', project)
+const handleProjectCreated = async (project: any) => {
+  try {
+    // Update the project store to refresh the projects list
+    await projectStore.addProject(project)
+    
+    // Emit the completion event
+    emit('wizardCompleted', project)
+  } catch (error) {
+    console.error('Error handling project creation:', error)
+    
+    // Even if store update fails, still emit the completion event
+    // The navigation will still work
+    emit('wizardCompleted', project)
+  }
 }
 
 // Auto-save functionality
@@ -344,7 +397,12 @@ const startAutoSave = () => {
   autoSaveInterval = setInterval(async () => {
     // Skip auto-save for step 1 (template selection) and step 5 (review step)
     if (currentStep.value > 1 && currentStep.value < 5) {
-      await saveStepData(currentStep.value, getCurrentStepData())
+      try {
+        await saveStepData(currentStep.value, getCurrentStepData())
+      } catch (error) {
+        console.warn('Auto-save failed:', error)
+        // Don't show error to user for auto-save failures
+      }
     }
   }, 30000) // Auto-save every 30 seconds
 }

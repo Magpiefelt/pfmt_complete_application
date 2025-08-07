@@ -1,5 +1,6 @@
 import { ref, reactive } from 'vue'
 import { ProjectWizardService } from '@/services/projectWizardService'
+import { useProjectStore } from '@/stores/project'
 
 export function useProjectWizard() {
   // State
@@ -7,6 +8,9 @@ export function useProjectWizard() {
   const currentStep = ref(1)
   const isProcessing = ref(false)
   const autoSaveStatus = ref<'saving' | 'saved' | null>(null)
+
+  // Get project store for integration
+  const projectStore = useProjectStore()
 
   // Wizard data structure
   const wizardData = reactive({
@@ -17,19 +21,27 @@ export function useProjectWizard() {
       projectType: 'Standard',
       region: 'Alberta',
       ministry: 'Infrastructure',
+      priority: 'Medium',
       startDate: null,
-      expectedCompletion: null
+      expectedCompletion: null,
+      location: '',
+      municipality: '',
+      buildingName: '',
+      fundedToComplete: false
     },
     budgetInfo: {
       totalBudget: 0,
       initialBudget: 0,
       estimatedDuration: 365,
-      budgetBreakdown: []
+      budgetBreakdown: [],
+      fundingSource: 'Provincial Budget',
+      requiresApproval: false
     },
     teamInfo: {
       projectManager: null,
       teamMembers: [],
-      requiredRoles: []
+      requiredRoles: [],
+      director: null
     }
   })
 
@@ -41,6 +53,8 @@ export function useProjectWizard() {
       
       sessionId.value = result.sessionId
       currentStep.value = result.currentStep || 1
+      
+      console.log('Wizard initialized successfully:', { sessionId: sessionId.value, currentStep: currentStep.value })
     } catch (error: any) {
       console.error('Error initializing wizard:', error)
       
@@ -72,6 +86,7 @@ export function useProjectWizard() {
         autoSaveStatus.value = null
       }, 2000)
       
+      console.log(`Step ${stepId} data saved successfully`)
       return result
     } catch (error) {
       console.error('Error saving step data:', error)
@@ -85,7 +100,9 @@ export function useProjectWizard() {
   // Validate step
   const validateStep = async (stepId: number, stepData: any) => {
     try {
-      return await ProjectWizardService.validateStep(stepId, stepData)
+      const validation = await ProjectWizardService.validateStep(stepId, stepData)
+      console.log(`Step ${stepId} validation result:`, validation)
+      return validation
     } catch (error) {
       console.error('Error validating step:', error)
       return { isValid: false, errors: ['Validation error occurred'] }
@@ -119,10 +136,39 @@ export function useProjectWizard() {
     try {
       isProcessing.value = true
       
+      console.log('Completing wizard with session:', sessionId.value)
+      
+      // Complete the wizard via API
       const project = await ProjectWizardService.completeWizard(sessionId.value)
+      
+      console.log('Project created successfully:', project)
+      
+      // Update the project store to refresh the projects list
+      try {
+        // Use the project store's addProject method to ensure the list is updated
+        await projectStore.addProject(project)
+        console.log('Project store updated successfully')
+      } catch (storeError) {
+        console.warn('Failed to update project store:', storeError)
+        // Don't fail the entire process if store update fails
+        // The project was still created successfully
+      }
+      
       return project
     } catch (error) {
       console.error('Error completing wizard:', error)
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('session not found')) {
+          throw new Error('Wizard session expired. Please start over.')
+        } else if (error.message.includes('validation')) {
+          throw new Error('Please check all required fields and try again.')
+        } else if (error.message.includes('Authentication')) {
+          throw new Error('Authentication required. Please refresh the page and try again.')
+        }
+      }
+      
       throw error
     } finally {
       isProcessing.value = false
@@ -132,7 +178,9 @@ export function useProjectWizard() {
   // Get project templates
   const getProjectTemplates = async () => {
     try {
-      return await ProjectWizardService.getProjectTemplates()
+      const templates = await ProjectWizardService.getProjectTemplates()
+      console.log('Templates loaded:', templates.length)
+      return templates
     } catch (error) {
       console.error('Error fetching templates:', error)
       return []
@@ -142,7 +190,9 @@ export function useProjectWizard() {
   // Get available team members
   const getAvailableTeamMembers = async () => {
     try {
-      return await ProjectWizardService.getAvailableTeamMembers()
+      const members = await ProjectWizardService.getAvailableTeamMembers()
+      console.log('Team members loaded:', members.length)
+      return members
     } catch (error) {
       console.error('Error fetching team members:', error)
       return []
@@ -172,6 +222,8 @@ export function useProjectWizard() {
       if (stepData[4]) {
         Object.assign(wizardData.teamInfo, stepData[4])
       }
+      
+      console.log('Wizard session loaded successfully')
     } catch (error) {
       console.error('Error loading wizard session:', error)
     }
@@ -208,22 +260,32 @@ export function useProjectWizard() {
       projectType: 'Standard',
       region: 'Alberta',
       ministry: 'Infrastructure',
+      priority: 'Medium',
       startDate: null,
-      expectedCompletion: null
+      expectedCompletion: null,
+      location: '',
+      municipality: '',
+      buildingName: '',
+      fundedToComplete: false
     })
     
     Object.assign(wizardData.budgetInfo, {
       totalBudget: 0,
       initialBudget: 0,
       estimatedDuration: 365,
-      budgetBreakdown: []
+      budgetBreakdown: [],
+      fundingSource: 'Provincial Budget',
+      requiresApproval: false
     })
     
     Object.assign(wizardData.teamInfo, {
       projectManager: null,
       teamMembers: [],
-      requiredRoles: []
+      requiredRoles: [],
+      director: null
     })
+    
+    console.log('Wizard reset successfully')
   }
 
   return {
