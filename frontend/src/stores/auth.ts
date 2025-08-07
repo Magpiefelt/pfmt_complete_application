@@ -145,26 +145,15 @@ export const useAuthStore = defineStore('auth', () => {
   const getAccessibleProjects = (allProjects: any[]) => {
     if (!currentUser.value) return []
 
-
-    // Directors and Senior Project Managers can see all projects
-    if (['Director', 'Senior Project Manager'].includes(currentUser.value.role)) {
-      return allProjects
-    }
-
-    // Project Managers can only see their own projects
-    if (currentUser.value.role === 'Project Manager') {
-      return allProjects.filter(project => 
-        project.ownerId === currentUser.value.id || 
-        project.createdByUserId === currentUser.value.id ||
-        project.projectManager === currentUser.value.name
-      )
-    }
-
-    // Vendors have limited access - for demo purposes, show all projects
-    if (currentUser.value.role === 'Vendor') {
-      return allProjects
-    }
-
+    // Since backend now handles role-based filtering properly with UUIDs,
+    // we should trust the backend results and not filter again on the client.
+    // This prevents hiding projects that the API legitimately returns.
+    
+    // However, we can still provide this method for any edge cases
+    // where additional client-side validation might be needed.
+    
+    console.log(`getAccessibleProjects: User ${currentUser.value.name} (${currentUser.value.role}) accessing ${allProjects.length} projects`)
+    
     return allProjects
   }
 

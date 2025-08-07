@@ -54,6 +54,8 @@ class Project {
             status, 
             phase, 
             search,
+            program,
+            region,
             ownerId,
             userId,
             userRole,
@@ -85,18 +87,42 @@ class Project {
             params.push(`%${search}%`);
         }
 
+        if (program) {
+            paramCount++;
+            whereClause += ` AND p.program = $${paramCount}`;
+            params.push(program);
+        }
+
+        if (region) {
+            paramCount++;
+            whereClause += ` AND p.geographic_region = $${paramCount}`;
+            params.push(region);
+        }
+
         if (reportStatus) {
             paramCount++;
             whereClause += ` AND p.report_status = $${paramCount}`;
             params.push(reportStatus);
         }
 
+        // Handle approvedOnly filter
+        if (approvedOnly === true) {
+            paramCount++;
+            whereClause += ` AND p.report_status = $${paramCount}`;
+            params.push('approved');
+        }
+
+        // Handle includePendingDrafts filter
+        if (includePendingDrafts === false) {
+            whereClause += ` AND p.report_status NOT IN ('draft', 'update_required')`;
+        }
+
         // User-based filtering for "My Projects"
         if (ownerId || userId) {
             paramCount++;
-            // For now, filter by modified_by or created_by fields
-            // This can be enhanced with proper user-project relationships
-            whereClause += ` AND (p.modified_by = $${paramCount} OR p.created_by = $${paramCount})`;
+            // Filter by modified_by field only (UUID comparison)
+            // Note: There's no created_by column in the schema, only modified_by
+            whereClause += ` AND p.modified_by = $${paramCount}`;
             params.push(ownerId || userId);
         }
 

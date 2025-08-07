@@ -428,7 +428,16 @@ export class ProjectAPI {
       limit = 10,
       status,
       phase,
-      search
+      search,
+      program,
+      region,
+      ownerId,
+      userId,
+      userRole,
+      reportStatus,
+      approvedOnly,
+      includePendingDrafts,
+      includeVersions
     } = options
 
     const params = new URLSearchParams({
@@ -436,16 +445,34 @@ export class ProjectAPI {
       limit: limit.toString()
     })
 
+    // Add all filter parameters to the query string
     if (status) params.append('status', status)
     if (phase) params.append('phase', phase)
     if (search) params.append('search', search)
+    if (program) params.append('program', program)
+    if (region) params.append('region', region)
+    if (ownerId) params.append('ownerId', ownerId)
+    if (userId) params.append('userId', userId)
+    if (userRole) params.append('userRole', userRole)
+    if (reportStatus) params.append('reportStatus', reportStatus)
+    if (approvedOnly !== undefined) params.append('approvedOnly', approvedOnly.toString())
+    if (includePendingDrafts !== undefined) params.append('includePendingDrafts', includePendingDrafts.toString())
+    if (includeVersions !== undefined) params.append('includeVersions', includeVersions.toString())
+
+    // Handle array parameters (e.g., multiple status values)
+    Object.entries(options).forEach(([key, value]) => {
+      if (Array.isArray(value) && !params.has(key)) {
+        value.forEach(item => params.append(key, item.toString()))
+      }
+    })
 
     
     try {
       const result = await ApiService.request<any[]>(`/projects?${params}`)
       console.log('✅ ProjectAPI.getProjects successful:', { 
         projectCount: result.data?.length, 
-        userContext: result.userContext 
+        userContext: result.userContext,
+        filters: { status, phase, search, program, region, ownerId, userId, userRole, reportStatus, approvedOnly, includePendingDrafts, includeVersions }
       })
       return result
     } catch (error: any) {

@@ -41,8 +41,9 @@ export const useProjectStore = defineStore('project', () => {
 
   // Getters
   const filteredProjects = computed(() => {
-    const authStore = useAuthStore()
-    return authStore.getAccessibleProjects(projects.value)
+    // Since backend now handles all filtering properly, 
+    // return projects as-is to avoid conflicts
+    return projects.value
   })
 
   // Actions
@@ -63,7 +64,18 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   const setFilter = (newFilter: string) => {
+    const oldFilter = filter.value
     filter.value = newFilter
+    
+    // Reset state when filter changes
+    if (oldFilter !== newFilter) {
+      setProjects([]) // Clear previous projects
+      setCurrentPage(1) // Reset to first page
+      setError(null) // Clear any previous errors
+      
+      // Automatically refetch with new filter
+      fetchProjects()
+    }
   }
 
   const setCurrentPage = (page: number) => {
@@ -101,13 +113,16 @@ export const useProjectStore = defineStore('project', () => {
       if (filter.value !== 'all') {
         switch (filter.value) {
           case 'active':
-            apiOptions.status = 'Active'
+            // Map UI "active" to backend "underway" for project_status
+            apiOptions.status = 'underway'
             break
           case 'completed':
-            apiOptions.status = 'Completed'
+            // Map UI "completed" to backend "complete" for project_status
+            apiOptions.status = 'complete'
             break
           case 'pending':
-            apiOptions.reportStatus = 'Update Required'
+            // Map UI "pending" to backend "update_required" for report_status
+            apiOptions.reportStatus = 'update_required'
             break
           case 'my':
             // Better user context retrieval
@@ -130,9 +145,15 @@ export const useProjectStore = defineStore('project', () => {
               apiOptions.ownerId = convertUserIdToUuid(currentUser.id)
               apiOptions.userId = convertUserIdToUuid(currentUser.id)
               apiOptions.userRole = currentUser.role
+              
+              // Clear previous projects when switching to "My Projects"
+              setProjects([])
             }
             break
         }
+      } else {
+        // Clear previous projects when switching to "All Projects"
+        setProjects([])
       }
 
       // Always include user context for proper role-based filtering
@@ -155,15 +176,38 @@ export const useProjectStore = defineStore('project', () => {
         apiOptions.userId = convertUserIdToUuid(currentUser.id)
         apiOptions.userRole = currentUser.role
         
-        // For directors, ensure only approved project data is shown
-        if (currentUser.role === 'Director') {
-          apiOptions.approvedOnly = true
-          apiOptions.includePendingDrafts = true // Include pending draft indicators
+        // Role-based filtering logic
+        switch (currentUser.role) {
+          case 'Director':
+            // Directors see all projects but prefer approved data
+            apiOptions.approvedOnly = false // Show all projects, not just approved
+            apiOptions.includePendingDrafts = true // Include drafts for review
+            break
+          case 'Senior Project Manager':
+            // SPMs see all projects including drafts
+            apiOptions.approvedOnly = false
+            apiOptions.includePendingDrafts = true
+            break
+          case 'Project Manager':
+            // PMs see their own projects and drafts
+            apiOptions.approvedOnly = false
+            apiOptions.includePendingDrafts = true
+            break
+          case 'Vendor':
+            // Vendors only see approved projects
+            apiOptions.approvedOnly = true
+            apiOptions.includePendingDrafts = false
+            break
+          default:
+            // Default to showing all project states
+            apiOptions.approvedOnly = false
+            apiOptions.includePendingDrafts = true
         }
       }
 
-      // Include version information for all requests
-      apiOptions.includeVersions = true
+      // Include version information only if versioning is supported
+      // For now, gracefully ignore this flag
+      apiOptions.includeVersions = false
 
       const response = await ProjectAPI.getProjects(apiOptions)
       

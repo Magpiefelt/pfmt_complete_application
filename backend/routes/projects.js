@@ -37,8 +37,8 @@ router.get('/', authenticateToken, async (req, res) => {
             search,
             program,
             region,
-            ownerId: ownerId ? parseInt(ownerId) : undefined,
-            userId: userId ? parseInt(userId) : undefined,
+            ownerId: ownerId || undefined, // Keep as UUID string, don't parse as integer
+            userId: userId || undefined,   // Keep as UUID string, don't parse as integer
             userRole,
             reportStatus,
             approvedOnly: approvedOnly === 'true',
@@ -82,7 +82,7 @@ router.get('/', authenticateToken, async (req, res) => {
             isCharterSchool: project.isCharterSchool || false
         }));
 
-        // Get total count for pagination
+        // Get total count for pagination - use same filters as main query
         let countQuery = 'SELECT COUNT(*) FROM projects WHERE 1=1';
         const countParams = [];
         let paramCount = 0;
@@ -115,6 +115,31 @@ router.get('/', authenticateToken, async (req, res) => {
             paramCount++;
             countQuery += ` AND geographic_region = $${paramCount}`;
             countParams.push(region);
+        }
+
+        if (reportStatus) {
+            paramCount++;
+            countQuery += ` AND report_status = $${paramCount}`;
+            countParams.push(reportStatus);
+        }
+
+        // User-based filtering for "My Projects" - same logic as in model
+        if (ownerId || userId) {
+            paramCount++;
+            countQuery += ` AND modified_by = $${paramCount}`;
+            countParams.push(ownerId || userId);
+        }
+
+        // Handle approvedOnly filter
+        if (approvedOnly === 'true') {
+            paramCount++;
+            countQuery += ` AND report_status = $${paramCount}`;
+            countParams.push('approved');
+        }
+
+        // Handle includePendingDrafts filter
+        if (includePendingDrafts === 'false') {
+            countQuery += ` AND report_status NOT IN ('draft', 'update_required')`;
         }
 
         const countResult = await query(countQuery, countParams);
