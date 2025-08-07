@@ -58,14 +58,27 @@ class ApiService {
       }
     }
     
+    // Convert integer user ID to UUID format for backend compatibility
+    const convertUserIdToUuid = (userId: number): string => {
+      const uuidMap: Record<number, string> = {
+        1: '550e8400-e29b-41d4-a716-446655440001',
+        2: '550e8400-e29b-41d4-a716-446655440002',
+        3: '550e8400-e29b-41d4-a716-446655440003',
+        4: '550e8400-e29b-41d4-a716-446655440004',
+        5: '550e8400-e29b-41d4-a716-446655440005'
+      }
+      
+      return uuidMap[userId] || '550e8400-e29b-41d4-a716-446655440002'
+    }
+    
     const currentUser = getCurrentUser()
     
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
-        // Add user context to headers
+        // Add user context to headers with UUID format
         ...(currentUser && {
-          'X-User-Id': currentUser.id.toString(),
+          'X-User-Id': convertUserIdToUuid(currentUser.id),
           'X-User-Role': currentUser.role,
           'X-User-Name': currentUser.name
         }),

@@ -48,7 +48,20 @@ class Project {
 
     // Get all projects with related data
     static async findAll(options = {}) {
-        const { limit = 50, offset = 0, status, phase, search } = options;
+        const { 
+            limit = 50, 
+            offset = 0, 
+            status, 
+            phase, 
+            search,
+            ownerId,
+            userId,
+            userRole,
+            reportStatus,
+            approvedOnly,
+            includePendingDrafts,
+            includeVersions
+        } = options;
         
         let whereClause = 'WHERE 1=1';
         const params = [];
@@ -70,6 +83,28 @@ class Project {
             paramCount++;
             whereClause += ` AND (p.project_name ILIKE $${paramCount} OR p.cpd_number ILIKE $${paramCount})`;
             params.push(`%${search}%`);
+        }
+
+        if (reportStatus) {
+            paramCount++;
+            whereClause += ` AND p.report_status = $${paramCount}`;
+            params.push(reportStatus);
+        }
+
+        // User-based filtering for "My Projects"
+        if (ownerId || userId) {
+            paramCount++;
+            // For now, filter by modified_by or created_by fields
+            // This can be enhanced with proper user-project relationships
+            whereClause += ` AND (p.modified_by = $${paramCount} OR p.created_by = $${paramCount})`;
+            params.push(ownerId || userId);
+        }
+
+        // Role-based filtering
+        if (userRole === 'Project Manager' && (ownerId || userId)) {
+            // Project Managers see only their projects (already handled above)
+        } else if (userRole === 'Director' || userRole === 'Senior Project Manager') {
+            // Directors and SPMs see all projects (no additional filtering)
         }
 
         paramCount++;

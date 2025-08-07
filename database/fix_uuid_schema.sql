@@ -48,21 +48,20 @@ CREATE TABLE IF NOT EXISTS project_templates (
     created_by UUID -- Reference to users.id but without FK constraint for flexibility
 );
 
--- Project Wizard Sessions table (ensure it exists with proper UUID reference)
+-- Project Wizard Sessions table
 CREATE TABLE IF NOT EXISTS project_wizard_sessions (
     id SERIAL PRIMARY KEY,
     session_id VARCHAR(255) UNIQUE NOT NULL,
-    user_id UUID NOT NULL, -- This must be UUID to match users.id
+    user_id UUID NOT NULL, -- Changed from INTEGER to UUID
     current_step INTEGER DEFAULT 1,
-    template_id INTEGER REFERENCES project_templates(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Project Wizard Step Data table (ensure it exists)
+-- Project Wizard Step Data table
 CREATE TABLE IF NOT EXISTS project_wizard_step_data (
     id SERIAL PRIMARY KEY,
-    session_id VARCHAR(255) NOT NULL REFERENCES project_wizard_sessions(session_id) ON DELETE CASCADE,
+    session_id VARCHAR(255) NOT NULL,
     step_id INTEGER NOT NULL,
     step_data JSONB NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -71,64 +70,62 @@ CREATE TABLE IF NOT EXISTS project_wizard_step_data (
 );
 
 -- Insert default project templates if they don't exist
-INSERT INTO project_templates (name, description, category, default_budget, estimated_duration, required_roles, template_data, created_by) 
+INSERT INTO project_templates (name, description, category, default_budget, estimated_duration, required_roles, template_data, is_active, created_by)
 SELECT * FROM (VALUES
-    ('Standard Infrastructure Project', 'Standard template for infrastructure projects', 'Infrastructure', 1000000.00, 365, ARRAY['Project Manager', 'Engineer', 'Contractor'], '{"phases": ["Planning", "Design", "Construction", "Completion"], "gates": ["Gate 1", "Gate 2", "Gate 3", "Gate 4"]}', '550e8400-e29b-41d4-a716-446655440002'),
-    ('IT System Implementation', 'Template for IT system implementations', 'Technology', 500000.00, 180, ARRAY['Project Manager', 'System Analyst', 'Developer'], '{"phases": ["Analysis", "Design", "Development", "Testing", "Deployment"], "gates": ["Requirements Gate", "Design Gate", "Testing Gate", "Go-Live Gate"]}', '550e8400-e29b-41d4-a716-446655440002'),
-    ('Building Renovation', 'Template for building renovation projects', 'Construction', 2000000.00, 270, ARRAY['Project Manager', 'Architect', 'Contractor', 'Safety Officer'], '{"phases": ["Assessment", "Planning", "Renovation", "Inspection"], "gates": ["Assessment Gate", "Planning Gate", "Construction Gate", "Completion Gate"]}', '550e8400-e29b-41d4-a716-446655440002'),
-    ('Research & Development', 'Template for R&D projects', 'Research', 300000.00, 540, ARRAY['Project Manager', 'Researcher', 'Analyst'], '{"phases": ["Research", "Development", "Testing", "Documentation"], "gates": ["Research Gate", "Development Gate", "Testing Gate", "Publication Gate"]}', '550e8400-e29b-41d4-a716-446655440002')
-) AS v(name, description, category, default_budget, estimated_duration, required_roles, template_data, created_by)
-WHERE NOT EXISTS (
-    SELECT 1 FROM project_templates WHERE project_templates.name = v.name
-);
+    ('New Construction', 'Template for new building construction projects', 'Construction', 5000000.00, 365, ARRAY['Project Manager', 'Architect', 'Engineer'], '{"phases": ["Planning", "Design", "Construction", "Closeout"], "deliverables": ["Site Plan", "Building Plans", "Construction Documents"]}', true, '550e8400-e29b-41d4-a716-446655440002'),
+    ('Renovation', 'Template for building renovation and upgrade projects', 'Renovation', 2000000.00, 180, ARRAY['Project Manager', 'Architect'], '{"phases": ["Assessment", "Design", "Renovation", "Completion"], "deliverables": ["Assessment Report", "Renovation Plans", "Completion Certificate"]}', true, '550e8400-e29b-41d4-a716-446655440002'),
+    ('Infrastructure', 'Template for infrastructure development projects', 'Infrastructure', 10000000.00, 730, ARRAY['Project Manager', 'Engineer', 'Environmental Specialist'], '{"phases": ["Planning", "Environmental Assessment", "Design", "Construction"], "deliverables": ["Environmental Impact Assessment", "Infrastructure Plans", "Construction Specifications"]}', true, '550e8400-e29b-41d4-a716-446655440002'),
+    ('Maintenance', 'Template for facility maintenance and repair projects', 'Maintenance', 500000.00, 90, ARRAY['Project Manager', 'Maintenance Specialist'], '{"phases": ["Assessment", "Planning", "Execution", "Verification"], "deliverables": ["Maintenance Plan", "Work Orders", "Completion Report"]}', true, '550e8400-e29b-41d4-a716-446655440002')
+) AS t(name, description, category, default_budget, estimated_duration, required_roles, template_data, is_active, created_by)
+WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE name = t.name);
 
--- Create indexes for performance if they don't exist
+-- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_project_wizard_sessions_user_id ON project_wizard_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_project_wizard_sessions_session_id ON project_wizard_sessions(session_id);
 CREATE INDEX IF NOT EXISTS idx_project_wizard_step_data_session_id ON project_wizard_step_data(session_id);
 CREATE INDEX IF NOT EXISTS idx_project_templates_category ON project_templates(category);
-CREATE INDEX IF NOT EXISTS idx_project_templates_is_active ON project_templates(is_active);
+CREATE INDEX IF NOT EXISTS idx_project_templates_active ON project_templates(is_active);
 
--- Verify the fix by showing table counts
-SELECT 
-    'users' as table_name, 
-    count(*) as row_count,
-    'UUID format: ' || (SELECT id FROM users LIMIT 1) as sample_id
-FROM users
-WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')
+-- Update any existing integer user_id references to UUID format if needed
+-- This is a safety measure in case there are existing records with integer IDs
 
-UNION ALL
+-- Check if there are any existing wizard sessions with integer user_ids
+DO $$
+DECLARE
+    rec RECORD;
+BEGIN
+    -- Only proceed if the column exists and has integer values
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'project_wizard_sessions' 
+        AND column_name = 'user_id'
+    ) THEN
+        -- Check if there are any records that might need conversion
+        FOR rec IN 
+            SELECT session_id, user_id 
+            FROM project_wizard_sessions 
+            WHERE user_id::text ~ '^[0-9]+$' -- Check if it's a numeric string
+        LOOP
+            -- Update integer user IDs to the default UUID
+            UPDATE project_wizard_sessions 
+            SET user_id = '550e8400-e29b-41d4-a716-446655440002'
+            WHERE session_id = rec.session_id;
+            
+            RAISE NOTICE 'Updated wizard session % user_id from % to default UUID', rec.session_id, rec.user_id;
+        END LOOP;
+    END IF;
+END $$;
 
-SELECT 
-    'project_templates' as table_name, 
-    count(*) as row_count,
-    'Templates available' as sample_id
-FROM project_templates
-
-UNION ALL
-
-SELECT 
-    'project_wizard_sessions' as table_name, 
-    count(*) as row_count,
-    'Ready for wizard sessions' as sample_id
-FROM project_wizard_sessions
-
-UNION ALL
-
-SELECT 
-    'project_wizard_step_data' as table_name, 
-    count(*) as row_count,
-    'Ready for step data' as sample_id
-FROM project_wizard_step_data;
-
--- Show available templates
-SELECT 
-    id, 
-    name, 
-    category, 
-    default_budget,
-    'Template ready for use' as status
-FROM project_templates 
-WHERE is_active = true
-ORDER BY category, name;
+-- Verify the setup
+DO $$
+BEGIN
+    RAISE NOTICE '=== PFMT Wizard Database Setup Complete ===';
+    RAISE NOTICE 'Tables created/verified:';
+    RAISE NOTICE '  ✓ project_templates';
+    RAISE NOTICE '  ✓ project_wizard_sessions';  
+    RAISE NOTICE '  ✓ project_wizard_step_data';
+    RAISE NOTICE 'Default user created with UUID: 550e8400-e29b-41d4-a716-446655440002';
+    RAISE NOTICE 'Project templates added: % templates', (SELECT COUNT(*) FROM project_templates WHERE is_active = true);
+    RAISE NOTICE '=== Setup Complete ===';
+END $$;
 

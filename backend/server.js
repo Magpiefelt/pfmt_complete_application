@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { testConnection } = require('./config/database');
+const { devAuthMiddleware } = require('./middleware/devAuth');
 require('dotenv').config();
 
 const app = express();
@@ -47,6 +48,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Logging middleware
 app.use(morgan('combined'));
+
+// Development authentication middleware (before routes)
+app.use(devAuthMiddleware);
 
 // Static file serving for uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

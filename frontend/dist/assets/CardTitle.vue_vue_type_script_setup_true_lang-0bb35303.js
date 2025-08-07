@@ -1,1 +1,0 @@
-import{d as s}from"./VirtualScroll.vue_vue_type_style_index_0_scoped_a66a9b3d_lang-c469ee38.js";import{d as a,o,c as r,y as n,Q as t,b as l}from"./index-61977f9a.js";const i=a({__name:"CardTitle",setup(m){return(e,c)=>(o(),r("div",t({class:l(s)("leading-none font-semibold",e.$attrs.class)},e.$attrs),[n(e.$slots,"default")],16))}});export{i as _};

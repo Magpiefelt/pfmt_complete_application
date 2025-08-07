@@ -114,8 +114,21 @@ export const useProjectStore = defineStore('project', () => {
             const authStore = useAuthStore()
             const currentUser = authStore.currentUser
             if (currentUser) {
-              apiOptions.ownerId = currentUser.id
-              apiOptions.userId = currentUser.id
+              // Convert integer user ID to UUID format for backend compatibility
+              const convertUserIdToUuid = (userId: number): string => {
+                const uuidMap: Record<number, string> = {
+                  1: '550e8400-e29b-41d4-a716-446655440001',
+                  2: '550e8400-e29b-41d4-a716-446655440002',
+                  3: '550e8400-e29b-41d4-a716-446655440003',
+                  4: '550e8400-e29b-41d4-a716-446655440004',
+                  5: '550e8400-e29b-41d4-a716-446655440005'
+                }
+                
+                return uuidMap[userId] || '550e8400-e29b-41d4-a716-446655440002'
+              }
+              
+              apiOptions.ownerId = convertUserIdToUuid(currentUser.id)
+              apiOptions.userId = convertUserIdToUuid(currentUser.id)
               apiOptions.userRole = currentUser.role
             }
             break
@@ -126,7 +139,20 @@ export const useProjectStore = defineStore('project', () => {
       const authStore = useAuthStore()
       const currentUser = authStore.currentUser
       if (currentUser && !apiOptions.userId) {
-        apiOptions.userId = currentUser.id
+        // Convert integer user ID to UUID format for backend compatibility
+        const convertUserIdToUuid = (userId: number): string => {
+          const uuidMap: Record<number, string> = {
+            1: '550e8400-e29b-41d4-a716-446655440001',
+            2: '550e8400-e29b-41d4-a716-446655440002',
+            3: '550e8400-e29b-41d4-a716-446655440003',
+            4: '550e8400-e29b-41d4-a716-446655440004',
+            5: '550e8400-e29b-41d4-a716-446655440005'
+          }
+          
+          return uuidMap[userId] || '550e8400-e29b-41d4-a716-446655440002'
+        }
+        
+        apiOptions.userId = convertUserIdToUuid(currentUser.id)
         apiOptions.userRole = currentUser.role
         
         // For directors, ensure only approved project data is shown

@@ -21,24 +21,37 @@ const devAuthMiddleware = (req, res, next) => {
     const devUserRole = req.headers['x-user-role'];
 
     if (devUserId) {
-        // Validate that the provided user ID is a proper UUID
+        let userUuid;
+        
+        // Check if it's already a valid UUID
         if (uuidValidate(devUserId)) {
-            req.user = {
-                id: devUserId,
-                username: (devUserName || 'Dev User').toLowerCase().replace(/\s+/g, ''),
-                email: `${(devUserName || 'dev.user').toLowerCase().replace(/\s+/g, '.')}@gov.ab.ca`,
-                role: mapFrontendRoleToBackend(devUserRole || 'Project Manager'),
-                is_active: true,
-                name: devUserName || 'Dev User'
-            };
-            console.log(`✅ DevAuth: Using user ${req.user.id} (${req.user.name})`);
-            return next();
+            userUuid = devUserId;
+            console.log('✅ DevAuth: Using provided UUID:', userUuid);
         } else {
-            console.error('❌ DevAuth: Invalid x-user-id UUID format:', devUserId);
-            return res.status(400).json({
-                error: 'Invalid x-user-id; must be a valid UUID string (e.g., 550e8400-e29b-41d4-a716-446655440002)'
-            });
+            // Convert integer or other format to UUID using a deterministic mapping
+            const userIdNum = parseInt(devUserId) || 1;
+            const uuidMap = {
+                1: '550e8400-e29b-41d4-a716-446655440001',
+                2: '550e8400-e29b-41d4-a716-446655440002',
+                3: '550e8400-e29b-41d4-a716-446655440003',
+                4: '550e8400-e29b-41d4-a716-446655440004',
+                5: '550e8400-e29b-41d4-a716-446655440005'
+            };
+            
+            userUuid = uuidMap[userIdNum] || '550e8400-e29b-41d4-a716-446655440002';
+            console.log(`🔄 DevAuth: Converted user ID ${devUserId} to UUID: ${userUuid}`);
         }
+        
+        req.user = {
+            id: userUuid,
+            username: (devUserName || 'Dev User').toLowerCase().replace(/\s+/g, ''),
+            email: `${(devUserName || 'dev.user').toLowerCase().replace(/\s+/g, '.')}@gov.ab.ca`,
+            role: mapFrontendRoleToBackend(devUserRole || 'Project Manager'),
+            is_active: true,
+            name: devUserName || 'Dev User'
+        };
+        console.log(`✅ DevAuth: Using user ${req.user.id} (${req.user.name})`);
+        return next();
     } else {
         // No user ID header provided – use a default fallback user for convenience
         const defaultUserId = '550e8400-e29b-41d4-a716-446655440002'; // Standard example UUID

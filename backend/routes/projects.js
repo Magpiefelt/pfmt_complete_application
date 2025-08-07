@@ -17,7 +17,14 @@ router.get('/', authenticateToken, async (req, res) => {
             page = 1, 
             limit = 20,
             program,
-            region 
+            region,
+            ownerId,
+            userId,
+            userRole,
+            reportStatus,
+            approvedOnly,
+            includePendingDrafts,
+            includeVersions
         } = req.query;
 
         const offset = (page - 1) * limit;
@@ -29,7 +36,14 @@ router.get('/', authenticateToken, async (req, res) => {
             phase,
             search,
             program,
-            region
+            region,
+            ownerId: ownerId ? parseInt(ownerId) : undefined,
+            userId: userId ? parseInt(userId) : undefined,
+            userRole,
+            reportStatus,
+            approvedOnly: approvedOnly === 'true',
+            includePendingDrafts: includePendingDrafts === 'true',
+            includeVersions: includeVersions === 'true'
         };
 
         const projects = await Project.findAll(options);
