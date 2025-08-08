@@ -82,7 +82,7 @@ class Phase34EnhancementsController {
       const recentActivityQuery = `
         SELECT 
           'payment' as activity_type,
-          cp.amount,
+          cp.payment_amount,
           cp.payment_date as activity_date,
           c.contract_number as reference,
           v.name as vendor_name
@@ -175,7 +175,7 @@ class Phase34EnhancementsController {
       const paymentsQuery = `
         SELECT 
           cp.id,
-          cp.amount,
+          cp.payment_amount,
           cp.payment_date,
           cp.status,
           cp.source_ref,
@@ -306,7 +306,7 @@ class Phase34EnhancementsController {
               c.contract_number,
               v.name as vendor_name,
               p.project_name,
-              cp.amount,
+              cp.payment_amount,
               cp.payment_date,
               cp.status,
               cp.source_ref
@@ -500,9 +500,9 @@ class Phase34EnhancementsController {
           u.first_name || ' ' || u.last_name as user_name,
           u.email as user_email
         FROM audit_logs al
-        LEFT JOIN users u ON al.user_id = u.id
+        LEFT JOIN users u ON COALESCE(al.user_id, al.changed_by) = u.id
         ${whereClause}
-        ORDER BY al.timestamp DESC
+        ORDER BY COALESCE(al.changed_at, al.timestamp) DESC
         LIMIT $${limitParam} OFFSET $${offsetParam}
       `;
 

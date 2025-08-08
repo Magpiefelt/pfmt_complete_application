@@ -320,8 +320,8 @@ const getCalendarEvents = async (req, res) => {
         const eventsQuery = `
             SELECT 
                 ce.*,
-                p.name as project_name,
-                u.name as created_by_name
+                p.project_name as project_name,
+                (u.first_name || ' ' || u.last_name) as created_by_name
             FROM calendar_events ce
             LEFT JOIN projects p ON ce.project_id = p.id
             LEFT JOIN users u ON ce.created_by = u.id
@@ -406,7 +406,7 @@ const getGuidanceNotifications = async (req, res) => {
         const notificationsQuery = `
             SELECT 
                 gn.*,
-                p.name as project_name
+                p.project_name as project_name
             FROM guidance_notifications gn
             LEFT JOIN projects p ON gn.project_id = p.id
             ${whereClause}
@@ -607,8 +607,8 @@ const getProjectWorkflowState = async (req, res) => {
         const stateQuery = `
             SELECT 
                 pws.*,
-                u.name as entered_by_name,
-                assignee.name as next_action_assignee_name
+                (u.first_name || ' ' || u.last_name) as entered_by_name,
+                (assignee.first_name || ' ' || assignee.last_name) as next_action_assignee_name
             FROM project_workflow_states pws
             LEFT JOIN users u ON pws.entered_by = u.id
             LEFT JOIN users assignee ON pws.next_action_assignee = assignee.id

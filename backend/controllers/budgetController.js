@@ -9,9 +9,9 @@ class BudgetController {
       // Get main budget information
       const budgetQuery = `
         SELECT 
-          pb.*,
-          p.name as project_name,
-          p.status as project_status
+          pb.*, 
+          p.project_name as project_name,
+          p.project_status as project_status
         FROM project_budgets pb
         JOIN projects p ON pb.project_id = p.id
         WHERE pb.project_id = $1
@@ -50,7 +50,7 @@ class BudgetController {
         SELECT 
           be.*,
           bc.category_name,
-          u.name as created_by_name
+          (u.first_name || ' ' || u.last_name) as created_by_name
         FROM budget_entries be
         JOIN budget_categories bc ON be.category_id = bc.id
         LEFT JOIN users u ON be.created_by = u.id

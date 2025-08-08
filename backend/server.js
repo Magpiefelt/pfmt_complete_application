@@ -114,6 +114,11 @@ app.use('/api/phase3-4', require('./routes/phase3_4'));
 // Scheduled Submissions Routes
 app.use('/api/scheduled-submissions', require('./routes/scheduledSubmissions'));
 
+// Test endpoints for manual verification (development only)
+if (process.env.NODE_ENV === 'development') {
+    app.use('/api/test', require('./routes/test_endpoints'));
+}
+
 // Enhanced project routes for versioning and enhanced features
 // Note: Using existing projects route for now, can add versioning later
 // app.use('/api/projects-v2', require('./routes/projectVersions'));

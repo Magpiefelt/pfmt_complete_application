@@ -151,7 +151,7 @@ class VendorQualificationController {
       const assessmentsQuery = `
         SELECT 
           va.*,
-          u.name as assessor_name,
+          (u.first_name || ' ' || u.last_name) as assessor_name,
           vr.company_name
         FROM vendor_assessments va
         JOIN users u ON va.assessed_by = u.id
@@ -198,7 +198,7 @@ class VendorQualificationController {
         SELECT 
           va.*,
           vr.company_name,
-          u.name as assessor_name
+          (u.first_name || ' ' || u.last_name) as assessor_name
         FROM vendor_assessments va
         JOIN vendor_registrations vr ON va.vendor_id = vr.id
         LEFT JOIN users u ON va.assessed_by = u.id

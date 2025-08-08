@@ -81,7 +81,7 @@ class ReportingController {
       const topProjectsQuery = `
         SELECT 
           p.id,
-          p.name as project_name,
+          p.project_name as project_name,
           pb.total_budget,
           COALESCE(SUM(be.amount), 0) as total_spent,
           CASE 
@@ -94,7 +94,7 @@ class ReportingController {
         LEFT JOIN budget_categories bc ON pb.id = bc.budget_id
         LEFT JOIN budget_entries be ON bc.id = be.category_id AND be.status != 'Cancelled'
         WHERE ${whereClause}
-        GROUP BY p.id, p.name, pb.total_budget
+        GROUP BY p.id, p.project_name, pb.total_budget
         ORDER BY total_spent DESC
         LIMIT 10
       `;
@@ -192,7 +192,7 @@ class ReportingController {
       const varianceQuery = `
         SELECT 
           p.id as project_id,
-          p.name as project_name,
+          p.project_name as project_name,
           pb.fiscal_year,
           bc.id as category_id,
           bc.category_name,
@@ -210,7 +210,7 @@ class ReportingController {
         JOIN budget_categories bc ON pb.id = bc.budget_id
         LEFT JOIN budget_entries be ON bc.id = be.category_id AND be.status != 'Cancelled'
         WHERE ${whereClause}
-        GROUP BY p.id, p.name, pb.fiscal_year, bc.id, bc.category_name, bc.allocated_amount
+        GROUP BY p.id, p.project_name, pb.fiscal_year, bc.id, bc.category_name, bc.allocated_amount
         ORDER BY variance_percent ASC
       `;
 
@@ -297,7 +297,7 @@ class ReportingController {
       const cashFlowQuery = `
         SELECT 
           DATE_TRUNC($${paramCount + 1}, be.created_at) as period,
-          p.name as project_name,
+          p.project_name as project_name,
           SUM(CASE WHEN be.entry_type = 'Expense' THEN be.amount ELSE 0 END) as outflow,
           SUM(CASE WHEN be.entry_type = 'Income' THEN be.amount ELSE 0 END) as inflow,
           COUNT(be.id) as transaction_count
@@ -306,8 +306,8 @@ class ReportingController {
         JOIN project_budgets pb ON bc.budget_id = pb.id
         JOIN projects p ON pb.project_id = p.id
         WHERE ${whereClause}
-        GROUP BY DATE_TRUNC($${paramCount + 1}, be.created_at), p.name
-        ORDER BY period, p.name
+        GROUP BY DATE_TRUNC($${paramCount + 1}, be.created_at), p.project_name
+        ORDER BY period, p.project_name
       `;
 
       queryParams.push(period);
@@ -317,7 +317,7 @@ class ReportingController {
       const projectionQuery = `
         SELECT 
           cfp.projection_date,
-          p.name as project_name,
+          p.project_name as project_name,
           cfp.projected_inflow,
           cfp.projected_outflow,
           cfp.actual_inflow,
@@ -326,7 +326,7 @@ class ReportingController {
         JOIN projects p ON cfp.project_id = p.id
         WHERE cfp.projection_date >= CURRENT_DATE
         ${projectId ? `AND cfp.project_id = ${projectId}` : ''}
-        ORDER BY cfp.projection_date, p.name
+        ORDER BY cfp.projection_date, p.project_name
       `;
 
       const projectionResult = await pool.query(projectionQuery);
@@ -411,7 +411,7 @@ class ReportingController {
           v.name as vendor_name,
           v.contact_email,
           p.id as project_id,
-          p.name as project_name,
+          p.project_name as project_name,
           bc.category_name,
           COUNT(be.id) as transaction_count,
           SUM(be.amount) as total_amount,
@@ -426,7 +426,7 @@ class ReportingController {
         JOIN projects p ON pb.project_id = p.id
         WHERE ${whereClause}
         ${minAmount ? `HAVING SUM(be.amount) >= ${parseFloat(minAmount)}` : ''}
-        GROUP BY v.id, v.name, v.contact_email, p.id, p.name, bc.category_name
+        GROUP BY v.id, v.name, v.contact_email, p.id, p.project_name, bc.category_name
         ORDER BY total_amount DESC
       `;
 
@@ -545,13 +545,13 @@ class ReportingController {
       const reportsQuery = `
         SELECT 
           fr.*,
-          u.name as created_by_name,
+          (u.first_name || ' ' || u.last_name) as created_by_name,
           COUNT(rs.id) as subscriber_count
         FROM financial_reports fr
         JOIN users u ON fr.created_by = u.id
         LEFT JOIN report_subscriptions rs ON fr.id = rs.report_id AND rs.is_active = true
         WHERE ${whereClause}
-        GROUP BY fr.id, u.name
+        GROUP BY fr.id, u.first_name, u.last_name
         ORDER BY fr.created_at DESC
       `;
 

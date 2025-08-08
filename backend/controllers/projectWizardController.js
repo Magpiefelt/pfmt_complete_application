@@ -356,16 +356,17 @@ class ProjectWizardController {
 
       // Assign team members if provided
       if (teamInfo.teamMembers && teamInfo.teamMembers.length > 0) {
-        for (const member of teamInfo.teamMembers) {
-          const assignmentQuery = `
-            INSERT INTO project_team_assignments (
-              project_id, user_id, role, assigned_at, assigned_by
-            ) VALUES ($1, $2, $3, NOW(), $4)
-          `;
-          await client.query(assignmentQuery, [
-            projectId, member.userId, member.role, userId
-          ]);
-        }
+        // Store additional team members in the project_teams.additional_members JSONB column
+        const additionalMembers = teamInfo.teamMembers.map(member => ({
+          userId: member.userId,
+          role: member.role,
+          assigned_at: new Date().toISOString(),
+          assigned_by: userId
+        }));
+        await client.query(
+          'UPDATE project_teams SET additional_members = $2 WHERE project_id = $1',
+          [projectId, JSON.stringify(additionalMembers)]
+        );
       }
 
       // Clean up wizard session

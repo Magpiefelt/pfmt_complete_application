@@ -10,7 +10,7 @@
     "migrate": "node database/migrate.js migrate",
     "migrate:status": "node database/migrate.js status",
     "migrate:create": "node database/migrate.js create",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --testTimeout=30000"
   },
   "keywords": [
     "express",
@@ -49,6 +49,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "jest": "^30.0.5",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.4"
   }
 }

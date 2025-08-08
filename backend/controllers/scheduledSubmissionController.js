@@ -172,7 +172,7 @@ class ScheduledSubmissionController {
                     ss.status,
                     ss.error_message,
                     ss.created_at,
-                    p.name as project_name,
+                    p.project_name as project_name,
                     pv.version_number
                 FROM scheduled_submissions ss
                 INNER JOIN projects p ON ss.project_id = p.id
@@ -229,7 +229,7 @@ class ScheduledSubmissionController {
             const eligibleQuery = `
                 SELECT DISTINCT 
                     p.id as project_id,
-                    p.name as project_name,
+                    p.project_name as project_name,
                     p.auto_submission_enabled,
                     pv.id as version_id,
                     pv.version_number,
@@ -246,7 +246,7 @@ class ScheduledSubmissionController {
                 WHERE pv.status = 'draft'
                     AND pv.is_current = true
                     AND p.auto_submission_enabled = true
-                ORDER BY p.name, pv.version_number DESC
+                ORDER BY p.project_name, pv.version_number DESC
             `;
 
             const result = await pool.query(eligibleQuery);
