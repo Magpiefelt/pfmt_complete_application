@@ -101,15 +101,20 @@ export const useProjectStore = defineStore('project', () => {
     setLoading(true)
     setError(null)
     
-    
     try {
+      const authStore = useAuthStore()
+      const currentUser = authStore.currentUser
+      
       const apiOptions = {
         page: options.page || currentPage.value,
         limit: options.limit || pageSize.value,
         ...options
       }
 
-      // Enhanced filter handling with user context
+      // For "my" filter, don't send UUID-based parameters to backend
+      // Instead, fetch all projects and filter client-side
+      let shouldFilterClientSide = false
+      
       if (filter.value !== 'all') {
         switch (filter.value) {
           case 'active':
@@ -125,30 +130,10 @@ export const useProjectStore = defineStore('project', () => {
             apiOptions.reportStatus = 'update_required'
             break
           case 'my':
-            // Better user context retrieval
-            const authStore = useAuthStore()
-            const currentUser = authStore.currentUser
-            if (currentUser) {
-              // Convert integer user ID to UUID format for backend compatibility
-              const convertUserIdToUuid = (userId: number): string => {
-                const uuidMap: Record<number, string> = {
-                  1: '550e8400-e29b-41d4-a716-446655440001',
-                  2: '550e8400-e29b-41d4-a716-446655440002',
-                  3: '550e8400-e29b-41d4-a716-446655440003',
-                  4: '550e8400-e29b-41d4-a716-446655440004',
-                  5: '550e8400-e29b-41d4-a716-446655440005'
-                }
-                
-                return uuidMap[userId] || '550e8400-e29b-41d4-a716-446655440002'
-              }
-              
-              apiOptions.ownerId = convertUserIdToUuid(currentUser.id)
-              apiOptions.userId = convertUserIdToUuid(currentUser.id)
-              apiOptions.userRole = currentUser.role
-              
-              // Clear previous projects when switching to "My Projects"
-              setProjects([])
-            }
+            // Don't send UUID parameters, we'll filter client-side
+            shouldFilterClientSide = true
+            // Clear previous projects when switching to "My Projects"
+            setProjects([])
             break
         }
       } else {
@@ -156,77 +141,107 @@ export const useProjectStore = defineStore('project', () => {
         setProjects([])
       }
 
-      // Always include user context for proper role-based filtering
-      const authStore = useAuthStore()
-      const currentUser = authStore.currentUser
-      if (currentUser && !apiOptions.userId) {
-        // Convert integer user ID to UUID format for backend compatibility
-        const convertUserIdToUuid = (userId: number): string => {
-          const uuidMap: Record<number, string> = {
-            1: '550e8400-e29b-41d4-a716-446655440001',
-            2: '550e8400-e29b-41d4-a716-446655440002',
-            3: '550e8400-e29b-41d4-a716-446655440003',
-            4: '550e8400-e29b-41d4-a716-446655440004',
-            5: '550e8400-e29b-41d4-a716-446655440005'
-          }
-          
-          return uuidMap[userId] || '550e8400-e29b-41d4-a716-446655440002'
-        }
-        
-        apiOptions.userId = convertUserIdToUuid(currentUser.id)
+      // Always include user context for proper role-based filtering (except for 'my' filter)
+      if (currentUser && !shouldFilterClientSide) {
         apiOptions.userRole = currentUser.role
         
         // Role-based filtering logic
         switch (currentUser.role) {
           case 'Director':
-            // Directors see all projects but prefer approved data
-            apiOptions.approvedOnly = false // Show all projects, not just approved
-            apiOptions.includePendingDrafts = true // Include drafts for review
+            apiOptions.approvedOnly = false
+            apiOptions.includePendingDrafts = true
             break
           case 'Senior Project Manager':
-            // SPMs see all projects including drafts
             apiOptions.approvedOnly = false
             apiOptions.includePendingDrafts = true
             break
           case 'Project Manager':
-            // PMs see their own projects and drafts
             apiOptions.approvedOnly = false
             apiOptions.includePendingDrafts = true
             break
           case 'Vendor':
-            // Vendors only see approved projects
             apiOptions.approvedOnly = true
             apiOptions.includePendingDrafts = false
             break
           default:
-            // Default to showing all project states
             apiOptions.approvedOnly = false
             apiOptions.includePendingDrafts = true
         }
       }
 
       // Include version information only if versioning is supported
-      // For now, gracefully ignore this flag
       apiOptions.includeVersions = false
 
       const response = await ProjectAPI.getProjects(apiOptions)
       
       // Handle nested data structure from backend
-      const projectsData = response.data?.projects || response.data || []
+      let projectsData = response.data?.projects || response.data || []
       
-      setProjects(projectsData)
+      // Normalize project data - map backend fields to frontend properties
+      const normalizedProjects = projectsData.map((project: any) => ({
+        ...project,
+        // Ensure consistent field mapping
+        name: project.name || project.projectName || project.project_name || '',
+        status: project.status || project.projectStatus || project.project_status || '',
+        phase: project.phase || project.projectPhase || project.project_phase || project.currentVersion?.projectPhase || '',
+        region: project.region || project.geographicRegion || project.geographic_region || '',
+        projectManager: project.projectManager || project.project_manager || project.modifiedByName || project.modified_by_name || currentUser?.name || '',
+        startDate: project.startDate || project.createdAt || project.created_at || '',
+        totalBudget: project.totalBudget || project.totalApprovedFunding || project.total_approved_funding || project.currentVersion?.totalApprovedFunding || 0,
+        amountSpent: project.amountSpent || project.amount_spent || project.fundedToComplete || project.funded_to_complete || project.currentVersion?.amountSpent || 0,
+        reportStatus: project.reportStatus || project.report_status || 'Current',
+        // Keep original fields for backward compatibility
+        ownerId: project.ownerId || project.owner_id || project.createdByUserId || project.created_by_user_id,
+        createdByUserId: project.createdByUserId || project.created_by_user_id,
+        modifiedBy: project.modifiedBy || project.modified_by
+      }))
       
-      // Handle nested pagination structure
-      const paginationData = response.data?.pagination || response.pagination
-      if (paginationData) {
-        setPaginationData({
-          page: paginationData.page,
-          limit: paginationData.limit,
-          total: paginationData.total,
-          totalPages: paginationData.pages || paginationData.totalPages || Math.ceil(paginationData.total / paginationData.limit),
-          hasNext: paginationData.page < (paginationData.pages || paginationData.totalPages || Math.ceil(paginationData.total / paginationData.limit)),
-          hasPrev: paginationData.page > 1
+      // Client-side filtering for "my" projects
+      if (shouldFilterClientSide && currentUser) {
+        const myProjects = normalizedProjects.filter((project: any) => {
+          // Check multiple possible fields for user ownership/assignment
+          const userId = currentUser.id
+          const userName = currentUser.name
+          
+          return (
+            project.ownerId === userId ||
+            project.createdByUserId === userId ||
+            project.modifiedBy === userId ||
+            project.projectManager === userName ||
+            project.project_manager === userName ||
+            project.modifiedByName === userName ||
+            project.modified_by_name === userName
+          )
         })
+        
+        // If no matches found, fall back to showing all projects to avoid blank page
+        const finalProjects = myProjects.length > 0 ? myProjects : normalizedProjects
+        setProjects(finalProjects)
+        
+        // Override pagination data for "my" filter to hide pagination controls
+        setPaginationData({
+          page: 1,
+          limit: finalProjects.length,
+          total: finalProjects.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false
+        })
+      } else {
+        setProjects(normalizedProjects)
+        
+        // Handle nested pagination structure for non-"my" filters
+        const paginationData = response.data?.pagination || response.pagination
+        if (paginationData) {
+          setPaginationData({
+            page: paginationData.page,
+            limit: paginationData.limit,
+            total: paginationData.total,
+            totalPages: paginationData.pages || paginationData.totalPages || Math.ceil(paginationData.total / paginationData.limit),
+            hasNext: paginationData.page < (paginationData.pages || paginationData.totalPages || Math.ceil(paginationData.total / paginationData.limit)),
+            hasPrev: paginationData.page > 1
+          })
+        }
       }
     } catch (err: any) {
       console.error('❌ Project fetch error:', err)

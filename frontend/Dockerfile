@@ -27,8 +27,8 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S nginx -u 1001 -G nginx
+RUN addgroup -g 1001 -S nginxuser && \
+    adduser -S nginxuser -u 1001 -G nginxuser
 
 # Change ownership of nginx directories
 RUN chown -R nginx:nginx /var/cache/nginx && \
@@ -37,7 +37,7 @@ RUN chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /usr/share/nginx/html
 
 # Switch to non-root user
-USER nginx
+USER nginxuser
 
 # Expose port
 EXPOSE 3000

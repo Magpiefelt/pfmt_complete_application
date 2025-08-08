@@ -32,7 +32,7 @@
           v-for="project in projects" 
           :key="project.id" 
           :project="project" 
-          @select="$emit('projectSelect', project)"
+          @select="(p) => $emit('projectSelect', p)"
         />
       </div>
 

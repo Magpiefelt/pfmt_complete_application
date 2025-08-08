@@ -119,6 +119,10 @@ const props = defineProps<{
   project: Project
 }>()
 
+const emit = defineEmits<{
+  select: [Project]
+}>()
+
 const router = useRouter()
 
 // Computed properties to handle both new and legacy data structures
@@ -127,44 +131,58 @@ const contractor = computed(() => {
 })
 
 const phase = computed(() => {
-  return props.project.currentVersion?.projectPhase || 
-         props.project.phase || 
+  // Check multiple property names and default to empty string instead of demo values
+  return props.project.phase || 
+         props.project.currentVersion?.projectPhase || 
          props.project.projectPhase || 
-         'Construction'
+         props.project.project_phase || 
+         ''
 })
 
 const region = computed(() => {
-  return props.project.region || 'Central'
+  // Check multiple property names and default to empty string instead of demo values
+  return props.project.region || 
+         props.project.geographicRegion || 
+         props.project.geographic_region || 
+         ''
 })
 
 const startDate = computed(() => {
   return props.project.startDate || 
          props.project.createdAt || 
+         props.project.created_at || 
          '2024-01-15'
 })
 
 const projectManager = computed(() => {
+  // Check multiple property names and default to empty string instead of demo values
   return props.project.projectManager || 
+         props.project.project_manager ||
          props.project.currentVersion?.team?.projectManager ||
-         'Sarah Johnson'
+         props.project.modifiedByName ||
+         props.project.modified_by_name ||
+         ''
 })
 
 const reportStatus = computed(() => {
   return props.project.reportStatus || 
+         props.project.report_status ||
          props.project.currentVersion?.reportStatus ||
          'Update Required'
 })
 
 const totalBudget = computed(() => {
-  return props.project.currentVersion?.totalApprovedFunding || 
-         props.project.totalBudget || 
+  return props.project.totalBudget ||
+         props.project.currentVersion?.totalApprovedFunding || 
          props.project.totalApprovedFunding ||
+         props.project.total_approved_funding ||
          0
 })
 
 const amountSpent = computed(() => {
-  return props.project.currentVersion?.amountSpent || 
-         props.project.amountSpent || 
+  return props.project.amountSpent ||
+         props.project.currentVersion?.amountSpent || 
+         props.project.amount_spent || 
          0
 })
 
@@ -189,6 +207,9 @@ const hasPendingDraft = computed(() => {
 })
 
 const navigateToProject = () => {
+  // Emit select event first
+  emit('select', props.project)
+  // Then navigate
   router.push(`/projects/${props.project.id}`)
 }
 </script>

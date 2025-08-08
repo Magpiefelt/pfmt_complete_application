@@ -1,13 +1,13 @@
-import { computed, watch, onMounted, ref, toRef } from 'vue'
+import { computed, watch, onMounted, ref, toRef, isRef, type Ref } from 'vue'
 import { useProjectStore } from '@/stores/project'
 import { useAuthStore } from '@/stores/auth'
 
-export const useProjects = (filterParam = 'all') => {
+export const useProjects = (filterParam: string | Ref<string> = 'all') => {
   const projectStore = useProjectStore()
   const authStore = useAuthStore()
 
-  // Make filter reactive
-  const filter = ref(filterParam)
+  // Make filter reactive - handle both string and ref/computed inputs
+  const filter = ref(isRef(filterParam) ? filterParam.value : filterParam)
 
   // Computed properties from store
   const projects = computed(() => projectStore.filteredProjects)
@@ -28,12 +28,21 @@ export const useProjects = (filterParam = 'all') => {
   }))
 
   // Watch for filter changes from parent component
-  watch(() => filterParam, (newFilter) => {
-    filter.value = newFilter
-  }, { immediate: true })
+  if (isRef(filterParam)) {
+    // If filterParam is reactive, watch its value
+    watch(filterParam, (newFilter) => {
+      filter.value = newFilter
+    }, { immediate: true })
+  } else {
+    // If filterParam is a primitive, watch the primitive directly
+    watch(() => filterParam, (newFilter) => {
+      filter.value = newFilter
+    }, { immediate: true })
+  }
 
   // Set filter and fetch projects when filter changes
   watch(filter, (newFilter) => {
+    // Immediately call projectStore.setFilter when filter changes
     projectStore.setFilter(newFilter)
   }, { immediate: true })
 
