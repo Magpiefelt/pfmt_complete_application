@@ -14,24 +14,26 @@ class ProjectWizardController {
       }
 
       const userId = req.user.id;
+      const templateId = req.body.templateId || null; // Optional template selection
       const sessionId = `wizard_${userId}_${Date.now()}`;
       
-      console.log('Initializing wizard for user:', userId, 'sessionId:', sessionId);
+      console.log('Initializing wizard for user:', userId, 'sessionId:', sessionId, 'templateId:', templateId);
       
       // Create wizard session in database
       const queryText = `
-        INSERT INTO project_wizard_sessions (session_id, user_id, current_step, created_at, updated_at)
-        VALUES ($1, $2, 1, NOW(), NOW())
+        INSERT INTO project_wizard_sessions (session_id, user_id, current_step, template_id, created_at, updated_at)
+        VALUES ($1, $2, 1, $3, NOW(), NOW())
         RETURNING *
       `;
       
-      const result = await query(queryText, [sessionId, userId]);
+      const result = await query(queryText, [sessionId, userId, templateId]);
       
       res.json({
         success: true,
         sessionId: sessionId,
         currentStep: 1,
         totalSteps: 5,
+        templateId: templateId,
         data: result.rows[0]
       });
     } catch (error) {

@@ -8,6 +8,7 @@ export function useProjectWizard() {
   const currentStep = ref(1)
   const isProcessing = ref(false)
   const autoSaveStatus = ref<'saving' | 'saved' | null>(null)
+  const isDemoMode = ref(false) // Track if we're in demo mode
 
   // Get project store for integration
   const projectStore = useProjectStore()
@@ -49,6 +50,8 @@ export function useProjectWizard() {
   const initializeWizard = async () => {
     try {
       isProcessing.value = true
+      isDemoMode.value = false // Reset demo mode flag
+      
       const result = await ProjectWizardService.initializeWizard()
       
       sessionId.value = result.sessionId
@@ -58,16 +61,85 @@ export function useProjectWizard() {
     } catch (error: any) {
       console.error('Error initializing wizard:', error)
       
-      // Handle authentication errors gracefully
-      if (error.message.includes('Authentication required')) {
-        console.warn('User not authenticated, wizard may have limited functionality')
-        // Don't throw error, allow wizard to continue with limited functionality
+      // Handle different types of errors with specific user-friendly messages
+      if (error.response?.status === 401 || error.message?.includes('Authentication required')) {
+        console.warn('User not authenticated, providing demo mode fallback')
+        
+        // Provide demo mode fallback
         sessionId.value = `demo_${Date.now()}`
         currentStep.value = 1
+        isDemoMode.value = true
+        
+        // Show user-friendly message
+        const message = 'Unable to connect to the server. You can continue in demo mode, but your progress will not be saved. Please refresh the page to try again.'
+        
+        // Use a more user-friendly notification instead of alert
+        if (typeof window !== 'undefined' && window.alert) {
+          alert(message)
+        } else {
+          console.warn('Demo mode active:', message)
+        }
+        
+        return
+      } else if (error.response?.status === 500 || error.message?.includes('database') || error.message?.includes('server')) {
+        console.error('Server or database error during wizard initialization')
+        
+        // Provide demo mode fallback for server errors
+        sessionId.value = `demo_${Date.now()}`
+        currentStep.value = 1
+        isDemoMode.value = true
+        
+        const message = 'There was a server error while starting the wizard. You can continue in demo mode, but your progress will not be saved. Please try again later or contact support if the problem persists.'
+        
+        if (typeof window !== 'undefined' && window.alert) {
+          alert(message)
+        } else {
+          console.warn('Demo mode active due to server error:', message)
+        }
+        
+        return
+      } else if (error.response?.status >= 400 && error.response?.status < 500) {
+        // Client errors (4xx)
+        const message = `Unable to start the wizard: ${error.message || 'Client error'}. Please refresh the page and try again.`
+        
+        if (typeof window !== 'undefined' && window.alert) {
+          alert(message)
+        }
+        
+        throw new Error(message)
+      } else if (!navigator.onLine) {
+        // Network connectivity issues
+        console.warn('Network connectivity issue detected')
+        
+        sessionId.value = `demo_${Date.now()}`
+        currentStep.value = 1
+        isDemoMode.value = true
+        
+        const message = 'No internet connection detected. You can continue in demo mode, but your progress will not be saved. Please check your connection and refresh the page.'
+        
+        if (typeof window !== 'undefined' && window.alert) {
+          alert(message)
+        } else {
+          console.warn('Demo mode active due to network issue:', message)
+        }
+        
         return
       }
       
-      throw error
+      // For any other unexpected errors, provide a generic fallback
+      console.error('Unexpected error during wizard initialization:', error)
+      
+      sessionId.value = `demo_${Date.now()}`
+      currentStep.value = 1
+      isDemoMode.value = true
+      
+      const message = 'An unexpected error occurred while starting the wizard. You can continue in demo mode, but your progress will not be saved. Please refresh the page to try again.'
+      
+      if (typeof window !== 'undefined' && window.alert) {
+        alert(message)
+      } else {
+        console.warn('Demo mode active due to unexpected error:', message)
+      }
     } finally {
       isProcessing.value = false
     }
@@ -78,6 +150,16 @@ export function useProjectWizard() {
     try {
       isProcessing.value = true
       autoSaveStatus.value = 'saving'
+      
+      // Skip API call in demo mode
+      if (isDemoMode.value) {
+        console.log(`Demo mode: Simulating save for step ${stepId}`)
+        autoSaveStatus.value = 'saved'
+        setTimeout(() => {
+          autoSaveStatus.value = null
+        }, 1000)
+        return { success: true, demo: true }
+      }
       
       const result = await ProjectWizardService.saveStepData(sessionId.value!, stepId, stepData)
       
@@ -91,6 +173,14 @@ export function useProjectWizard() {
     } catch (error) {
       console.error('Error saving step data:', error)
       autoSaveStatus.value = null
+      
+      // Provide user-friendly error message
+      const message = `Failed to save step ${stepId} data. Your progress may not be saved. Please try again or refresh the page.`
+      
+      if (typeof window !== 'undefined' && window.alert) {
+        alert(message)
+      }
+      
       throw error
     } finally {
       isProcessing.value = false
@@ -136,6 +226,17 @@ export function useProjectWizard() {
     try {
       isProcessing.value = true
       
+      // Handle demo mode
+      if (isDemoMode.value) {
+        const message = 'Demo mode active: Project cannot be saved to the database. Please refresh the page and try again with a proper connection to create a real project.'
+        
+        if (typeof window !== 'undefined' && window.alert) {
+          alert(message)
+        }
+        
+        throw new Error('Cannot complete wizard in demo mode')
+      }
+      
       console.log('Completing wizard with session:', sessionId.value)
       
       // Complete the wizard via API
@@ -160,16 +261,51 @@ export function useProjectWizard() {
       
       // Provide more specific error messages
       if (error instanceof Error) {
-        if (error.message.includes('session not found')) {
-          throw new Error('Wizard session expired. Please start over.')
-        } else if (error.message.includes('validation')) {
-          throw new Error('Please check all required fields and try again.')
-        } else if (error.message.includes('Authentication')) {
-          throw new Error('Authentication required. Please refresh the page and try again.')
+        if (error.message.includes('demo mode')) {
+          throw error // Re-throw demo mode errors as-is
+        } else if (error.message.includes('session not found') || error.message.includes('session expired')) {
+          const message = 'Your wizard session has expired. Please start over by refreshing the page and beginning a new project.'
+          
+          if (typeof window !== 'undefined' && window.alert) {
+            alert(message)
+          }
+          
+          throw new Error(message)
+        } else if (error.message.includes('validation') || error.message.includes('required')) {
+          const message = 'Please check that all required fields are filled out correctly and try again.'
+          
+          if (typeof window !== 'undefined' && window.alert) {
+            alert(message)
+          }
+          
+          throw new Error(message)
+        } else if (error.message.includes('Authentication') || error.message.includes('401')) {
+          const message = 'Your session has expired. Please refresh the page, log in again, and try creating the project again.'
+          
+          if (typeof window !== 'undefined' && window.alert) {
+            alert(message)
+          }
+          
+          throw new Error(message)
+        } else if (error.message.includes('500') || error.message.includes('server') || error.message.includes('database')) {
+          const message = 'There was a server error while creating your project. Please try again in a few moments, or contact support if the problem persists.'
+          
+          if (typeof window !== 'undefined' && window.alert) {
+            alert(message)
+          }
+          
+          throw new Error(message)
         }
       }
       
-      throw error
+      // Generic error fallback
+      const message = 'An unexpected error occurred while creating your project. Please try again or contact support if the problem persists.'
+      
+      if (typeof window !== 'undefined' && window.alert) {
+        alert(message)
+      }
+      
+      throw new Error(message)
     } finally {
       isProcessing.value = false
     }
@@ -295,6 +431,7 @@ export function useProjectWizard() {
     wizardData,
     isProcessing,
     autoSaveStatus,
+    isDemoMode,
     
     // Methods
     initializeWizard,
