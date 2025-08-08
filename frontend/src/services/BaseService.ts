@@ -5,7 +5,7 @@ import { ApiError } from './ApiError'
  * Provides authentication, error handling, and request utilities
  */
 export abstract class BaseService {
-  protected static readonly API_BASE = 'http://localhost:3002/api'
+  protected static readonly API_BASE = '/api'
 
   /**
    * Get authentication headers

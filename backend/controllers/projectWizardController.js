@@ -283,8 +283,8 @@ class ProjectWizardController {
         INSERT INTO projects (
           project_name, project_description, project_status, project_phase, project_type, 
           delivery_type, program, geographic_region, cpd_number, approval_year,
-          project_category, funded_to_complete, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+          project_category, funded_to_complete, modified_by, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
         RETURNING *
       `;
 
@@ -305,7 +305,8 @@ class ProjectWizardController {
         cpdNumber,                                       // $9: cpd_number (text)
         currentYear,                                     // $10: approval_year (text)
         basicInfo.category || 'construction',           // $11: project_category (text)
-        Boolean(basicInfo.fundedToComplete || false)    // $12: funded_to_complete (boolean)
+        Boolean(basicInfo.fundedToComplete || false),   // $12: funded_to_complete (boolean)
+        userId                                           // $13: modified_by (UUID) - associates project with creating user
       ];
 
       console.log('Project parameters:', projectParams.map((param, index) => 

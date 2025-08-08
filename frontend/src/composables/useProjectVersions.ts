@@ -151,7 +151,7 @@ export function useProjectVersions() {
   })
   
   // API Base URL
-  const API_BASE = 'http://localhost:3002/api/phase2'
+  const API_BASE = '/api/phase2'
   
   // Helper function to get auth headers using the same pattern as apiService
   const getAuthHeaders = () => {
@@ -203,11 +203,15 @@ export function useProjectVersions() {
     error.value = null
     
     try {
-      const response = await fetch(`${API_BASE}/${projectId}`, {
+      // Use the main projects API endpoint, not phase2
+      const response = await fetch(`/api/projects/${projectId}`, {
         headers: getAuthHeaders()
       })
       
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Project not found')
+        }
         const errorData = await response.json()
         throw new Error(errorData.error?.message || 'Failed to get project')
       }
@@ -314,7 +318,7 @@ export function useProjectVersions() {
     
     try {
       // Get current project data to create version snapshot
-      const projectResponse = await fetch(`http://localhost:3002/api/projects/${projectId}`, {
+      const projectResponse = await fetch(`/api/projects/${projectId}`, {
         headers: getAuthHeaders()
       })
       

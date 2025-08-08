@@ -4,6 +4,25 @@ FROM node:20-alpine AS base
 # Install system dependencies
 RUN apk add --no-cache git
 
+# --- Development stage ---
+FROM base AS development
+WORKDIR /app
+
+# Copy package files
+COPY frontend/package*.json ./
+
+# Install dependencies (including dev dependencies)
+RUN npm install
+
+# Copy source code (this will be overridden by volume mount in development)
+COPY frontend/ ./
+
+# Expose development port
+EXPOSE 5173
+
+# Development command (will be overridden by docker-compose)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+
 # --- Dependencies stage ---
 FROM base AS deps
 WORKDIR /app

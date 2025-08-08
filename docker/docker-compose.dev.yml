@@ -73,12 +73,10 @@ services:
     build:
       context: ..
       dockerfile: ./docker/frontend.Dockerfile
-      target: base
+      target: development
     container_name: pfmt_frontend_dev
     restart: unless-stopped
     env_file: ./.env
-    environment:
-      VITE_API_BASE_URL: http://localhost:3000/api
     ports:
       - "5173:5173"
     volumes:

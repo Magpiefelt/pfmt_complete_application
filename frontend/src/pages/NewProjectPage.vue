@@ -191,9 +191,35 @@ const startWizardWithTemplate = (template: any) => {
 }
 
 // Handle wizard completion
-const handleWizardCompleted = (project: any) => {
-  // Navigate to the newly created project
-  router.push(`/projects/${project.id}`)
+const handleWizardCompleted = async (project: any) => {
+  console.log('Wizard completed with project:', project)
+  
+  try {
+    // Show success message
+    if (typeof window !== 'undefined' && window.alert) {
+      alert(`Project "${project.projectName || project.name || 'New Project'}" created successfully!`)
+    }
+    
+    // Navigate to the newly created project
+    if (project.id) {
+      console.log('Navigating to project:', project.id)
+      await router.push(`/projects/${project.id}`)
+    } else {
+      console.warn('Project created but no ID provided, navigating to projects list')
+      await router.push('/projects?filter=my')
+    }
+  } catch (navigationError) {
+    console.error('Navigation error:', navigationError)
+    
+    // If navigation fails, at least go to the projects list
+    try {
+      await router.push('/projects')
+    } catch (fallbackError) {
+      console.error('Fallback navigation also failed:', fallbackError)
+      // Force page reload as last resort
+      window.location.href = '/projects'
+    }
+  }
 }
 
 // Handle wizard cancellation

@@ -244,16 +244,8 @@ export function useProjectWizard() {
       
       console.log('Project created successfully:', project)
       
-      // Update the project store to refresh the projects list
-      try {
-        // Use the project store's addProject method to ensure the list is updated
-        await projectStore.addProject(project)
-        console.log('Project store updated successfully')
-      } catch (storeError) {
-        console.warn('Failed to update project store:', storeError)
-        // Don't fail the entire process if store update fails
-        // The project was still created successfully
-      }
+      // Don't call project store here - let the navigation handle the refresh
+      // This prevents any potential timing issues or API conflicts
       
       return project
     } catch (error) {
@@ -289,6 +281,14 @@ export function useProjectWizard() {
           throw new Error(message)
         } else if (error.message.includes('500') || error.message.includes('server') || error.message.includes('database')) {
           const message = 'There was a server error while creating your project. Please try again in a few moments, or contact support if the problem persists.'
+          
+          if (typeof window !== 'undefined' && window.alert) {
+            alert(message)
+          }
+          
+          throw new Error(message)
+        } else if (error.message.includes('fetch') || error.message.includes('network')) {
+          const message = 'Network error occurred while creating your project. Please check your connection and try again.'
           
           if (typeof window !== 'undefined' && window.alert) {
             alert(message)

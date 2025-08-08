@@ -1,5 +1,6 @@
 // Enhanced API service with comprehensive error handling and PostgreSQL backend support
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'
+// Always use relative URLs in the browser to work with Vite proxy
+const API_BASE_URL = '/api'
 
 export interface ApiResponse<T> {
   success: boolean

@@ -1,10 +1,13 @@
-import { computed, watch, onMounted } from 'vue'
+import { computed, watch, onMounted, ref, toRef } from 'vue'
 import { useProjectStore } from '@/stores/project'
 import { useAuthStore } from '@/stores/auth'
 
-export const useProjects = (filter = 'all') => {
+export const useProjects = (filterParam = 'all') => {
   const projectStore = useProjectStore()
   const authStore = useAuthStore()
+
+  // Make filter reactive
+  const filter = ref(filterParam)
 
   // Computed properties from store
   const projects = computed(() => projectStore.filteredProjects)
@@ -24,10 +27,14 @@ export const useProjects = (filter = 'all') => {
     setPageSize: projectStore.setPageSize
   }))
 
+  // Watch for filter changes from parent component
+  watch(() => filterParam, (newFilter) => {
+    filter.value = newFilter
+  }, { immediate: true })
+
   // Set filter and fetch projects when filter changes
-  watch(() => filter, (newFilter) => {
+  watch(filter, (newFilter) => {
     projectStore.setFilter(newFilter)
-    projectStore.fetchProjects()
   }, { immediate: true })
 
   // Fetch projects on mount

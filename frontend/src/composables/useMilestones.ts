@@ -41,8 +41,8 @@ export function useMilestones() {
       // If versionId is provided, load from specific version
       // Otherwise, load from current project data
       const endpoint = versionId 
-        ? `http://localhost:3002/api/phase2/projects/${projectId}/versions/${versionId}`
-        : `http://localhost:3002/api/projects/${projectId}`
+        ? `/api/phase2/projects/${projectId}/versions/${versionId}`
+        : `/api/projects/${projectId}`
       
       const response = await fetch(endpoint, {
         headers: getAuthHeaders()
@@ -106,7 +106,7 @@ export function useMilestones() {
       }
       
       // First, check if there's a draft version
-      const versionsResponse = await fetch(`http://localhost:3002/api/phase2/projects/${projectId}/versions`, {
+      const versionsResponse = await fetch(`/api/phase2/projects/${projectId}/versions`, {
         headers: getAuthHeaders()
       })
       
@@ -123,7 +123,7 @@ export function useMilestones() {
       
       // If no draft version exists, create one
       if (!draftVersion) {
-        const createDraftResponse = await fetch(`http://localhost:3002/api/phase2/projects/${projectId}/versions`, {
+        const createDraftResponse = await fetch(`/api/phase2/projects/${projectId}/versions`, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
@@ -142,7 +142,7 @@ export function useMilestones() {
       }
       
       // Update the draft version with milestone data
-      const updateResponse = await fetch(`http://localhost:3002/api/phase2/${projectId}/versions/${draftVersion.id}`, {
+      const updateResponse = await fetch(`/api/phase2/${projectId}/versions/${draftVersion.id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({

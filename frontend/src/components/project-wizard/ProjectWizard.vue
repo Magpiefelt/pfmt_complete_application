@@ -339,32 +339,17 @@ const createProject = async () => {
     // Complete the wizard and get the project
     const project = await completeWizard()
     
-    // Update the project store to refresh the projects list
-    try {
-      await projectStore.addProject(project)
-    } catch (storeError) {
-      console.warn('Failed to update project store, but project was created:', storeError)
-      // Don't fail the entire process if store update fails
-    }
+    console.log('Project created successfully:', project)
     
     // Emit the completion event with the project data
+    // Let the parent component handle navigation and any store updates
     emit('wizardCompleted', project)
   } catch (error) {
     console.error('Error creating project:', error)
     
-    // Provide more specific error messages
-    let errorMessage = 'Failed to create project. Please try again.'
-    if (error instanceof Error) {
-      if (error.message.includes('Authentication')) {
-        errorMessage = 'Authentication error. Please refresh the page and try again.'
-      } else if (error.message.includes('validation')) {
-        errorMessage = 'Please check all required fields and try again.'
-      } else if (error.message.includes('network') || error.message.includes('fetch')) {
-        errorMessage = 'Network error. Please check your connection and try again.'
-      }
-    }
-    
-    alert(errorMessage)
+    // The error message will already be shown by the completeWizard function
+    // Just re-throw to prevent further execution
+    throw error
   }
 }
 

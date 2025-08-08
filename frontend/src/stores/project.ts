@@ -289,6 +289,15 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   const addProject = async (projectData: Partial<Project>) => {
+    // If projectData has an ID, it means the project was already created
+    // (e.g., by the wizard), so we just need to refresh the list
+    if (projectData.id) {
+      console.log('Project already created, refreshing list...')
+      await fetchProjects()
+      return projectData
+    }
+    
+    // Otherwise, create a new project via API
     setLoading(true)
     setError(null)
     

@@ -247,12 +247,21 @@ const navigationTiles: NavigationTile[] = [
 ]
 
 const roleMap: Record<string, string> = {
+  // Display format (with spaces and proper case)
   'Project Manager': 'pm',
   'Senior Project Manager': 'spm',
   'Director': 'director',
   'Admin': 'admin',
   'Administrator': 'admin',
-  'Vendor': 'vendor'
+  'Vendor': 'vendor',
+  // Database format (with underscores and lowercase)
+  'project_manager': 'pm',
+  'sr_project_manager': 'spm',
+  'senior_project_manager': 'spm',
+  'director': 'director',
+  'admin': 'admin',
+  'administrator': 'admin',
+  'vendor': 'vendor'
 }
 
 const visibleTiles = computed(() => {

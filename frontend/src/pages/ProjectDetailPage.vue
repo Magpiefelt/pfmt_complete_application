@@ -286,8 +286,8 @@ const loadProject = async () => {
     const projectData = await ProjectService.getById(projectId.value)
     project.value = projectData
 
-    // Load project with versions
-    await getProject(parseInt(projectId.value))
+    // Load project with versions (use string ID, not parsed integer)
+    await getProject(projectId.value)
 
     // Load additional data
     await loadRecentActivity()
