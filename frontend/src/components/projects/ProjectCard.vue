@@ -8,7 +8,7 @@
         <div class="flex-1">
           <AlbertaText tag="h3" size="heading-s" mb="xs">{{ project.name }}</AlbertaText>
           <AlbertaText size="body-s" color="secondary">
-            {{ contractor }} • {{ phase }}
+            {{ contractorPhaseDisplay }}
           </AlbertaText>
         </div>
         <div class="flex items-center space-x-2">
@@ -39,11 +39,15 @@
           </div>
           <div class="flex items-center">
             <Calendar class="h-4 w-4 mr-2 text-gray-600" />
-            <AlbertaText size="body-s" color="secondary">Started {{ formatDate(startDate) }}</AlbertaText>
+            <AlbertaText size="body-s" color="secondary">
+              {{ startDate ? `Started ${formatDate(startDate)}` : 'Start date TBD' }}
+            </AlbertaText>
           </div>
           <div class="flex items-center">
             <Users class="h-4 w-4 mr-2 text-gray-600" />
-            <AlbertaText size="body-s" color="secondary">PM: {{ projectManager }}</AlbertaText>
+            <AlbertaText size="body-s" color="secondary">
+              {{ projectManager ? `PM: ${projectManager}` : 'PM: TBD' }}
+            </AlbertaText>
           </div>
         </div>
         
@@ -89,6 +93,7 @@ import { MapPin, Calendar, Users, DollarSign } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle, AlbertaText } from '@/components/ui'
 import { Badge } from "@/components/ui"
 import { formatCurrency, formatDate, getStatusColor } from '@/utils'
+import { normalizeProject } from '@/utils/fieldNormalization'
 
 interface Project {
   id: number
@@ -125,43 +130,44 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-// Computed properties to handle both new and legacy data structures
+// Use field normalization for consistent data access
+const normalizedProject = computed(() => normalizeProject(props.project))
+
+// Computed properties using normalized data
 const contractor = computed(() => {
-  return props.project.contractor || 'ABC Construction Ltd.' // Default for demo
+  return normalizedProject.value.contractor || ''
 })
 
 const phase = computed(() => {
-  // Check multiple property names and default to empty string instead of demo values
-  return props.project.phase || 
-         props.project.currentVersion?.projectPhase || 
-         props.project.projectPhase || 
-         props.project.project_phase || 
-         ''
+  return normalizedProject.value.phase || ''
 })
 
 const region = computed(() => {
-  // Check multiple property names and default to empty string instead of demo values
-  return props.project.region || 
-         props.project.geographicRegion || 
-         props.project.geographic_region || 
-         ''
+  return normalizedProject.value.region || ''
 })
 
 const startDate = computed(() => {
-  return props.project.startDate || 
-         props.project.createdAt || 
-         props.project.created_at || 
-         '2024-01-15'
+  return normalizedProject.value.startDate || ''
 })
 
 const projectManager = computed(() => {
-  // Check multiple property names and default to empty string instead of demo values
-  return props.project.projectManager || 
-         props.project.project_manager ||
-         props.project.currentVersion?.team?.projectManager ||
-         props.project.modifiedByName ||
-         props.project.modified_by_name ||
-         ''
+  return normalizedProject.value.projectManager || ''
+})
+
+// Computed property for contractor and phase display with conditional separator
+const contractorPhaseDisplay = computed(() => {
+  const contractorValue = contractor.value
+  const phaseValue = phase.value
+  
+  if (contractorValue && phaseValue) {
+    return `${contractorValue} • ${phaseValue}`
+  } else if (contractorValue) {
+    return contractorValue
+  } else if (phaseValue) {
+    return phaseValue
+  } else {
+    return ''
+  }
 })
 
 const reportStatus = computed(() => {

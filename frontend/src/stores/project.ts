@@ -90,7 +90,9 @@ export const useProjectStore = defineStore('project', () => {
 
   const setPaginationData = (pagination: PaginationData) => {
     currentPage.value = pagination.page
-    pageSize.value = pagination.limit
+    // Ensure pageSize is never zero - use fallback values
+    const newPageSize = pagination.limit > 0 ? pagination.limit : (pageSize.value > 0 ? pageSize.value : 10)
+    pageSize.value = newPageSize
     totalProjects.value = pagination.total
     totalPages.value = pagination.totalPages
     hasNext.value = pagination.hasNext
@@ -216,16 +218,27 @@ export const useProjectStore = defineStore('project', () => {
         
         // If no matches found, fall back to showing all projects to avoid blank page
         const finalProjects = myProjects.length > 0 ? myProjects : normalizedProjects
-        setProjects(finalProjects)
         
-        // Override pagination data for "my" filter to hide pagination controls
+        // Implement client-side pagination for large numbers of "my" projects
+        const currentPageValue = currentPage.value
+        const pageSizeValue = pageSize.value
+        const startIndex = (currentPageValue - 1) * pageSizeValue
+        const endIndex = startIndex + pageSizeValue
+        const paginatedProjects = finalProjects.slice(startIndex, endIndex)
+        
+        setProjects(paginatedProjects)
+        
+        // Set proper pagination data for client-side pagination
+        const totalMyProjects = finalProjects.length
+        const totalPagesCalculated = Math.ceil(totalMyProjects / pageSizeValue)
+        
         setPaginationData({
-          page: 1,
-          limit: finalProjects.length,
-          total: finalProjects.length,
-          totalPages: 1,
-          hasNext: false,
-          hasPrev: false
+          page: currentPageValue,
+          limit: pageSizeValue,
+          total: totalMyProjects,
+          totalPages: totalPagesCalculated,
+          hasNext: currentPageValue < totalPagesCalculated,
+          hasPrev: currentPageValue > 1
         })
       } else {
         setProjects(normalizedProjects)

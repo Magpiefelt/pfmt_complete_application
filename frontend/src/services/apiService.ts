@@ -23,7 +23,10 @@ export interface ApiResponse<T> {
 }
 
 class ApiService {
-  // Helper method for making HTTP requests with user context
+  private static retryAttempts = 3
+  private static retryDelay = 1000
+
+  // Helper method for making HTTP requests with user context and retry logic
   static async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${endpoint}`
     
@@ -88,65 +91,53 @@ class ApiService {
       ...options
     }
 
-
-    try {
-      const response = await fetch(url, config)
-      
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+    // Retry logic for failed requests
+    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+      try {
+        const response = await fetch(url, config)
         
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.message || errorData.error || errorMessage
-        } catch (e) {
-          // If response is not JSON, use the status text
-          const errorText = await response.text()
-          if (errorText) {
-            errorMessage = errorText
-          }
-        }
-        
-        // Provide more specific error messages
-        if (response.status === 404) {
-          errorMessage = `API endpoint not found: ${endpoint}`
-        } else if (response.status === 500) {
-          errorMessage = `Server error occurred. Please check the backend service.`
-        } else if (response.status === 401) {
-          errorMessage = `Authentication required. Please check user context.`
+        if (!response.ok) {
+          let errorMessage = `HTTP ${response.status}: ${response.statusText}`
           
-          // MINIMAL FIX: Only provide fallback for project creation in development
-          if ((endpoint.includes('/projects') && options.method === 'POST') && 
-              (import.meta.env.DEV || import.meta.env.NODE_ENV === 'development')) {
-            console.warn('🔄 Auth error during project creation in development - using fallback')
-            return this.getProjectCreationFallback()
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.message || errorData.error || errorMessage
+          } catch (parseError) {
+            // If we can't parse the error response, use the status text
           }
-        } else if (response.status === 403) {
-          errorMessage = `Access denied. User may not have permission for this operation.`
+          
+          // Don't retry on client errors (4xx), only on server errors (5xx) or network issues
+          if (response.status >= 400 && response.status < 500) {
+            throw new Error(errorMessage)
+          }
+          
+          // Retry on server errors if we have attempts left
+          if (attempt < this.retryAttempts) {
+            console.warn(`Request failed (attempt ${attempt}/${this.retryAttempts}), retrying in ${this.retryDelay}ms...`)
+            await new Promise(resolve => setTimeout(resolve, this.retryDelay))
+            continue
+          }
+          
+          throw new Error(errorMessage)
+        }
+
+        const data = await response.json()
+        return data
+      } catch (error: any) {
+        // Network errors or other exceptions
+        if (attempt < this.retryAttempts && (error.name === 'TypeError' || error.message.includes('fetch'))) {
+          console.warn(`Network error (attempt ${attempt}/${this.retryAttempts}), retrying in ${this.retryDelay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, this.retryDelay))
+          continue
         }
         
-        throw new Error(errorMessage)
+        throw error
       }
-      
-      const data = await response.json()
-      console.log('✅ API request successful:', { 
-        success: data.success, 
-        dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
-        userContext: data.userContext 
-      })
-      return data
-    } catch (error: any) {
-      console.error('❌ API request failed:', { endpoint, error: error.message })
-      
-      // Provide fallback data for development/demo purposes
-      if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-        console.warn('🔄 Backend not available, providing fallback data for demo')
-        return this.getFallbackData(endpoint, options.method || 'GET')
-      }
-      
-      throw error
     }
-  }
 
+    // This should never be reached, but TypeScript requires it
+    throw new Error('Maximum retry attempts exceeded')
+  }
   // MINIMAL FIX: Specific fallback only for project creation
   static getProjectCreationFallback<T>(): ApiResponse<T> {
     const timestamp = new Date().toISOString()

@@ -392,6 +392,10 @@ import { Label } from '@/components/ui'
 import { Textarea } from "@/components/ui"
 import {
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui'
 
 interface ProjectLocation {
@@ -425,7 +429,7 @@ interface ProjectLocation {
 }
 
 interface Props {
-  location: ProjectLocation
+  location?: ProjectLocation
   viewMode: 'draft' | 'approved'
   canEdit: boolean
 }
@@ -438,8 +442,8 @@ const emit = defineEmits<{
 }>()
 
 // Form data
-const formData = ref<ProjectLocation>({ ...props.location })
-const originalData = ref<ProjectLocation>({ ...props.location })
+const formData = ref<ProjectLocation>({ ...props.location || {} })
+const originalData = ref<ProjectLocation>({ ...props.location || {} })
 const gettingLocation = ref(false)
 
 // Computed

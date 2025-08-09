@@ -19,9 +19,9 @@
         :project="project"
         :view-mode="viewMode"
         :current-version="currentVersionNumber"
-        :version-status="versionStatus"
+        :version-status="versionStatusComputed"
         :has-draft-version="hasDraftVersion"
-        :has-submitted-version="hasSubmittedVersion"
+        :has-submitted-version="hasSubmittedVersionComputed"
         :has-pending-changes="hasPendingChanges"
         :can-edit="canEdit"
         :can-view-draft="canViewDraft"
@@ -191,6 +191,7 @@ import VersionsTab from '@/components/project-detail/VersionsTab.vue'
 import { useProjectVersions } from '@/composables/useProjectVersions'
 import { useAuthStore } from '@/stores/auth'
 import { ProjectService } from '@/services/ProjectService'
+import { ProjectAPI } from '@/services/apiService'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -240,6 +241,16 @@ const currentVersionNumber = computed(() => {
   return currentProject.value?.currentVersion?.version_number || 'v1.0'
 })
 
+// Fix versionStatus to provide proper default value
+const versionStatusComputed = computed(() => {
+  return versionStatus.value || 'approved'
+})
+
+// Fix hasSubmittedVersion to provide proper default value
+const hasSubmittedVersionComputed = computed(() => {
+  return hasSubmittedVersion.value || false
+})
+
 const canEdit = computed(() => {
   const user = currentUser.value
   if (!user) return false
@@ -273,7 +284,7 @@ const workflowHasUpdates = computed(() => {
 })
 
 const hasPendingVersions = computed(() => {
-  return hasSubmittedVersion.value
+  return hasSubmittedVersionComputed.value
 })
 
 // Methods
@@ -282,9 +293,39 @@ const loadProject = async () => {
   error.value = null
 
   try {
-    // Load project data
-    const projectData = await ProjectService.getById(projectId.value)
-    project.value = projectData
+    // Load project data using ProjectAPI (with X-User headers) instead of ProjectService (requires token)
+    const response = await ProjectAPI.getProject(projectId.value)
+    
+    // Normalize the project data to handle different field name formats
+    const projectData = response.data
+    const normalizedProject = {
+      ...projectData,
+      // Ensure consistent field mapping for detail components
+      name: projectData.name || projectData.projectName || projectData.project_name || '',
+      status: projectData.status || projectData.projectStatus || projectData.project_status || '',
+      phase: projectData.phase || projectData.projectPhase || projectData.project_phase || '',
+      region: projectData.region || projectData.geographicRegion || projectData.geographic_region || '',
+      projectManager: projectData.projectManager || projectData.project_manager || projectData.modifiedByName || projectData.modified_by_name || '',
+      description: projectData.description || projectData.projectDescription || projectData.project_description || '',
+      category: projectData.category || projectData.projectCategory || projectData.project_category || '',
+      ministry: projectData.ministry || projectData.clientMinistry || projectData.client_ministry || '',
+      totalBudget: projectData.totalBudget || projectData.totalApprovedFunding || projectData.total_approved_funding || 0,
+      amountSpent: projectData.amountSpent || projectData.amount_spent || 0,
+      reportStatus: projectData.reportStatus || projectData.report_status || 'Current',
+      // Keep original fields for backward compatibility
+      project_name: projectData.project_name || projectData.projectName || projectData.name || '',
+      project_status: projectData.project_status || projectData.projectStatus || projectData.status || '',
+      project_phase: projectData.project_phase || projectData.projectPhase || projectData.phase || '',
+      geographic_region: projectData.geographic_region || projectData.geographicRegion || projectData.region || '',
+      project_manager_name: projectData.project_manager_name || projectData.projectManager || projectData.modifiedByName || '',
+      project_description: projectData.project_description || projectData.projectDescription || projectData.description || '',
+      project_category: projectData.project_category || projectData.projectCategory || projectData.category || '',
+      total_approved_funding: projectData.total_approved_funding || projectData.totalApprovedFunding || projectData.totalBudget || 0,
+      amount_spent: projectData.amount_spent || projectData.amountSpent || 0,
+      report_status: projectData.report_status || projectData.reportStatus || 'Current'
+    }
+    
+    project.value = normalizedProject
 
     // Load project with versions (use string ID, not parsed integer)
     await getProject(projectId.value)
@@ -349,8 +390,8 @@ const handleSaveChanges = async (changes: any) => {
     if (viewMode.value === 'draft') {
       // Save to draft version
     } else {
-      // Save to current version
-      await ProjectService.update(projectId.value, changes)
+      // Save to current version using ProjectAPI instead of ProjectService
+      await ProjectAPI.updateProject(projectId.value, changes)
       Object.assign(project.value, changes)
     }
   } catch (err) {
@@ -419,7 +460,7 @@ const handleDuplicateProject = () => {
 const handleDeleteProject = async () => {
   if (confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
     try {
-      await ProjectService.delete(projectId.value)
+      await ProjectAPI.deleteProject(projectId.value)
       // Navigate back to projects list
       window.history.back()
     } catch (err) {

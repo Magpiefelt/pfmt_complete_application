@@ -30,10 +30,7 @@
 
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-12">
-      <LoadingSpinner class="w-8 h-8" />
-      <AlbertaText variant="body-m" color="secondary" class="ml-3">
-        Loading dashboard data...
-      </AlbertaText>
+      <LoadingSpinner size="lg" message="Loading dashboard data..." />
     </div>
 
     <!-- Dashboard Content -->
@@ -280,20 +277,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue'
-import { 
-  DollarSign, TrendingUp, PieChart, Clock, RefreshCw, 
-  Building, AlertCircle 
-} from 'lucide-vue-next'
-import { AlbertaText, Button } from '@/components/ui'
-import { Card, CardHeader, CardContent } from '@/components/ui'
+import { ref, onMounted, nextTick } from 'vue'
+import { RefreshCw, DollarSign, TrendingUp, Building, PieChart, BarChart3 } from 'lucide-vue-next'
+import { Card, CardContent, CardHeader, CardTitle, AlbertaText } from '@/components/ui'
+import { Button } from '@/components/ui'
 import LoadingSpinner from '@/components/shared/LoadingSpinner.vue'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 import { formatCurrency } from '@/utils'
 import Chart from 'chart.js/auto'
 
 // State
-const loading = ref(false)
-const error = ref('')
+const { error, loading, withErrorHandling } = useErrorHandler()
 const dashboardData = ref(null)
 const selectedFiscalYear = ref('')
 const fiscalYears = ref(['2024-25', '2023-24', '2022-23'])

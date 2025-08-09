@@ -160,34 +160,19 @@
     </div>
 
     <!-- Pagination -->
-    <div v-if="paginated && !loading && filteredData.length > 0" class="flex items-center justify-between">
-      <div class="text-sm text-gray-500">
-        Showing {{ startIndex + 1 }} to {{ endIndex }} of {{ filteredData.length }} results
-      </div>
-      <div class="flex items-center space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="currentPage === 1"
-          @click="currentPage--"
-        >
-          <ChevronLeft class="h-4 w-4" />
-          Previous
-        </Button>
-        <span class="text-sm text-gray-500">
-          Page {{ currentPage }} of {{ totalPages }}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="currentPage === totalPages"
-          @click="currentPage++"
-        >
-          Next
-          <ChevronRight class="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
+    <Pagination
+      v-if="paginated && !loading && filteredData.length > 0"
+      :current-page="currentPage"
+      :total-pages="totalPages"
+      :has-next="currentPage < totalPages"
+      :has-prev="currentPage > 1"
+      :page-size="pageSize"
+      :total-items="filteredData.length"
+      @next-page="currentPage++"
+      @prev-page="currentPage--"
+      @page-change="(page) => currentPage = page"
+      @page-size-change="(size) => { pageSize = size; currentPage = 1 }"
+    />
 
     <!-- Selected Items Actions -->
     <div v-if="selectable && selectedItems.length > 0" class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -216,6 +201,7 @@ import {
   FileX 
 } from 'lucide-vue-next'
 import { Button, Input, Checkbox, Select } from '@/components/ui'
+import Pagination from '@/components/shared/Pagination.vue'
 
 export interface DataTableColumn {
   key: string

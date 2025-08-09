@@ -428,28 +428,8 @@ const loadVendors = async () => {
   error.value = null
   
   try {
-    // Mock data - replace with actual API call
-    vendors.value = [
-      {
-        assignment_id: '1',
-        vendor_id: 'v1',
-        company_name: 'ABC Construction Ltd.',
-        description: 'Leading construction company specializing in government projects',
-        capabilities: 'Construction, Project Management, Safety',
-        contact_email: 'contact@abcconstruction.com',
-        contact_phone: '(403) 555-0123',
-        website: 'https://abcconstruction.com',
-        address: '123 Main St, Calgary, AB T2P 1A1',
-        certification_level: 'Gold',
-        performance_rating: 4.5,
-        status: 'active',
-        role: 'General Contractor',
-        contract_value: 2500000,
-        start_date: '2024-01-15',
-        end_date: '2024-12-31',
-        assignment_status: 'active'
-      }
-    ]
+    // Load vendors from API - no demo data
+    vendors.value = []
   } catch (err) {
     error.value = 'Failed to load vendors'
     console.error('Error loading vendors:', err)

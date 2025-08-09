@@ -45,7 +45,7 @@
             v-model="formData.description"
             :disabled="!canEdit"
             placeholder="Detailed project description..."
-            rows="4"
+            :rows="4"
             class="mt-1"
           />
         </div>
@@ -380,7 +380,7 @@
         <div class="flex items-center space-x-2">
           <Switch
             id="funded-to-complete"
-            v-model:checked="formData.funded_to_complete"
+            v-model="formData.funded_to_complete"
             :disabled="!canEdit"
           />
           <Label for="funded-to-complete">Funded to Complete</Label>
@@ -510,7 +510,7 @@
           <div class="flex items-center space-x-2">
             <Switch
               id="is-charter-school"
-              v-model:checked="formData.is_charter_school"
+              v-model="formData.is_charter_school"
               :disabled="!canEdit"
             />
             <Label for="is-charter-school">Charter School</Label>
@@ -658,7 +658,7 @@
             v-model="formData.objectives"
             :disabled="!canEdit"
             placeholder="Key project objectives and goals..."
-            rows="3"
+            :rows="3"
             class="mt-1"
           />
         </div>
@@ -671,7 +671,7 @@
             v-model="formData.scope"
             :disabled="!canEdit"
             placeholder="Detailed project scope and deliverables..."
-            rows="3"
+            :rows="3"
             class="mt-1"
           />
         </div>
@@ -684,7 +684,7 @@
             v-model="formData.constraints"
             :disabled="!canEdit"
             placeholder="Project constraints, assumptions, and limitations..."
-            rows="3"
+            :rows="3"
             class="mt-1"
           />
         </div>
@@ -697,7 +697,7 @@
             v-model="formData.success_criteria"
             :disabled="!canEdit"
             placeholder="How will project success be measured..."
-            rows="3"
+            :rows="3"
             class="mt-1"
           />
         </div>
@@ -729,6 +729,10 @@ import { Badge } from '@/components/ui'
 import { Switch } from "@/components/ui"
 import {
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui'
 
 interface Project {
