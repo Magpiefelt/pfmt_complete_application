@@ -149,6 +149,23 @@ export function useProjectVersions() {
   const latestPending = computed(() => {
     return versions.value.find(v => v.status === 'PendingApproval')
   })
+
+  // FIXED: Added missing version arrays that were causing VersionsTab errors
+  const approvedVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'Approved')
+  })
+
+  const draftVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'Draft')
+  })
+
+  const submittedVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'PendingApproval')
+  })
+
+  const rejectedVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'Rejected')
+  })
   
   // API Base URL
   const API_BASE = '/api/phase2'
@@ -581,6 +598,12 @@ export function useProjectVersions() {
     hasPendingVersion,
     latestDraft,
     latestPending,
+    
+    // FIXED: Added missing version arrays that were causing VersionsTab errors
+    approvedVersions,
+    draftVersions,
+    submittedVersions,
+    rejectedVersions,
     
     // Actions
     createProject,

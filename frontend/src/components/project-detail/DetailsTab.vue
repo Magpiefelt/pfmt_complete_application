@@ -100,14 +100,29 @@
                 <SelectItem value="central">Central</SelectItem>
                 <SelectItem value="north">North</SelectItem>
                 <SelectItem value="south">South</SelectItem>
-                <SelectItem value="provincial">Provincial</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        <!-- Project Status and Phase -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Project Type and Status -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <Label for="project-type">Project Type</Label>
+            <Select v-model="formData.project_type" :disabled="!canEdit">
+              <SelectTrigger class="mt-1">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new_construction">New Construction</SelectItem>
+                <SelectItem value="renovation">Renovation</SelectItem>
+                <SelectItem value="expansion">Expansion</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="demolition">Demolition</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <Label for="status">Project Status</Label>
             <Select v-model="formData.status" :disabled="!canEdit">
@@ -117,74 +132,18 @@
               <SelectContent>
                 <SelectItem value="planning">Planning</SelectItem>
                 <SelectItem value="design">Design</SelectItem>
-                <SelectItem value="construction">Construction</SelectItem>
-                <SelectItem value="completion">Completion</SelectItem>
-                <SelectItem value="on_hold">On Hold</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label for="phase">Project Phase</Label>
-            <Select v-model="formData.project_phase" :disabled="!canEdit">
-              <SelectTrigger class="mt-1">
-                <SelectValue placeholder="Select phase" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="initiation">Initiation</SelectItem>
-                <SelectItem value="planning">Planning</SelectItem>
-                <SelectItem value="design">Design</SelectItem>
                 <SelectItem value="procurement">Procurement</SelectItem>
                 <SelectItem value="construction">Construction</SelectItem>
                 <SelectItem value="commissioning">Commissioning</SelectItem>
-                <SelectItem value="closeout">Closeout</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="on_hold">On Hold</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <!-- Dates -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <Label for="start-date">Start Date</Label>
-            <Input
-              id="start-date"
-              v-model="formData.start_date"
-              :disabled="!canEdit"
-              type="date"
-              class="mt-1"
-            />
-          </div>
 
           <div>
-            <Label for="end-date">End Date</Label>
-            <Input
-              id="end-date"
-              v-model="formData.end_date"
-              :disabled="!canEdit"
-              type="date"
-              class="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label for="completion-date">Actual Completion Date</Label>
-            <Input
-              id="completion-date"
-              v-model="formData.completion_date"
-              :disabled="!canEdit"
-              type="date"
-              class="mt-1"
-            />
-          </div>
-        </div>
-
-        <!-- Priority and Risk Level -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="priority">Priority Level</Label>
+            <Label for="priority">Priority</Label>
             <Select v-model="formData.priority" :disabled="!canEdit">
               <SelectTrigger class="mt-1">
                 <SelectValue placeholder="Select priority" />
@@ -197,104 +156,10 @@
               </SelectContent>
             </Select>
           </div>
-
-          <div>
-            <Label for="risk-level">Risk Level</Label>
-            <Select v-model="formData.risk_level" :disabled="!canEdit">
-              <SelectTrigger class="mt-1">
-                <SelectValue placeholder="Select risk level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
-      </CardContent>
-    </Card>
 
-    <!-- Approval & Identification -->
-    <Card>
-      <CardHeader>
-        <CardTitle>Approval & Identification</CardTitle>
-        <CardDescription>
-          Project approval details and identification numbers.
-        </CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-6">
+        <!-- Delivery Information -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="approval-year">Approval Year</Label>
-            <Input
-              id="approval-year"
-              v-model="formData.approval_year"
-              :disabled="!canEdit"
-              type="number"
-              min="2000"
-              max="2050"
-              placeholder="e.g., 2024"
-              class="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label for="cpd-number">CPD Number</Label>
-            <Input
-              id="cpd-number"
-              v-model="formData.cpd_number"
-              :disabled="!canEdit"
-              placeholder="Enter CPD number"
-              class="mt-1"
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label for="capital-plan-line">Capital Plan Line</Label>
-          <Select v-model="formData.capital_plan_line_id" :disabled="!canEdit">
-            <SelectTrigger class="mt-1">
-              <SelectValue placeholder="Select capital plan line" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="loading" disabled>Loading capital plan lines...</SelectItem>
-              <!-- Capital plan lines will be loaded dynamically -->
-            </SelectContent>
-          </Select>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Enhanced Project Classification -->
-    <Card>
-      <CardHeader>
-        <CardTitle>Project Classification</CardTitle>
-        <CardDescription>
-          Detailed project classification and delivery information.
-        </CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="project-type">Project Type</Label>
-            <Select v-model="formData.project_type" :disabled="!canEdit">
-              <SelectTrigger class="mt-1">
-                <SelectValue placeholder="Select project type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new_construction">New Construction</SelectItem>
-                <SelectItem value="renovation">Renovation</SelectItem>
-                <SelectItem value="expansion">Expansion</SelectItem>
-                <SelectItem value="replacement">Replacement</SelectItem>
-                <SelectItem value="maintenance">Major Maintenance</SelectItem>
-                <SelectItem value="infrastructure">Infrastructure</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div>
             <Label for="delivery-type">Delivery Type</Label>
             <Select v-model="formData.delivery_type" :disabled="!canEdit">
@@ -302,76 +167,26 @@
                 <SelectValue placeholder="Select delivery type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="traditional">Traditional</SelectItem>
+                <SelectItem value="design_bid_build">Design-Bid-Build</SelectItem>
                 <SelectItem value="design_build">Design-Build</SelectItem>
-                <SelectItem value="p3">P3 (Public-Private Partnership)</SelectItem>
-                <SelectItem value="cm_at_risk">CM at Risk</SelectItem>
-                <SelectItem value="integrated">Integrated Project Delivery</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="specific-delivery-type">Specific Delivery Type</Label>
-            <Select v-model="formData.specific_delivery_type" :disabled="!canEdit">
-              <SelectTrigger class="mt-1">
-                <SelectValue placeholder="Select specific delivery type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="lump_sum">Lump Sum</SelectItem>
-                <SelectItem value="unit_price">Unit Price</SelectItem>
-                <SelectItem value="cost_plus">Cost Plus</SelectItem>
-                <SelectItem value="guaranteed_maximum">Guaranteed Maximum Price</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="construction_management">Construction Management</SelectItem>
+                <SelectItem value="public_private_partnership">Public-Private Partnership</SelectItem>
+                <SelectItem value="integrated_project_delivery">Integrated Project Delivery</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div>
-            <Label for="delivery-method">Delivery Method</Label>
-            <Select v-model="formData.delivery_method" :disabled="!canEdit">
-              <SelectTrigger class="mt-1">
-                <SelectValue placeholder="Select delivery method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="competitive_bid">Competitive Bid</SelectItem>
-                <SelectItem value="negotiated">Negotiated</SelectItem>
-                <SelectItem value="sole_source">Sole Source</SelectItem>
-                <SelectItem value="request_for_proposal">Request for Proposal</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label for="program">Program</Label>
-            <Input
-              id="program"
-              v-model="formData.program"
-              :disabled="!canEdit"
-              placeholder="Enter program name"
-              class="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label for="geographic-region">Geographic Region</Label>
-            <Select v-model="formData.geographic_region" :disabled="!canEdit">
+            <Select v-model="formData.program" :disabled="!canEdit">
               <SelectTrigger class="mt-1">
-                <SelectValue placeholder="Select geographic region" />
+                <SelectValue placeholder="Select program" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="calgary_region">Calgary Region</SelectItem>
-                <SelectItem value="edmonton_region">Edmonton Region</SelectItem>
-                <SelectItem value="central_alberta">Central Alberta</SelectItem>
-                <SelectItem value="northern_alberta">Northern Alberta</SelectItem>
-                <SelectItem value="southern_alberta">Southern Alberta</SelectItem>
-                <SelectItem value="provincial">Provincial</SelectItem>
+                <SelectItem value="capital_plan">Capital Plan</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="emergency">Emergency</SelectItem>
+                <SelectItem value="strategic">Strategic</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -388,16 +203,73 @@
       </CardContent>
     </Card>
 
-    <!-- Government/School Associations -->
+    <!-- Financial Information -->
     <Card>
       <CardHeader>
-        <CardTitle>Government & School Associations</CardTitle>
+        <CardTitle>Financial Information</CardTitle>
         <CardDescription>
-          Ministry and school jurisdiction associations for this project.
+          Budget and financial details for the project.
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <Label for="total-budget">Total Budget</Label>
+            <Input
+              id="total-budget"
+              v-model.number="formData.total_budget"
+              :disabled="!canEdit"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="approved-budget">Approved Budget</Label>
+            <Input
+              id="approved-budget"
+              v-model.number="formData.approved_budget"
+              :disabled="!canEdit"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="spent-to-date">Spent to Date</Label>
+            <Input
+              id="spent-to-date"
+              v-model.number="formData.spent_to_date"
+              :disabled="!canEdit"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              class="mt-1"
+            />
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <Label for="funding-source">Funding Source</Label>
+            <Select v-model="formData.funding_source" :disabled="!canEdit">
+              <SelectTrigger class="mt-1">
+                <SelectValue placeholder="Select funding source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="provincial">Provincial</SelectItem>
+                <SelectItem value="federal">Federal</SelectItem>
+                <SelectItem value="municipal">Municipal</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+                <SelectItem value="mixed">Mixed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <Label for="client-ministry">Client Ministry</Label>
             <Select v-model="formData.client_ministry_id" :disabled="!canEdit">
@@ -406,11 +278,24 @@
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="loading" disabled>Loading ministries...</SelectItem>
-                <!-- Ministries will be loaded dynamically -->
+                <!-- Client ministries will be loaded dynamically -->
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </CardContent>
+    </Card>
 
+    <!-- Education-Specific Information -->
+    <Card v-if="formData.category === 'education'">
+      <CardHeader>
+        <CardTitle>Education Project Details</CardTitle>
+        <CardDescription>
+          Specific information for education-related projects.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label for="school-jurisdiction">School Jurisdiction</Label>
             <Select v-model="formData.school_jurisdiction_id" :disabled="!canEdit">
@@ -423,86 +308,29 @@
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Facility Metrics -->
-    <Card>
-      <CardHeader>
-        <CardTitle>Facility Metrics</CardTitle>
-        <CardDescription>
-          Facility-specific measurements and capacity information.
-        </CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="number-of-beds">Number of Beds</Label>
-            <Input
-              id="number-of-beds"
-              v-model="formData.number_of_beds"
-              :disabled="!canEdit"
-              type="number"
-              min="0"
-              placeholder="Enter number of beds"
-              class="mt-1"
-            />
-          </div>
 
           <div>
-            <Label for="total-opening-capacity">Total Opening Capacity</Label>
+            <Label for="student-capacity">Student Capacity</Label>
             <Input
-              id="total-opening-capacity"
-              v-model="formData.total_opening_capacity"
+              id="student-capacity"
+              v-model.number="formData.student_capacity"
               :disabled="!canEdit"
               type="number"
-              min="0"
-              placeholder="Enter opening capacity"
+              placeholder="Number of students"
               class="mt-1"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="capacity-full-build">Capacity at Full Build-out</Label>
-            <Input
-              id="capacity-full-build"
-              v-model="formData.capacity_at_full_build_out"
-              :disabled="!canEdit"
-              type="number"
-              min="0"
-              placeholder="Enter full build-out capacity"
-              class="mt-1"
-            />
-          </div>
-
           <div>
             <Label for="square-meters">Square Meters</Label>
             <Input
               id="square-meters"
-              v-model="formData.square_meters"
+              v-model.number="formData.square_meters"
               :disabled="!canEdit"
               type="number"
-              min="0"
-              step="0.01"
-              placeholder="Enter square meters"
-              class="mt-1"
-            />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="number-of-jobs">Number of Jobs</Label>
-            <Input
-              id="number-of-jobs"
-              v-model="formData.number_of_jobs"
-              :disabled="!canEdit"
-              type="number"
-              min="0"
-              placeholder="Enter number of jobs created"
+              placeholder="Total area in m²"
               class="mt-1"
             />
           </div>
@@ -523,7 +351,7 @@
             <Label for="grades-from">Grades From</Label>
             <Input
               id="grades-from"
-              v-model="formData.grades_from"
+              v-model.number="formData.grades_from"
               :disabled="!canEdit"
               type="number"
               min="1"
@@ -537,7 +365,7 @@
             <Label for="grades-to">Grades To</Label>
             <Input
               id="grades-to"
-              v-model="formData.grades_to"
+              v-model.number="formData.grades_to"
               :disabled="!canEdit"
               type="number"
               min="1"
@@ -550,56 +378,70 @@
       </CardContent>
     </Card>
 
-    <!-- Reporting & Status Metadata -->
-    <Card>
+    <!-- Healthcare-Specific Information -->
+    <Card v-if="formData.category === 'healthcare'">
       <CardHeader>
-        <CardTitle>Reporting & Status Metadata</CardTitle>
+        <CardTitle>Healthcare Project Details</CardTitle>
         <CardDescription>
-          Project reporting status and modification tracking.
+          Specific information for healthcare-related projects.
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <Label for="report-status">Report Status</Label>
-            <div class="mt-1">
-              <Badge 
-                :variant="getReportStatusVariant(formData.report_status)"
-                class="text-sm"
-              >
-                {{ formatReportStatus(formData.report_status) }}
-              </Badge>
-            </div>
+            <Label for="number-of-beds">Number of Beds</Label>
+            <Input
+              id="number-of-beds"
+              v-model.number="formData.number_of_beds"
+              :disabled="!canEdit"
+              type="number"
+              placeholder="Total beds"
+              class="mt-1"
+            />
           </div>
 
           <div>
-            <Label>Last Modified</Label>
-            <div class="mt-1 text-sm text-gray-600">
-              <span v-if="formData.modified_by">
-                by {{ formData.modified_by }} on {{ formatDate(formData.modified_date) }}
-              </span>
-              <span v-else>No modification data available</span>
-            </div>
+            <Label for="opening-capacity">Total Opening Capacity</Label>
+            <Input
+              id="opening-capacity"
+              v-model.number="formData.total_opening_capacity"
+              :disabled="!canEdit"
+              type="number"
+              placeholder="Opening capacity"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="full-capacity">Capacity at Full Build-out</Label>
+            <Input
+              id="full-capacity"
+              v-model.number="formData.capacity_at_full_build_out"
+              :disabled="!canEdit"
+              type="number"
+              placeholder="Full capacity"
+              class="mt-1"
+            />
           </div>
         </div>
       </CardContent>
     </Card>
 
-    <!-- Date-related Fields -->
+    <!-- Timeline Information -->
     <Card>
       <CardHeader>
-        <CardTitle>Important Dates</CardTitle>
+        <CardTitle>Project Timeline</CardTitle>
         <CardDescription>
-          Key project dates and reporting milestones.
+          Important dates and milestones for the project.
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Label for="reporting-as-of-date">Reporting As Of Date</Label>
+            <Label for="start-date">Start Date</Label>
             <Input
-              id="reporting-as-of-date"
-              v-model="formData.reporting_as_of_date"
+              id="start-date"
+              v-model="formData.start_date"
               :disabled="!canEdit"
               type="date"
               class="mt-1"
@@ -607,23 +449,10 @@
           </div>
 
           <div>
-            <Label for="director-review-date">Director Review Date</Label>
+            <Label for="completion-date">Expected Completion</Label>
             <Input
-              id="director-review-date"
-              v-model="formData.director_review_date"
-              :disabled="!canEdit"
-              type="date"
-              class="mt-1"
-            />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="pfmt-data-date">PFMT Data Date</Label>
-            <Input
-              id="pfmt-data-date"
-              v-model="formData.pfmt_data_date"
+              id="completion-date"
+              v-model="formData.expected_completion"
               :disabled="!canEdit"
               type="date"
               class="mt-1"
@@ -644,59 +473,52 @@
       </CardContent>
     </Card>
 
-    <!-- Additional Details -->
+    <!-- Additional Information -->
     <Card>
       <CardHeader>
-        <CardTitle>Additional Details</CardTitle>
+        <CardTitle>Additional Information</CardTitle>
+        <CardDescription>
+          Other relevant project details and specifications.
+        </CardDescription>
       </CardHeader>
       <CardContent class="space-y-6">
-        <!-- Objectives -->
-        <div>
-          <Label for="objectives">Project Objectives</Label>
-          <Textarea
-            id="objectives"
-            v-model="formData.objectives"
-            :disabled="!canEdit"
-            placeholder="Key project objectives and goals..."
-            :rows="3"
-            class="mt-1"
-          />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <Label for="number-of-jobs">Number of Jobs Created</Label>
+            <Input
+              id="number-of-jobs"
+              v-model.number="formData.number_of_jobs"
+              :disabled="!canEdit"
+              type="number"
+              placeholder="Estimated jobs"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="report-status">Report Status</Label>
+            <Select v-model="formData.report_status" :disabled="!canEdit">
+              <SelectTrigger class="mt-1">
+                <SelectValue placeholder="Select report status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="submitted">Submitted</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <!-- Scope -->
+        <!-- Notes -->
         <div>
-          <Label for="scope">Project Scope</Label>
+          <Label for="notes">Project Notes</Label>
           <Textarea
-            id="scope"
-            v-model="formData.scope"
+            id="notes"
+            v-model="formData.notes"
             :disabled="!canEdit"
-            placeholder="Detailed project scope and deliverables..."
-            :rows="3"
-            class="mt-1"
-          />
-        </div>
-
-        <!-- Constraints -->
-        <div>
-          <Label for="constraints">Constraints & Assumptions</Label>
-          <Textarea
-            id="constraints"
-            v-model="formData.constraints"
-            :disabled="!canEdit"
-            placeholder="Project constraints, assumptions, and limitations..."
-            :rows="3"
-            class="mt-1"
-          />
-        </div>
-
-        <!-- Success Criteria -->
-        <div>
-          <Label for="success-criteria">Success Criteria</Label>
-          <Textarea
-            id="success-criteria"
-            v-model="formData.success_criteria"
-            :disabled="!canEdit"
-            placeholder="How will project success be measured..."
+            placeholder="Additional notes and comments..."
             :rows="3"
             class="mt-1"
           />
@@ -705,14 +527,26 @@
     </Card>
 
     <!-- Action Buttons -->
-    <div v-if="canEdit" class="flex items-center justify-end space-x-2">
-      <Button variant="outline" @click="resetForm">
+    <div v-if="canEdit" class="flex justify-end space-x-3">
+      <Button variant="outline" @click="resetForm" :disabled="!hasChanges">
         Reset Changes
       </Button>
       <Button @click="saveChanges" :disabled="!hasChanges">
-        <Save class="h-4 w-4 mr-2" />
         Save Changes
       </Button>
+    </div>
+
+    <!-- Read-only Information Display -->
+    <div v-if="!canEdit" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div class="flex items-center">
+        <svg class="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+        </svg>
+        <span class="text-sm text-blue-800">
+          You are viewing this project in read-only mode. 
+          {{ viewMode === 'approved' ? 'Switch to draft mode to make changes.' : 'Contact your administrator for edit permissions.' }}
+        </span>
+      </div>
     </div>
   </div>
 </template>
@@ -733,38 +567,29 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui'
+} from "@/components/ui"
 
+// Types
 interface Project {
-  id: string
-  name: string
+  id?: string
+  name?: string
+  project_name?: string
   project_code?: string
   description?: string
+  project_description?: string
   category?: string
+  project_category?: string
   ministry?: string
   region?: string
-  status: string
-  project_phase: string
-  start_date?: string
-  end_date?: string
-  completion_date?: string
-  priority?: string
-  risk_level?: string
-  objectives?: string
-  scope?: string
-  constraints?: string
-  success_criteria?: string
-  
-  // New fields
-  approval_year?: number
-  cpd_number?: string
-  capital_plan_line_id?: string
+  geographic_region?: string
   project_type?: string
+  status?: string
+  project_status?: string
+  priority?: string
   delivery_type?: string
   specific_delivery_type?: string
   delivery_method?: string
   program?: string
-  geographic_region?: string
   funded_to_complete?: boolean
   client_ministry_id?: string
   school_jurisdiction_id?: string
@@ -777,32 +602,50 @@ interface Project {
   square_meters?: number
   number_of_jobs?: number
   report_status?: string
-  modified_by?: string
-  modified_date?: string
-  reporting_as_of_date?: string
-  director_review_date?: string
-  pfmt_data_date?: string
+  total_budget?: number
+  approved_budget?: number
+  spent_to_date?: number
+  funding_source?: string
+  student_capacity?: number
+  start_date?: string
+  expected_completion?: string
   archived_date?: string
-  
+  notes?: string
   [key: string]: any
 }
 
-interface Props {
+// Props
+const props = defineProps<{
   project: Project
-  viewMode: 'draft' | 'approved'
-  canEdit: boolean
-}
+  viewMode?: 'approved' | 'draft'
+  canEdit?: boolean
+}>()
 
-const props = defineProps<Props>()
-
+// Emits
 const emit = defineEmits<{
   'update:project': [project: Project]
   'save-changes': [changes: Partial<Project>]
 }>()
 
-// Form data
-const formData = ref<Project>({ ...props.project })
-const originalData = ref<Project>({ ...props.project })
+// FIXED: Initialize form data with proper boolean defaults
+const initializeFormData = (project: Project): Project => {
+  return {
+    ...project,
+    // Ensure boolean fields have proper defaults to prevent Switch component warnings
+    funded_to_complete: Boolean(project.funded_to_complete || false),
+    is_charter_school: Boolean(project.is_charter_school || false),
+    // Normalize field names for consistency
+    name: project.name || project.project_name || '',
+    description: project.description || project.project_description || '',
+    category: project.category || project.project_category || '',
+    status: project.status || project.project_status || '',
+    region: project.region || project.geographic_region || '',
+  }
+}
+
+// Form data with proper initialization
+const formData = ref<Project>(initializeFormData(props.project))
+const originalData = ref<Project>(initializeFormData(props.project))
 
 // Computed
 const hasChanges = computed(() => {
@@ -830,7 +673,11 @@ const saveChanges = () => {
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return 'N/A'
-  return new Date(dateString).toLocaleDateString()
+  try {
+    return new Date(dateString).toLocaleDateString()
+  } catch {
+    return 'Invalid Date'
+  }
 }
 
 const formatReportStatus = (status?: string) => {
@@ -853,8 +700,9 @@ const getReportStatusVariant = (status?: string) => {
 
 // Watch for external project changes
 watch(() => props.project, (newProject) => {
-  formData.value = { ...newProject }
-  originalData.value = { ...newProject }
+  const initializedData = initializeFormData(newProject)
+  formData.value = initializedData
+  originalData.value = initializedData
 }, { deep: true })
 
 // Watch for form changes and emit updates
@@ -863,8 +711,9 @@ watch(formData, (newData) => {
 }, { deep: true })
 
 onMounted(() => {
-  formData.value = { ...props.project }
-  originalData.value = { ...props.project }
+  const initializedData = initializeFormData(props.project)
+  formData.value = initializedData
+  originalData.value = initializedData
 })
 </script>
 

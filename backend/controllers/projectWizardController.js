@@ -80,21 +80,39 @@ class ProjectWizardController {
     }
   }
 
-  // Save wizard step data
+  // Save wizard step data - ENHANCED WITH DEBUGGING
   async saveStepData(req, res) {
+    console.log('🔧 saveStepData called with params:', req.params);
+    console.log('🔧 saveStepData body:', req.body);
+    console.log('🔧 saveStepData user:', req.user);
+    
     try {
       const { sessionId, stepId } = req.params;
       const stepData = req.body;
-      const userId = req.user.id;
+      const userId = req.user?.id;
+
+      console.log('🔧 Extracted params - sessionId:', sessionId, 'stepId:', stepId, 'userId:', userId);
+
+      if (!userId) {
+        console.error('❌ No user ID found in request');
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Authentication required' 
+        });
+      }
 
       // Validate session belongs to user
       const sessionQuery = `
         SELECT * FROM project_wizard_sessions 
         WHERE session_id = $1 AND user_id = $2
       `;
+      
+      console.log('🔧 Checking session with query:', sessionQuery, [sessionId, userId]);
       const sessionResult = await query(sessionQuery, [sessionId, userId]);
+      console.log('🔧 Session query result:', sessionResult.rows.length, 'rows');
       
       if (sessionResult.rows.length === 0) {
+        console.error('❌ Wizard session not found for sessionId:', sessionId, 'userId:', userId);
         return res.status(404).json({ 
           success: false, 
           message: 'Wizard session not found' 
@@ -110,11 +128,13 @@ class ProjectWizardController {
         RETURNING *
       `;
       
+      console.log('🔧 Saving step data with query:', saveQuery);
       const saveResult = await query(saveQuery, [
         sessionId, 
         parseInt(stepId), 
         JSON.stringify(stepData)
       ]);
+      console.log('🔧 Step data saved successfully:', saveResult.rows[0]);
 
       // Update current step in session
       const updateSessionQuery = `
@@ -123,6 +143,7 @@ class ProjectWizardController {
         WHERE session_id = $2
       `;
       await query(updateSessionQuery, [parseInt(stepId), sessionId]);
+      console.log('🔧 Session current step updated to:', stepId);
 
       res.json({
         success: true,
@@ -130,10 +151,12 @@ class ProjectWizardController {
         data: saveResult.rows[0]
       });
     } catch (error) {
-      console.error('Error saving step data:', error);
+      console.error('❌ Error saving step data:', error);
+      console.error('❌ Error stack:', error.stack);
       res.status(500).json({ 
         success: false, 
-        message: 'Failed to save step data' 
+        message: 'Failed to save step data',
+        error: error.message 
       });
     }
   }
@@ -186,8 +209,11 @@ class ProjectWizardController {
     }
   }
 
-  // Complete wizard and create project
+  // Complete wizard and create project - ENHANCED WITH DEBUGGING
   async completeWizard(req, res) {
+    console.log('🔧 completeWizard called with sessionId:', req.params.sessionId);
+    console.log('🔧 completeWizard user:', req.user);
+    
     const client = await pool.connect();
     
     try {
@@ -398,10 +424,12 @@ class ProjectWizardController {
 
     } catch (error) {
       await client.query('ROLLBACK');
-      console.error('Error completing wizard:', error);
+      console.error('❌ Error completing wizard:', error);
+      console.error('❌ Error stack:', error.stack);
       res.status(500).json({ 
         success: false, 
-        message: error.message || 'Failed to create project' 
+        message: error.message || 'Failed to create project',
+        error: error.message 
       });
     } finally {
       client.release();

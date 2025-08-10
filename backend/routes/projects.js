@@ -48,39 +48,67 @@ router.get('/', authenticateToken, async (req, res) => {
 
         const projects = await Project.findAll(options);
 
-        // Transform projects to include frontend-compatible field names
-        const transformedProjects = projects.map(project => ({
-            id: project.id,
-            // PostgreSQL field names
-            project_name: project.projectName,
-            project_status: project.projectStatus,
-            project_phase: project.projectPhase,
-            report_status: project.reportStatus,
-            program: project.program,
-            geographic_region: project.geographicRegion,
-            project_type: project.projectType,
-            delivery_type: project.deliveryType,
-            cpd_number: project.cpdNumber,
-            approval_year: project.approvalYear,
-            project_description: project.projectDescription,
-            created_at: project.createdAt,
-            updated_at: project.updatedAt,
-            modified_date: project.modifiedDate,
-            // Frontend-compatible field names for backward compatibility
-            name: project.projectName,
-            status: project.projectStatus,
-            phase: project.projectPhase,
-            reportStatus: project.reportStatus,
-            region: project.geographicRegion,
-            projectManager: 'Sarah Johnson', // Default for now
-            contractor: 'ABC Construction Ltd.', // Default for now
-            startDate: project.createdAt,
-            totalBudget: 15000000, // Default for now
-            amountSpent: 8500000, // Default for now
-            scheduleStatus: 'On Track', // Default for now
-            budgetStatus: 'On Track', // Default for now
-            isCharterSchool: project.isCharterSchool || false
-        }));
+        // FIXED: Transform projects to include actual data instead of hardcoded values
+        const transformedProjects = projects.map(project => {
+            // Get actual project manager name from project data
+            const projectManagerName = project.assignedProjectManager ? 
+                (project.projectManagerFirstName && project.projectManagerLastName ? 
+                    `${project.projectManagerFirstName} ${project.projectManagerLastName}` : 
+                    project.projectManagerName || 'TBD') : 'TBD';
+
+            // Get actual contractor name from project data
+            const contractorName = project.primaryContractorName || 
+                                 project.contractorName || 
+                                 'TBD';
+
+            // Calculate actual budget values from current version or project data
+            const totalBudget = project.currentVersionTotalFunding || 
+                              project.totalApprovedFunding || 
+                              project.totalBudget || 
+                              0;
+
+            const amountSpent = project.currentVersionAmountSpent || 
+                              project.amountSpent || 
+                              0;
+
+            // Calculate schedule status based on actual project data
+            const scheduleStatus = calculateScheduleStatus(project);
+            const budgetStatus = calculateBudgetStatus(amountSpent, totalBudget);
+
+            return {
+                id: project.id,
+                // PostgreSQL field names
+                project_name: project.projectName,
+                project_status: project.projectStatus,
+                project_phase: project.projectPhase,
+                report_status: project.reportStatus,
+                program: project.program,
+                geographic_region: project.geographicRegion,
+                project_type: project.projectType,
+                delivery_type: project.deliveryType,
+                cpd_number: project.cpdNumber,
+                approval_year: project.approvalYear,
+                project_description: project.projectDescription,
+                created_at: project.createdAt,
+                updated_at: project.updatedAt,
+                modified_date: project.modifiedDate,
+                // Frontend-compatible field names for backward compatibility
+                name: project.projectName,
+                status: project.projectStatus,
+                phase: project.projectPhase,
+                reportStatus: project.reportStatus,
+                region: project.geographicRegion,
+                // FIXED: Use actual data instead of hardcoded values
+                projectManager: projectManagerName,
+                contractor: contractorName,
+                startDate: project.createdAt,
+                totalBudget: totalBudget,
+                amountSpent: amountSpent,
+                scheduleStatus: scheduleStatus,
+                budgetStatus: budgetStatus,
+                isCharterSchool: project.isCharterSchool || false
+            };
+        });
 
         // Get total count for pagination - use same filters as main query
         let countQuery = 'SELECT COUNT(*) FROM projects WHERE 1=1';
@@ -169,6 +197,39 @@ router.get('/', authenticateToken, async (req, res) => {
         });
     }
 });
+
+// Helper functions for status calculations
+function calculateScheduleStatus(project) {
+    // Simple logic - can be enhanced based on actual milestone data
+    if (!project.createdAt) return 'Unknown';
+    
+    const createdDate = new Date(project.createdAt);
+    const now = new Date();
+    const daysSinceCreation = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+    
+    // Basic heuristic - projects over 365 days might be delayed
+    if (daysSinceCreation > 365 && project.projectStatus !== 'complete') {
+        return 'At Risk';
+    } else if (daysSinceCreation > 180) {
+        return 'Monitor';
+    } else {
+        return 'On Track';
+    }
+}
+
+function calculateBudgetStatus(amountSpent, totalBudget) {
+    if (!totalBudget || totalBudget === 0) return 'Unknown';
+    
+    const utilization = (amountSpent / totalBudget) * 100;
+    
+    if (utilization > 90) {
+        return 'At Risk';
+    } else if (utilization > 75) {
+        return 'Monitor';
+    } else {
+        return 'On Track';
+    }
+}
 
 // Get project statistics for dashboard
 router.get('/statistics', authenticateToken, async (req, res) => {
@@ -482,9 +543,6 @@ router.get('/:id/audit-logs', authenticateToken, async (req, res) => {
         });
     }
 });
-
-module.exports = router;
-
 
 // Get vendors assigned to a project
 router.get('/:id/vendors', authenticateToken, async (req, res) => {
@@ -830,4 +888,6 @@ router.put('/:id/vendors/:vendorId',
         }
     }
 );
+
+module.exports = router;
 
