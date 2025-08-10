@@ -6,13 +6,13 @@
     <CardHeader>
       <div class="flex items-start justify-between">
         <div class="flex-1">
-          <AlbertaText tag="h3" size="heading-s" mb="xs">{{ project.name }}</AlbertaText>
+          <AlbertaText tag="h3" size="heading-s" mb="xs">{{ normalizedProject.name || 'Unnamed Project' }}</AlbertaText>
           <AlbertaText size="body-s" color="secondary">
             {{ contractorPhaseDisplay }}
           </AlbertaText>
         </div>
         <div class="flex items-center space-x-2">
-          <Badge variant="outline">{{ project.projectStatus || project.status }}</Badge>
+          <Badge variant="outline">{{ normalizedProject.status || 'Unknown' }}</Badge>
           <Badge 
             :variant="reportStatus === 'Current' ? 'default' : 'destructive'"
           >
@@ -171,33 +171,23 @@ const contractorPhaseDisplay = computed(() => {
 })
 
 const reportStatus = computed(() => {
-  return props.project.reportStatus || 
-         props.project.report_status ||
-         props.project.currentVersion?.reportStatus ||
-         'Update Required'
+  return normalizedProject.value.reportStatus || 'Update Required'
 })
 
 const totalBudget = computed(() => {
-  return props.project.totalBudget ||
-         props.project.currentVersion?.totalApprovedFunding || 
-         props.project.totalApprovedFunding ||
-         props.project.total_approved_funding ||
-         0
+  return normalizedProject.value.totalBudget || 0
 })
 
 const amountSpent = computed(() => {
-  return props.project.amountSpent ||
-         props.project.currentVersion?.amountSpent || 
-         props.project.amount_spent || 
-         0
+  return normalizedProject.value.amountSpent || 0
 })
 
 const scheduleStatus = computed(() => {
-  return props.project.scheduleStatus || 'On Track'
+  return normalizedProject.value.scheduleStatus || 'On Track'
 })
 
 const budgetStatus = computed(() => {
-  return props.project.budgetStatus || 'On Track'
+  return normalizedProject.value.budgetStatus || 'On Track'
 })
 
 const budgetUtilization = computed(() => {

@@ -168,6 +168,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, X, CheckCircle } from 'lucide-vue-next'
 import { Button, AlbertaText } from '@/components/ui'
 import LoadingSpinner from '@/components/shared/LoadingSpinner.vue'
@@ -192,6 +193,8 @@ const emit = defineEmits<{
 }>()
 
 // Composables
+const router = useRouter()
+
 const {
   sessionId,
   currentStep,
@@ -345,14 +348,38 @@ const createProject = async () => {
     
     console.log('Project created successfully:', project)
     
+    // Validate project has ID before navigation
+    if (!project || !project.id) {
+      throw new Error('Project creation failed - no project ID returned')
+    }
+    
+    // Navigate to the project detail page
+    await router.push({ 
+      name: 'project-detail', 
+      params: { id: project.id } 
+    })
+    
+    // Show success notification
+    // You can replace this with your notification system
+    if (typeof window !== 'undefined' && window.alert) {
+      setTimeout(() => {
+        alert('Project created successfully!')
+      }, 100)
+    }
+    
     // Emit the completion event with the project data
-    // Let the parent component handle navigation and any store updates
     emit('wizardCompleted', project)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating project:', error)
     
-    // The error message will already be shown by the completeWizard function
-    // Just re-throw to prevent further execution
+    // Show user-friendly error message
+    const errorMessage = error.message || 'An unexpected error occurred while creating your project.'
+    
+    if (typeof window !== 'undefined' && window.alert) {
+      alert(`Error: ${errorMessage}`)
+    }
+    
+    // Don't navigate on error - stay on wizard
     throw error
   }
 }

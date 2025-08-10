@@ -13,22 +13,22 @@ export function useProjectWizard() {
   // Get project store for integration
   const projectStore = useProjectStore()
 
-  // Wizard data structure
+  // Wizard data structure - matches backend expectations
   const wizardData = reactive({
     basicInfo: {
       projectName: '',
       description: '',
-      category: '',
-      projectType: 'Standard',
-      region: 'Alberta',
-      ministry: 'Infrastructure',
-      priority: 'Medium',
-      startDate: null,
-      expectedCompletion: null,
-      location: '',
+      category: 'construction',
+      projectType: 'new_construction',
+      deliveryType: 'design_bid_build',
+      program: 'government_facilities',
+      region: 'central',
       municipality: '',
+      location: '',
       buildingName: '',
-      fundedToComplete: false
+      fundedToComplete: false,
+      startDate: null,
+      expectedCompletion: null
     },
     budgetInfo: {
       totalBudget: 0,
@@ -40,9 +40,9 @@ export function useProjectWizard() {
     },
     teamInfo: {
       projectManager: null,
+      director: null,
       teamMembers: [],
-      requiredRoles: [],
-      director: null
+      requiredRoles: []
     }
   })
 
@@ -52,94 +52,35 @@ export function useProjectWizard() {
       isProcessing.value = true
       isDemoMode.value = false // Reset demo mode flag
       
+      console.log('Initializing wizard session...')
       const result = await ProjectWizardService.initializeWizard()
+      
+      if (!result.sessionId) {
+        throw new Error('No session ID returned from server')
+      }
       
       sessionId.value = result.sessionId
       currentStep.value = result.currentStep || 1
       
-      console.log('Wizard initialized successfully:', { sessionId: sessionId.value, currentStep: currentStep.value })
+      console.log('Wizard initialized successfully:', { 
+        sessionId: sessionId.value, 
+        currentStep: currentStep.value,
+        isDemoMode: isDemoMode.value 
+      })
     } catch (error: any) {
       console.error('Error initializing wizard:', error)
       
-      // Handle different types of errors with specific user-friendly messages
+      // Only enter demo mode for specific errors, otherwise throw the error
       if (error.response?.status === 401 || error.message?.includes('Authentication required')) {
-        console.warn('User not authenticated, providing demo mode fallback')
-        
-        // Provide demo mode fallback
-        sessionId.value = `demo_${Date.now()}`
-        currentStep.value = 1
-        isDemoMode.value = true
-        
-        // Show user-friendly message
-        const message = 'Unable to connect to the server. You can continue in demo mode, but your progress will not be saved. Please refresh the page to try again.'
-        
-        // Use a more user-friendly notification instead of alert
-        if (typeof window !== 'undefined' && window.alert) {
-          alert(message)
-        } else {
-          console.warn('Demo mode active:', message)
-        }
-        
-        return
+        throw new Error('Authentication required. Please log in and try again.')
       } else if (error.response?.status === 500 || error.message?.includes('database') || error.message?.includes('server')) {
-        console.error('Server or database error during wizard initialization')
-        
-        // Provide demo mode fallback for server errors
-        sessionId.value = `demo_${Date.now()}`
-        currentStep.value = 1
-        isDemoMode.value = true
-        
-        const message = 'There was a server error while starting the wizard. You can continue in demo mode, but your progress will not be saved. Please try again later or contact support if the problem persists.'
-        
-        if (typeof window !== 'undefined' && window.alert) {
-          alert(message)
-        } else {
-          console.warn('Demo mode active due to server error:', message)
-        }
-        
-        return
-      } else if (error.response?.status >= 400 && error.response?.status < 500) {
-        // Client errors (4xx)
-        const message = `Unable to start the wizard: ${error.message || 'Client error'}. Please refresh the page and try again.`
-        
-        if (typeof window !== 'undefined' && window.alert) {
-          alert(message)
-        }
-        
-        throw new Error(message)
+        throw new Error('Server error occurred. Please try again later or contact support.')
       } else if (!navigator.onLine) {
-        // Network connectivity issues
-        console.warn('Network connectivity issue detected')
-        
-        sessionId.value = `demo_${Date.now()}`
-        currentStep.value = 1
-        isDemoMode.value = true
-        
-        const message = 'No internet connection detected. You can continue in demo mode, but your progress will not be saved. Please check your connection and refresh the page.'
-        
-        if (typeof window !== 'undefined' && window.alert) {
-          alert(message)
-        } else {
-          console.warn('Demo mode active due to network issue:', message)
-        }
-        
-        return
+        throw new Error('No internet connection. Please check your connection and try again.')
       }
       
-      // For any other unexpected errors, provide a generic fallback
-      console.error('Unexpected error during wizard initialization:', error)
-      
-      sessionId.value = `demo_${Date.now()}`
-      currentStep.value = 1
-      isDemoMode.value = true
-      
-      const message = 'An unexpected error occurred while starting the wizard. You can continue in demo mode, but your progress will not be saved. Please refresh the page to try again.'
-      
-      if (typeof window !== 'undefined' && window.alert) {
-        alert(message)
-      } else {
-        console.warn('Demo mode active due to unexpected error:', message)
-      }
+      // For any other errors, throw them to be handled by the component
+      throw error
     } finally {
       isProcessing.value = false
     }
@@ -151,6 +92,11 @@ export function useProjectWizard() {
       isProcessing.value = true
       autoSaveStatus.value = 'saving'
       
+      // Validate session exists
+      if (!sessionId.value) {
+        throw new Error('No active wizard session. Please restart the wizard.')
+      }
+      
       // Skip API call in demo mode
       if (isDemoMode.value) {
         console.log(`Demo mode: Simulating save for step ${stepId}`)
@@ -161,7 +107,8 @@ export function useProjectWizard() {
         return { success: true, demo: true }
       }
       
-      const result = await ProjectWizardService.saveStepData(sessionId.value!, stepId, stepData)
+      console.log(`Saving step ${stepId} data:`, stepData)
+      const result = await ProjectWizardService.saveStepData(sessionId.value, stepId, stepData)
       
       autoSaveStatus.value = 'saved'
       setTimeout(() => {
@@ -170,15 +117,15 @@ export function useProjectWizard() {
       
       console.log(`Step ${stepId} data saved successfully`)
       return result
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving step data:', error)
       autoSaveStatus.value = null
       
-      // Provide user-friendly error message
-      const message = `Failed to save step ${stepId} data. Your progress may not be saved. Please try again or refresh the page.`
-      
-      if (typeof window !== 'undefined' && window.alert) {
-        alert(message)
+      // Handle specific error cases
+      if (error.message?.includes('session not found') || error.message?.includes('404')) {
+        throw new Error('Wizard session expired. Please restart the wizard.')
+      } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
+        throw new Error('Authentication expired. Please refresh the page and try again.')
       }
       
       throw error
@@ -221,91 +168,59 @@ export function useProjectWizard() {
 
   // Complete wizard and create project
   const completeWizard = async () => {
-    if (!sessionId.value) throw new Error('No active wizard session')
+    if (!sessionId.value) {
+      throw new Error('No active wizard session')
+    }
 
     try {
       isProcessing.value = true
       
       // Handle demo mode
       if (isDemoMode.value) {
-        const message = 'Demo mode active: Project cannot be saved to the database. Please refresh the page and try again with a proper connection to create a real project.'
-        
-        if (typeof window !== 'undefined' && window.alert) {
-          alert(message)
-        }
-        
-        throw new Error('Cannot complete wizard in demo mode')
+        throw new Error('Cannot complete wizard in demo mode. Please refresh the page and try again with a proper connection.')
+      }
+      
+      // Validate required fields before submission
+      if (!wizardData.basicInfo.projectName?.trim()) {
+        throw new Error('Project name is required')
+      }
+      if (!wizardData.basicInfo.description?.trim()) {
+        throw new Error('Project description is required')
       }
       
       console.log('Completing wizard with session:', sessionId.value)
+      console.log('Wizard data:', wizardData)
       
       // Complete the wizard via API
       const project = await ProjectWizardService.completeWizard(sessionId.value)
       
+      if (!project || !project.id) {
+        throw new Error('Project creation failed - no project ID returned')
+      }
+      
       console.log('Project created successfully:', project)
       
-      // Don't call project store here - let the navigation handle the refresh
-      // This prevents any potential timing issues or API conflicts
-      
       return project
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing wizard:', error)
       
       // Provide more specific error messages
-      if (error instanceof Error) {
-        if (error.message.includes('demo mode')) {
-          throw error // Re-throw demo mode errors as-is
-        } else if (error.message.includes('session not found') || error.message.includes('session expired')) {
-          const message = 'Your wizard session has expired. Please start over by refreshing the page and beginning a new project.'
-          
-          if (typeof window !== 'undefined' && window.alert) {
-            alert(message)
-          }
-          
-          throw new Error(message)
-        } else if (error.message.includes('validation') || error.message.includes('required')) {
-          const message = 'Please check that all required fields are filled out correctly and try again.'
-          
-          if (typeof window !== 'undefined' && window.alert) {
-            alert(message)
-          }
-          
-          throw new Error(message)
-        } else if (error.message.includes('Authentication') || error.message.includes('401')) {
-          const message = 'Your session has expired. Please refresh the page, log in again, and try creating the project again.'
-          
-          if (typeof window !== 'undefined' && window.alert) {
-            alert(message)
-          }
-          
-          throw new Error(message)
-        } else if (error.message.includes('500') || error.message.includes('server') || error.message.includes('database')) {
-          const message = 'There was a server error while creating your project. Please try again in a few moments, or contact support if the problem persists.'
-          
-          if (typeof window !== 'undefined' && window.alert) {
-            alert(message)
-          }
-          
-          throw new Error(message)
-        } else if (error.message.includes('fetch') || error.message.includes('network')) {
-          const message = 'Network error occurred while creating your project. Please check your connection and try again.'
-          
-          if (typeof window !== 'undefined' && window.alert) {
-            alert(message)
-          }
-          
-          throw new Error(message)
-        }
+      if (error.message?.includes('demo mode')) {
+        throw error // Re-throw demo mode errors as-is
+      } else if (error.message?.includes('session not found') || error.message?.includes('session expired')) {
+        throw new Error('Your wizard session has expired. Please start over by refreshing the page.')
+      } else if (error.message?.includes('required')) {
+        throw error // Re-throw validation errors as-is
+      } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
+        throw new Error('Your session has expired. Please refresh the page and try again.')
+      } else if (error.message?.includes('500') || error.message?.includes('server') || error.message?.includes('database')) {
+        throw new Error('Server error occurred while creating your project. Please try again.')
+      } else if (error.message?.includes('fetch') || error.message?.includes('network')) {
+        throw new Error('Network error occurred. Please check your connection and try again.')
       }
       
       // Generic error fallback
-      const message = 'An unexpected error occurred while creating your project. Please try again or contact support if the problem persists.'
-      
-      if (typeof window !== 'undefined' && window.alert) {
-        alert(message)
-      }
-      
-      throw new Error(message)
+      throw new Error('An unexpected error occurred while creating your project. Please try again.')
     } finally {
       isProcessing.value = false
     }
@@ -388,21 +303,21 @@ export function useProjectWizard() {
     sessionId.value = null
     currentStep.value = 1
     
-    // Reset wizard data
+    // Reset wizard data to match backend expectations
     Object.assign(wizardData.basicInfo, {
       projectName: '',
       description: '',
-      category: '',
-      projectType: 'Standard',
-      region: 'Alberta',
-      ministry: 'Infrastructure',
-      priority: 'Medium',
-      startDate: null,
-      expectedCompletion: null,
-      location: '',
+      category: 'construction',
+      projectType: 'new_construction',
+      deliveryType: 'design_bid_build',
+      program: 'government_facilities',
+      region: 'central',
       municipality: '',
+      location: '',
       buildingName: '',
-      fundedToComplete: false
+      fundedToComplete: false,
+      startDate: null,
+      expectedCompletion: null
     })
     
     Object.assign(wizardData.budgetInfo, {
@@ -416,9 +331,9 @@ export function useProjectWizard() {
     
     Object.assign(wizardData.teamInfo, {
       projectManager: null,
+      director: null,
       teamMembers: [],
-      requiredRoles: [],
-      director: null
+      requiredRoles: []
     })
     
     console.log('Wizard reset successfully')

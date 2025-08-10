@@ -195,7 +195,8 @@
         <div class="flex items-center space-x-2">
           <Switch
             id="funded-to-complete"
-            v-model="formData.funded_to_complete"
+            :model-value="formData.funded_to_complete ?? false"
+            @update:model-value="formData.funded_to_complete = $event"
             :disabled="!canEdit"
           />
           <Label for="funded-to-complete">Funded to Complete</Label>
@@ -338,7 +339,8 @@
           <div class="flex items-center space-x-2">
             <Switch
               id="is-charter-school"
-              v-model="formData.is_charter_school"
+              :model-value="formData.is_charter_school ?? false"
+              @update:model-value="formData.is_charter_school = $event"
               :disabled="!canEdit"
             />
             <Label for="is-charter-school">Charter School</Label>

@@ -270,11 +270,25 @@ router.get('/:id', authenticateToken, async (req, res) => {
             });
         }
 
+        // Transform the project data to include both database field names and frontend-compatible names
+        const transformedProject = {
+            ...project,
+            // Ensure both field name formats are available
+            name: project.project_name || project.projectName,
+            projectName: project.project_name || project.projectName,
+            status: project.project_status || project.projectStatus,
+            projectStatus: project.project_status || project.projectStatus,
+            phase: project.project_phase || project.projectPhase,
+            projectPhase: project.project_phase || project.projectPhase,
+            description: project.project_description || project.projectDescription,
+            projectDescription: project.project_description || project.projectDescription,
+            region: project.geographic_region || project.geographicRegion,
+            geographicRegion: project.geographic_region || project.geographicRegion
+        };
+
         res.json({
             success: true,
-            data: {
-                project: project.toJSON()
-            }
+            data: transformedProject
         });
 
     } catch (error) {
@@ -283,7 +297,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
             success: false,
             error: {
                 message: 'Failed to retrieve project',
-                details: error.message
+                details: error.message,
+                status: 500
             }
         });
     }

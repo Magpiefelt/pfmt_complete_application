@@ -305,12 +305,24 @@ const hasPendingVersions = computed(() => {
 const loadProject = async () => {
   const { data, error: loadError } = await handleAsyncOperation(
     () => withLoading(async () => {
+      console.log('Loading project with ID:', projectId.value)
+      
       // Load project data using ProjectAPI (with X-User headers) instead of ProjectService (requires token)
       const response = await ProjectAPI.getProject(projectId.value)
+      
+      console.log('Raw project data received:', response.data)
       
       // Normalize the project data to handle different field name formats
       const projectData = response.data
       const normalizedProjectData = normalizeProject(projectData)
+      
+      console.log('Normalized project data:', normalizedProjectData)
+      
+      // Ensure required fields are present
+      if (!normalizedProjectData.name && !normalizedProjectData.projectName) {
+        console.warn('Project name missing, using fallback')
+        normalizedProjectData.name = normalizedProjectData.project_name || 'Unnamed Project'
+      }
       
       project.value = normalizedProjectData
 

@@ -321,14 +321,27 @@ export const useProjectStore = defineStore('project', () => {
     // (e.g., by the wizard), so we just need to refresh the list
     if (projectData.id) {
       console.log('Project already created, refreshing list...')
+      
+      // Add the project to the current list immediately for better UX
+      const normalizedProject = {
+        ...projectData,
+        // Ensure consistent field mapping
+        name: projectData.name || projectData.projectName || projectData.project_name || '',
+        status: projectData.status || projectData.projectStatus || projectData.project_status || '',
+        reportStatus: projectData.reportStatus || projectData.report_status || 'Current',
+      } as Project
+      
+      // Add to beginning of list (most recent first)
+      projects.value = [normalizedProject, ...projects.value]
+      
+      // Also refresh from server to ensure consistency
       await fetchProjects()
-      return projectData
+      return normalizedProject
     }
     
     // Otherwise, create a new project via API
     setLoading(true)
     setError(null)
-    
     
     try {
       // Ensure user context is included in project creation
@@ -347,7 +360,6 @@ export const useProjectStore = defineStore('project', () => {
       
       const response = await ProjectAPI.createProject(projectWithContext)
       const newProject = response.data
-      
       
       // Refresh the projects list to maintain proper pagination
       await fetchProjects()

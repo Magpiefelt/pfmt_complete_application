@@ -251,7 +251,6 @@ const startWizardWithTemplate = (template: any) => {
 // ENHANCED: Handle wizard completion with better error handling and user feedback
 const handleWizardCompleted = async (project: any) => {
   console.log('Project created successfully:', project)
-  console.log('Wizard completed with project:', project)
   
   // Store project info for modals
   createdProjectName.value = project.projectName || project.project_name || project.name || 'New Project'
@@ -260,36 +259,9 @@ const handleWizardCompleted = async (project: any) => {
   // Hide wizard
   showWizard.value = false
   
-  try {
-    // Show success notification
-    console.log(`SUCCESS: Project "${createdProjectName.value}" created successfully!`)
-    
-    // ENHANCED: Validate project ID before navigation
-    if (!project.id) {
-      console.warn('Project created but no ID provided')
-      showErrorModal.value = true
-      navigationError.value = 'Project ID not provided'
-      return
-    }
-    
-    console.log('Navigating to project detail page:', project.id)
-    
-    // ENHANCED: Try navigation with better error handling
-    await router.push({ 
-      name: 'project-detail', 
-      params: { id: String(project.id) }
-    })
-    
-    // If we get here, navigation succeeded
-    showSuccessModal.value = true
-    
-  } catch (error) {
-    console.error('Navigation error:', error)
-    navigationError.value = error.message || 'Unknown navigation error'
-    
-    // Show error modal instead of falling back immediately
-    showErrorModal.value = true
-  }
+  // ProjectWizard component now handles navigation directly
+  // Just show success feedback here
+  console.log(`SUCCESS: Project "${createdProjectName.value}" created successfully!`)
 }
 
 // Handle wizard cancellation
