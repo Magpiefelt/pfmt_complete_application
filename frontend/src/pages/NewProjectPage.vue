@@ -197,13 +197,13 @@ const handleWizardCompleted = async (project: any) => {
   try {
     // Show success message
     if (typeof window !== 'undefined' && window.alert) {
-      alert(`Project "${project.projectName || project.name || 'New Project'}" created successfully!`)
+      alert(`Project "${project.projectName || project.project_name || project.name || 'New Project'}" created successfully!`)
     }
     
-    // Navigate to the newly created project
+    // Navigate to the newly created project using the correct route name and parameter
     if (project.id) {
       console.log('Navigating to project:', project.id)
-      await router.push(`/projects/${project.id}`)
+      await router.push({ name: 'project-detail', params: { id: project.id } })
     } else {
       console.warn('Project created but no ID provided, navigating to projects list')
       await router.push('/projects?filter=my')

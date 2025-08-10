@@ -75,6 +75,7 @@
         <div class="mt-6">
           <TabsContent value="overview">
             <OverviewTab
+              v-if="currentProjectData"
               :project="currentProjectData"
               :recent-activity="recentActivity"
             />
@@ -82,6 +83,7 @@
 
           <TabsContent value="details">
             <DetailsTab
+              v-if="currentProjectData"
               :project="currentProjectData"
               :view-mode="viewMode"
               :can-edit="canEdit"
@@ -92,6 +94,7 @@
 
           <TabsContent value="location">
             <LocationTab
+              v-if="currentProjectData"
               :project="currentProjectData"
               :view-mode="viewMode"
               :can-edit="canEdit"
@@ -125,6 +128,7 @@
 
           <TabsContent value="budget">
             <BudgetTab
+              v-if="currentProjectData"
               :project="currentProjectData"
               :view-mode="viewMode"
               :can-edit="canEdit"
@@ -192,6 +196,9 @@ import { useProjectVersions } from '@/composables/useProjectVersions'
 import { useAuthStore } from '@/stores/auth'
 import { ProjectService } from '@/services/ProjectService'
 import { ProjectAPI } from '@/services/apiService'
+import { normalizeProject } from '@/utils/fieldNormalization'
+import { useLoading } from '@/composables/useLoading'
+import { useErrorHandling } from '@/utils/errorHandling'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -199,7 +206,10 @@ const authStore = useAuthStore()
 // Project data
 const projectId = computed(() => route.params.id as string)
 const project = ref<any>(null)
-const loading = ref(false)
+
+// Use standardized loading and error handling
+const { isLoading: loading, withLoading } = useLoading('Loading project...')
+const { handleAsyncOperation } = useErrorHandling()
 const error = ref<string | null>(null)
 
 // UI state
@@ -217,9 +227,7 @@ const {
   canCreateDraft,
   canApprove,
   hasDraftVersion,
-  hasSubmittedVersion,
   canSubmitForApproval,
-  versionStatus,
   getProject,
   createDraftVersion,
   submitForApproval,
@@ -230,25 +238,29 @@ const {
 // Computed properties
 const currentUser = computed(() => authStore.currentUser)
 
+// Normalize project data for consistent field access
+const normalizedProject = computed(() => project.value ? normalizeProject(project.value) : null)
+
 const currentProjectData = computed(() => {
-  if (viewMode.value === 'draft' && hasDraftVersion.value) {
-    return currentProject.value?.draftVersion || project.value
-  }
-  return project.value
+  const baseProject = viewMode.value === 'draft' && hasDraftVersion.value
+    ? currentProject.value?.draftVersion || project.value
+    : project.value
+  return baseProject ? normalizeProject(baseProject) : null
 })
 
 const currentVersionNumber = computed(() => {
   return currentProject.value?.currentVersion?.version_number || 'v1.0'
 })
 
-// Fix versionStatus to provide proper default value
+// Create proper computed properties for version status
 const versionStatusComputed = computed(() => {
-  return versionStatus.value || 'approved'
+  if (hasDraftVersion.value) return 'draft'
+  return 'approved'
 })
 
-// Fix hasSubmittedVersion to provide proper default value
+// Create proper computed property for submitted version
 const hasSubmittedVersionComputed = computed(() => {
-  return hasSubmittedVersion.value || false
+  return versions.value.some(v => v.status === 'PendingApproval')
 })
 
 const canEdit = computed(() => {
@@ -289,55 +301,35 @@ const hasPendingVersions = computed(() => {
 
 // Methods
 const loadProject = async () => {
-  loading.value = true
-  error.value = null
+  const { data, error: loadError } = await handleAsyncOperation(
+    () => withLoading(async () => {
+      // Load project data using ProjectAPI (with X-User headers) instead of ProjectService (requires token)
+      const response = await ProjectAPI.getProject(projectId.value)
+      
+      // Normalize the project data to handle different field name formats
+      const projectData = response.data
+      const normalizedProjectData = normalizeProject(projectData)
+      
+      project.value = normalizedProjectData
 
-  try {
-    // Load project data using ProjectAPI (with X-User headers) instead of ProjectService (requires token)
-    const response = await ProjectAPI.getProject(projectId.value)
-    
-    // Normalize the project data to handle different field name formats
-    const projectData = response.data
-    const normalizedProject = {
-      ...projectData,
-      // Ensure consistent field mapping for detail components
-      name: projectData.name || projectData.projectName || projectData.project_name || '',
-      status: projectData.status || projectData.projectStatus || projectData.project_status || '',
-      phase: projectData.phase || projectData.projectPhase || projectData.project_phase || '',
-      region: projectData.region || projectData.geographicRegion || projectData.geographic_region || '',
-      projectManager: projectData.projectManager || projectData.project_manager || projectData.modifiedByName || projectData.modified_by_name || '',
-      description: projectData.description || projectData.projectDescription || projectData.project_description || '',
-      category: projectData.category || projectData.projectCategory || projectData.project_category || '',
-      ministry: projectData.ministry || projectData.clientMinistry || projectData.client_ministry || '',
-      totalBudget: projectData.totalBudget || projectData.totalApprovedFunding || projectData.total_approved_funding || 0,
-      amountSpent: projectData.amountSpent || projectData.amount_spent || 0,
-      reportStatus: projectData.reportStatus || projectData.report_status || 'Current',
-      // Keep original fields for backward compatibility
-      project_name: projectData.project_name || projectData.projectName || projectData.name || '',
-      project_status: projectData.project_status || projectData.projectStatus || projectData.status || '',
-      project_phase: projectData.project_phase || projectData.projectPhase || projectData.phase || '',
-      geographic_region: projectData.geographic_region || projectData.geographicRegion || projectData.region || '',
-      project_manager_name: projectData.project_manager_name || projectData.projectManager || projectData.modifiedByName || '',
-      project_description: projectData.project_description || projectData.projectDescription || projectData.description || '',
-      project_category: projectData.project_category || projectData.projectCategory || projectData.category || '',
-      total_approved_funding: projectData.total_approved_funding || projectData.totalApprovedFunding || projectData.totalBudget || 0,
-      amount_spent: projectData.amount_spent || projectData.amountSpent || 0,
-      report_status: projectData.report_status || projectData.reportStatus || 'Current'
+      // Load project with versions (use string ID, not parsed integer)
+      await getProject(projectId.value)
+
+      // Load additional data
+      await loadRecentActivity()
+      await loadBudgetHistory()
+
+      return normalizedProjectData
+    }, 'Loading project details...'),
+    { 
+      context: 'Loading project details',
+      fallbackMessage: 'Failed to load project details'
     }
-    
-    project.value = normalizedProject
+  )
 
-    // Load project with versions (use string ID, not parsed integer)
-    await getProject(projectId.value)
-
-    // Load additional data
-    await loadRecentActivity()
-    await loadBudgetHistory()
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load project'
-    console.error('Error loading project:', err)
-  } finally {
-    loading.value = false
+  if (loadError) {
+    error.value = loadError.message
+    console.error('Error loading project:', loadError)
   }
 }
 

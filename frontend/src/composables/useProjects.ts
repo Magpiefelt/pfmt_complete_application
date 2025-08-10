@@ -1,6 +1,7 @@
 import { computed, watch, onMounted, ref, toRef, isRef, type Ref } from 'vue'
 import { useProjectStore } from '@/stores/project'
 import { useAuthStore } from '@/stores/auth'
+import { normalizeProjects } from '@/utils/fieldNormalization'
 
 export const useProjects = (filterParam: string | Ref<string> = 'all') => {
   const projectStore = useProjectStore()
@@ -9,8 +10,8 @@ export const useProjects = (filterParam: string | Ref<string> = 'all') => {
   // Make filter reactive - handle both string and ref/computed inputs
   const filter = ref(isRef(filterParam) ? filterParam.value : filterParam)
 
-  // Computed properties from store
-  const projects = computed(() => projectStore.filteredProjects)
+  // Computed properties from store with field normalization
+  const projects = computed(() => normalizeProjects(projectStore.filteredProjects))
   const loading = computed(() => projectStore.loading)
   const error = computed(() => projectStore.error)
 

@@ -212,7 +212,7 @@ class ApiService {
             phase: 'construction',
             region: 'Central',
             projectManager: 'Sarah Johnson',
-            contractor: 'ABC Construction Ltd.',
+            contractor: 'Red Deer Construction Ltd.',
             startDate: '2024-01-15T00:00:00Z',
             totalBudget: 15000000,
             amountSpent: 8500000,
@@ -289,7 +289,7 @@ class ApiService {
       return {
         success: true,
         data: [
-          { id: 1, name: 'ABC Construction Ltd.', industry: 'Construction', status: 'active' },
+          { id: 1, name: 'Red Deer Construction Ltd.', industry: 'Construction', status: 'active' },
           { id: 2, name: 'XYZ Engineering Inc.', industry: 'Engineering', status: 'active' },
           { id: 3, name: 'DEF Consulting Group', industry: 'Consulting', status: 'active' }
         ] as T

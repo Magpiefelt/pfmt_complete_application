@@ -388,7 +388,12 @@ class ProjectWizardController {
       res.json({
         success: true,
         message: 'Project created successfully',
-        project: projectResult.rows[0]
+        project: {
+          ...projectResult.rows[0],
+          // Add normalized name field for frontend compatibility
+          name: projectResult.rows[0].project_name,
+          projectName: projectResult.rows[0].project_name
+        }
       });
 
     } catch (error) {

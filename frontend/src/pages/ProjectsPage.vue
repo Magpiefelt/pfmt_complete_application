@@ -16,9 +16,13 @@
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectList from '@/components/projects/ProjectList.vue'
+import { useLoading } from '@/composables/useLoading'
 
 const route = useRoute()
 const router = useRouter()
+
+// Use standardized loading state
+const { isLoading: pageLoading } = useLoading('Loading projects...')
 
 const filter = computed(() => 
   (route.query.filter as string) || 'all'

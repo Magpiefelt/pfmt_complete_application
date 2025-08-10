@@ -178,6 +178,7 @@ import TeamAssignmentStep from './steps/TeamAssignmentStep.vue'
 import ReviewStep from './steps/ReviewStep.vue'
 import { useProjectWizard } from '@/composables/useProjectWizard'
 import { useProjectStore } from '@/stores/project'
+import { useLoading } from '@/composables/useLoading'
 
 // Props
 const props = defineProps<{
@@ -205,6 +206,9 @@ const {
 } = useProjectWizard()
 
 const projectStore = useProjectStore()
+
+// Use standardized loading state
+const { isLoading: wizardLoading, withLoading } = useLoading('Processing...')
 
 // Local state
 const selectedTemplate = ref(props.selectedTemplate)

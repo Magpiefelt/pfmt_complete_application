@@ -1,4 +1,5 @@
 import { BaseService } from './BaseService'
+import { withErrorHandling, validateApiResponse, AppError } from '@/utils/errorHandling'
 
 export interface Project {
   id: string
@@ -105,11 +106,25 @@ export class ProjectService extends BaseService {
   }
 
   /**
-   * Get project by ID
+   * Get a project by ID
    */
   static async getById(id: string): Promise<Project> {
-    const response = await this.get<ProjectResponse>(`/projects/${id}`)
-    return response.data as Project
+    const { data, error } = await withErrorHandling(
+      async () => {
+        const response = await this.get<ProjectResponse>(`/projects/${id}`)
+        return validateApiResponse(response, 'ProjectService.getById')
+      },
+      { context: 'Getting project by ID', fallbackMessage: 'Failed to load project' }
+    )
+
+    if (error) {
+      throw new AppError(error.message, {
+        context: 'ProjectService.getById',
+        details: { projectId: id }
+      })
+    }
+
+    return data as Project
   }
 
   /**

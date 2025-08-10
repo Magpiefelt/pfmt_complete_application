@@ -289,12 +289,12 @@ watch(() => props.project, (newProject) => {
     vendors.value = [
       {
         id: 1,
-        companyName: 'ABC Construction Ltd.',
+        companyName: 'Red Deer Construction Ltd.',
         vendorType: 'General Contractor',
         status: 'Active',
         contactPerson: 'John Smith',
         phone: '(403) 555-0123',
-        email: 'john.smith@abcconstruction.com',
+        email: 'john.smith@reddeerconstruction.com',
         contractValue: 1500000,
         startDate: '2024-01-15',
         endDate: '2024-12-31',

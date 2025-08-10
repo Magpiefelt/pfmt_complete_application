@@ -2,7 +2,7 @@
   <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
     <div class="flex items-center space-x-4">
       <span class="text-sm text-gray-700">
-        Showing {{ startItem }} to {{ endItem }} of {{ totalItems }} results
+        {{ paginationInfo.info }}
       </span>
       
       <!-- Page Size Selector -->
@@ -11,13 +11,12 @@
         <select
           id="pageSize"
           :value="pageSize"
-          @change="$emit('pageSizeChange', parseInt(($event.target as HTMLSelectElement).value))"
+          @change="handlePageSizeChange"
           class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="10">10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
+          <option v-for="size in pageSizeOptions" :key="size" :value="size">
+            {{ size }}
+          </option>
         </select>
         <span class="text-sm text-gray-700">per page</span>
       </div>
@@ -48,23 +47,16 @@
       
       <!-- Page Numbers -->
       <div class="flex items-center space-x-1">
-        <!-- Show ellipsis if there are pages before visible range -->
-        <span v-if="showStartEllipsis" class="px-2 text-gray-500">...</span>
-        
         <Button
           v-for="page in visiblePages"
           :key="page"
           @click="$emit('pageChange', page)"
           :variant="page === currentPage ? 'default' : 'outline'"
           size="sm"
-          class="w-8 h-8 p-0"
-          :title="`Go to page ${page}`"
+          class="min-w-[2.5rem]"
         >
           {{ page }}
         </Button>
-        
-        <!-- Show ellipsis if there are pages after visible range -->
-        <span v-if="showEndEllipsis" class="px-2 text-gray-500">...</span>
       </div>
       
       <!-- Next Button -->
@@ -112,64 +104,50 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Button } from '@/components/ui'
+import { usePaginationInfo } from '@/composables/usePagination'
 
 interface Props {
   currentPage: number
   totalPages: number
-  hasNext: boolean
-  hasPrev: boolean
   pageSize: number
   totalItems: number
+  hasNext: boolean
+  hasPrev: boolean
+  visiblePages: number[]
+  pageSizeOptions?: number[]
 }
 
-const props = defineProps<Props>()
-
-const startItem = computed(() => 
-  props.totalItems === 0 ? 0 : (props.currentPage - 1) * props.pageSize + 1
-)
-
-const endItem = computed(() => 
-  Math.min(props.currentPage * props.pageSize, props.totalItems)
-)
-
-const visiblePages = computed(() => {
-  const pages = []
-  const maxVisible = 5
-  let start = Math.max(1, props.currentPage - Math.floor(maxVisible / 2))
-  let end = Math.min(props.totalPages, start + maxVisible - 1)
-  
-  // Adjust start if we're near the end
-  if (end - start + 1 < maxVisible) {
-    start = Math.max(1, end - maxVisible + 1)
-  }
-  
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
-  }
-  
-  return pages
-})
-
-const showStartEllipsis = computed(() => {
-  return visiblePages.value.length > 0 && visiblePages.value[0] > 1
-})
-
-const showEndEllipsis = computed(() => {
-  return visiblePages.value.length > 0 && visiblePages.value[visiblePages.value.length - 1] < props.totalPages
+const props = withDefaults(defineProps<Props>(), {
+  pageSizeOptions: () => [5, 10, 25, 50, 100]
 })
 
 const emit = defineEmits<{
+  pageChange: [page: number]
   nextPage: []
   prevPage: []
-  pageChange: [page: number]
   pageSizeChange: [size: number]
 }>()
+
+// Create pagination info using the composable
+const paginationState = computed(() => ({
+  currentPage: { value: props.currentPage },
+  totalItems: { value: props.totalItems },
+  pageSize: { value: props.pageSize },
+  startIndex: { value: (props.currentPage - 1) * props.pageSize },
+  endIndex: { value: Math.min((props.currentPage - 1) * props.pageSize + props.pageSize - 1, props.totalItems - 1) }
+}))
+
+const paginationInfo = usePaginationInfo(paginationState.value as any)
+
+const handlePageSizeChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  emit('pageSizeChange', parseInt(target.value))
+}
 
 const handleJumpToPage = (event: Event) => {
   const target = event.target as HTMLInputElement
   const page = parseInt(target.value)
-  
-  if (page >= 1 && page <= props.totalPages && page !== props.currentPage) {
+  if (page >= 1 && page <= props.totalPages) {
     emit('pageChange', page)
   } else {
     // Reset to current page if invalid
