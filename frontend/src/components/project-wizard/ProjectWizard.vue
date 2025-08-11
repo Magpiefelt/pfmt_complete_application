@@ -1,296 +1,299 @@
 <template>
-  <div class="max-w-4xl mx-auto">
+  <div class="project-wizard">
     <!-- Wizard Header -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-      <div class="px-6 py-4 border-b border-gray-200">
+    <div class="wizard-header bg-white shadow-sm">
+      <div class="container mx-auto px-4 py-6">
         <div class="flex items-center justify-between">
-          <AlbertaText tag="h2" variant="heading-m" color="primary">
-            Create New Project
-          </AlbertaText>
-          <button 
-            @click="cancelWizard"
-            class="text-gray-400 hover:text-gray-600"
-          >
-            <X class="h-6 w-6" />
-          </button>
+          <div class="wizard-title">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
+              Create New Project
+            </h1>
+            <p class="text-gray-600 mt-1">
+              Follow the steps below to create your project
+            </p>
+          </div>
+          
+          <!-- Save Status Indicator -->
+          <div class="save-status" v-if="!isCompleted">
+            <div class="flex items-center space-x-2">
+              <div class="save-indicator">
+                <CheckCircle v-if="lastSaveStatus === 'success'" class="h-4 w-4 text-green-600" />
+                <span class="text-sm text-gray-600">
+                  {{ saveStatusText }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
         
         <!-- Progress Bar -->
-        <div class="mt-4">
+        <div class="progress-section mt-6">
           <div class="flex items-center justify-between mb-2">
-            <AlbertaText variant="body-s" color="secondary">
+            <span class="text-sm font-medium text-gray-700">
               Step {{ currentStep }} of {{ totalSteps }}
-            </AlbertaText>
-            <AlbertaText variant="body-s" color="secondary">
-              {{ Math.round((currentStep / totalSteps) * 100) }}% Complete
-            </AlbertaText>
+            </span>
+            <span class="text-sm text-gray-500">
+              {{ Math.round(progressPercentage) }}% Complete
+            </span>
           </div>
-          <div class="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              :style="{ width: `${(currentStep / totalSteps) * 100}%` }"
-            ></div>
-          </div>
-        </div>
-
-        <!-- Step Indicators -->
-        <div class="flex justify-between mt-4">
-          <div 
-            v-for="step in steps" 
-            :key="step.id"
-            class="flex flex-col items-center"
-          >
-            <div 
-              class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors"
-              :class="getStepIndicatorClass(step.id)"
-            >
-              <CheckCircle 
-                v-if="step.id < currentStep" 
-                class="w-5 h-5 text-white" 
-              />
-              <span v-else>{{ step.id }}</span>
+          
+          <div class="progress-bar-container">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                :style="{ width: `${progressPercentage}%` }"
+              ></div>
             </div>
-            <AlbertaText 
-              variant="body-xs" 
-              :color="step.id <= currentStep ? 'primary' : 'secondary'"
-              class="mt-1 text-center"
-            >
-              {{ step.title }}
-            </AlbertaText>
+          </div>
+          
+          <!-- Step Indicators -->
+          <div class="step-indicators mt-4">
+            <div class="flex items-center justify-between">
+              <div 
+                v-for="step in steps" 
+                :key="step.id"
+                class="step-indicator flex items-center"
+                :class="{
+                  'text-blue-600': step.id === currentStep,
+                  'text-green-600': step.id < currentStep,
+                  'text-gray-400': step.id > currentStep
+                }"
+              >
+                <div class="step-circle flex items-center justify-center w-8 h-8 rounded-full border-2 mr-2"
+                     :class="{
+                       'border-blue-600 bg-blue-600 text-white': step.id === currentStep,
+                       'border-green-600 bg-green-600 text-white': step.id < currentStep,
+                       'border-gray-300': step.id > currentStep
+                     }">
+                  <CheckCircle v-if="step.id < currentStep" class="h-4 w-4" />
+                  <span v-else class="text-sm font-medium">{{ step.id }}</span>
+                </div>
+                <div class="step-info">
+                  <div class="step-title font-medium">{{ step.title }}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Wizard Content -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div class="p-6">
-        <!-- Step 1: Template Selection -->
-        <TemplateSelectionStep
-          v-if="currentStep === 1"
-          :selected-template="selectedTemplate"
-          @template-selected="handleTemplateSelected"
-          @step-completed="handleStepCompleted"
-        />
+    <div class="wizard-content">
+      <div class="container mx-auto px-4 py-6">
+        <!-- Error Banner -->
+        <div v-if="globalError" class="error-banner mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div class="flex items-center">
+            <AlertCircle class="h-4 w-4 text-red-600 mr-2" />
+            <div>
+              <div class="font-medium text-red-800">Error</div>
+              <div class="text-red-700">{{ globalError }}</div>
+            </div>
+          </div>
+        </div>
 
-        <!-- Step 2: Basic Information -->
-        <BasicInformationStep
-          v-else-if="currentStep === 2"
-          :template="selectedTemplate"
-          :data="wizardData.basicInfo || {}"
-          @data-updated="updateBasicInfo"
-          @step-completed="handleStepCompleted"
-        />
+        <!-- Success Banner -->
+        <div v-if="successMessage" class="success-banner mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+          <div class="flex items-center">
+            <CheckCircle class="h-4 w-4 text-green-600 mr-2" />
+            <div>
+              <div class="font-medium text-green-800">Success</div>
+              <div class="text-green-700">{{ successMessage }}</div>
+            </div>
+          </div>
+        </div>
 
-        <!-- Step 3: Budget Setup -->
-        <BudgetSetupStep
-          v-else-if="currentStep === 3"
-          :template="selectedTemplate"
-          :data="wizardData.budgetInfo || {}"
-          @data-updated="updateBudgetInfo"
-          @step-completed="handleStepCompleted"
-        />
-
-        <!-- Step 4: Team Assignment -->
-        <TeamAssignmentStep
-          v-else-if="currentStep === 4"
-          :data="wizardData.teamInfo || {}"
-          @data-updated="updateTeamInfo"
-          @step-completed="handleStepCompleted"
-        />
-
-        <!-- Step 5: Review and Create -->
-        <ReviewStep
-          v-else-if="currentStep === 5"
-          :wizard-data="wizardData"
-          :selected-template="selectedTemplate"
-          @project-created="handleProjectCreated"
-        />
-      </div>
-
-      <!-- Navigation -->
-      <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
-        <Button 
-          variant="outline" 
-          @click="previousStep"
-          :disabled="currentStep === 1 || isProcessing"
-        >
-          <ArrowLeft class="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-
-        <div class="flex space-x-3">
-          <Button 
-            variant="outline" 
-            @click="saveDraft"
-            :disabled="isProcessing"
-            v-if="currentStep > 1"
-          >
-            Save Draft
-          </Button>
+        <!-- Step Content -->
+        <div class="step-content bg-white rounded-lg shadow-sm border p-6">
+          <ProjectDetailsStep 
+            v-if="currentStep === 1"
+            ref="step1"
+            :data="stepData.details"
+            :errors="stepErrors[1]"
+            @update:data="updateStepData(1, 'details', $event)"
+            @validate="validateStep(1)"
+          />
           
-          <Button 
-            @click="nextStep"
-            :disabled="!canProceed || isProcessing"
-            v-if="currentStep < totalSteps"
-          >
-            Next
-            <ArrowRight class="w-4 h-4 ml-2" />
-          </Button>
+          <LocationStep 
+            v-if="currentStep === 2"
+            ref="step2"
+            :data="stepData.location"
+            :errors="stepErrors[2]"
+            @update:data="updateStepData(2, 'location', $event)"
+            @validate="validateStep(2)"
+          />
+          
+          <VendorsStep 
+            v-if="currentStep === 3"
+            ref="step3"
+            :data="stepData.vendors"
+            :errors="stepErrors[3]"
+            @update:data="updateStepData(3, 'vendors', $event)"
+            @validate="validateStep(3)"
+          />
+          
+          <BudgetStep 
+            v-if="currentStep === 4"
+            ref="step4"
+            :data="stepData.budget"
+            :errors="stepErrors[4]"
+            @update:data="updateStepData(4, 'budget', $event)"
+            @validate="validateStep(4)"
+          />
+        </div>
 
-          <Button 
-            @click="createProject"
-            :disabled="!canProceed || isProcessing"
-            v-if="currentStep === totalSteps"
+        <!-- Navigation -->
+        <div class="wizard-navigation mt-6 flex items-center justify-between">
+          <Button
+            v-if="currentStep > 1"
+            variant="outline"
+            @click="previousStep"
+            :disabled="isLoading"
+            class="flex items-center"
           >
-            <LoadingSpinner v-if="isProcessing" class="w-4 h-4 mr-2" />
-            Create Project
+            <ChevronLeft class="h-4 w-4 mr-1" />
+            Previous
           </Button>
+          <div v-else></div>
+
+          <div class="flex items-center space-x-3">
+            <Button
+              v-if="currentStep < totalSteps"
+              @click="nextStep"
+              :disabled="isLoading || !canProceed"
+              class="flex items-center"
+            >
+              Next
+              <ChevronRight class="h-4 w-4 ml-1" />
+            </Button>
+            
+            <Button
+              v-if="currentStep === totalSteps"
+              @click="completeWizard"
+              :disabled="isLoading || !canProceed"
+              variant="default"
+              class="flex items-center"
+            >
+              <Save class="h-4 w-4 mr-1" />
+              Create Project
+            </Button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Auto-save Indicator -->
-    <div 
-      v-if="autoSaveStatus" 
-      class="fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-3 flex items-center space-x-2"
-    >
-      <div 
-        class="w-2 h-2 rounded-full"
-        :class="autoSaveStatus === 'saving' ? 'bg-yellow-500' : 'bg-green-500'"
-      ></div>
-      <AlbertaText variant="body-xs" color="secondary">
-        {{ autoSaveStatus === 'saving' ? 'Saving...' : 'Saved' }}
-      </AlbertaText>
+    <!-- Loading Overlay -->
+    <div v-if="isLoading" class="loading-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="loading-content bg-white rounded-lg p-6 text-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p class="mt-2 text-gray-600">{{ loadingMessage }}</p>
+      </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+<script setup>
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, ArrowRight, X, CheckCircle } from 'lucide-vue-next'
-import { Button, AlbertaText } from '@/components/ui'
-import LoadingSpinner from '@/components/shared/LoadingSpinner.vue'
-import TemplateSelectionStep from './steps/TemplateSelectionStep.vue'
-import BasicInformationStep from './steps/BasicInformationStep.vue'
-import BudgetSetupStep from './steps/BudgetSetupStep.vue'
-import TeamAssignmentStep from './steps/TeamAssignmentStep.vue'
-import ReviewStep from './steps/ReviewStep.vue'
-import { useProjectWizard } from '@/composables/useProjectWizard'
-import { useProjectStore } from '@/stores/project'
-import { useLoading } from '@/composables/useLoading'
+import { Button } from '@/components/ui'
+import { 
+  CheckCircle, 
+  AlertCircle, 
+  ChevronLeft, 
+  ChevronRight, 
+  Save
+} from 'lucide-vue-next'
 
-// Props
-const props = defineProps<{
-  selectedTemplate?: any
-}>()
+// Import step components
+import ProjectDetailsStep from './steps/ProjectDetailsStep.vue'
+import LocationStep from './steps/LocationStep.vue'
+import VendorsStep from './steps/VendorsStep.vue'
+import BudgetStep from './steps/BudgetStep.vue'
 
-// Emits
-const emit = defineEmits<{
-  wizardCompleted: [project: any]
-  wizardCancelled: []
-}>()
+// Import services
+import { projectWizardService } from '@/services/projectWizardService'
+import { useToast } from '@/composables/useToast'
 
 // Composables
 const router = useRouter()
+const { showSuccess, showError } = useToast()
 
-const {
-  sessionId,
-  currentStep,
-  wizardData,
-  isProcessing,
-  autoSaveStatus,
-  initializeWizard,
-  saveStepData,
-  saveDraft,
-  completeWizard,
-  validateStep
-} = useProjectWizard()
+// Reactive state
+const currentStep = ref(1)
+const totalSteps = ref(4)
+const sessionId = ref(null)
+const isLoading = ref(false)
+const lastSaveStatus = ref(null)
+const globalError = ref(null)
+const successMessage = ref(null)
+const isCompleted = ref(false)
+const loadingMessage = ref('Loading...')
 
-const projectStore = useProjectStore()
+// Step data
+const stepData = reactive({
+  details: {},
+  location: {},
+  vendors: {},
+  budget: {}
+})
 
-// Use standardized loading state
-const { isLoading: wizardLoading, withLoading } = useLoading('Processing...')
-
-// Local state
-const selectedTemplate = ref(props.selectedTemplate)
-const totalSteps = 5
+// Step errors
+const stepErrors = reactive({
+  1: [],
+  2: [],
+  3: [],
+  4: []
+})
 
 // Steps configuration
-const steps = [
-  { id: 1, title: 'Template' },
-  { id: 2, title: 'Basic Info' },
-  { id: 3, title: 'Budget' },
-  { id: 4, title: 'Team' },
-  { id: 5, title: 'Review' }
-]
+const steps = ref([
+  { id: 1, title: 'Project Details', description: 'Basic project information' },
+  { id: 2, title: 'Location', description: 'Project location details' },
+  { id: 3, title: 'Vendors', description: 'Select project vendors' },
+  { id: 4, title: 'Budget', description: 'Set project budget' }
+])
 
-// Computed
+// Computed properties
+const progressPercentage = computed(() => {
+  return (currentStep.value / totalSteps.value) * 100
+})
+
+const saveStatusText = computed(() => {
+  if (lastSaveStatus.value === 'success') return 'Saved'
+  if (lastSaveStatus.value === 'error') return 'Save failed'
+  return 'Auto-save enabled'
+})
+
 const canProceed = computed(() => {
-  switch (currentStep.value) {
-    case 1:
-      return selectedTemplate.value !== null
-    case 2:
-      return wizardData.basicInfo.projectName && 
-             wizardData.basicInfo.description && 
-             wizardData.basicInfo.category
-    case 3:
-      return wizardData.budgetInfo.totalBudget > 0
-    case 4:
-      return wizardData.teamInfo.projectManager
-    case 5:
-      return true
-    default:
-      return false
-  }
+  return stepErrors[currentStep.value].length === 0
 })
 
 // Methods
-const getStepIndicatorClass = (stepId: number) => {
-  if (stepId < currentStep.value) {
-    return 'bg-green-500 text-white'
-  } else if (stepId === currentStep.value) {
-    return 'bg-blue-600 text-white'
-  } else {
-    return 'bg-gray-200 text-gray-600'
+const updateStepData = (stepId, dataKey, data) => {
+  stepData[dataKey] = { ...stepData[dataKey], ...data }
+  autoSave()
+}
+
+const validateStep = async (stepId) => {
+  try {
+    const stepKey = ['details', 'location', 'vendors', 'budget'][stepId - 1]
+    const result = await projectWizardService.validateStepData(stepId, stepData[stepKey])
+    
+    if (result.success) {
+      stepErrors[stepId] = []
+    } else {
+      stepErrors[stepId] = result.errors || []
+    }
+  } catch (error) {
+    console.error('Validation error:', error)
+    stepErrors[stepId] = [{ field: 'general', message: 'Validation failed' }]
   }
-}
-
-const handleTemplateSelected = (template: any) => {
-  selectedTemplate.value = template
-}
-
-const handleStepCompleted = (stepData: any) => {
-  // Step-specific completion logic handled by individual step components
-}
-
-const updateBasicInfo = (data: any) => {
-  Object.assign(wizardData.basicInfo, data)
-}
-
-const updateBudgetInfo = (data: any) => {
-  Object.assign(wizardData.budgetInfo, data)
-}
-
-const updateTeamInfo = (data: any) => {
-  Object.assign(wizardData.teamInfo, data)
 }
 
 const nextStep = async () => {
-  if (!canProceed.value) return
-
-  // Validate current step
-  const validation = await validateStep(currentStep.value, getCurrentStepData())
-  if (!validation.isValid) {
-    alert('Please fix the following errors:\n' + validation.errors.join('\n'))
-    return
-  }
-
-  // Save current step data
-  await saveStepData(currentStep.value, getCurrentStepData())
+  await validateStep(currentStep.value)
   
-  if (currentStep.value < totalSteps) {
+  if (canProceed.value && currentStep.value < totalSteps.value) {
     currentStep.value++
   }
 }
@@ -301,175 +304,134 @@ const previousStep = () => {
   }
 }
 
-const getCurrentStepData = () => {
-  switch (currentStep.value) {
-    case 1:
-      return { selectedTemplate: selectedTemplate.value }
-    case 2:
-      return wizardData.basicInfo
-    case 3:
-      return wizardData.budgetInfo
-    case 4:
-      return wizardData.teamInfo
-    case 5:
-      return { reviewCompleted: true }
-    default:
-      return {}
-  }
-}
-
-const getStepData = (step: number) => {
-  switch (step) {
-    case 1:
-      return { selectedTemplate: selectedTemplate.value }
-    case 2:
-      return wizardData.basicInfo
-    case 3:
-      return wizardData.budgetInfo
-    case 4:
-      return wizardData.teamInfo
-    default:
-      return {}
-  }
-}
-
-const createProject = async () => {
+const autoSave = async () => {
+  if (!sessionId.value) return
+  
   try {
-    // Save all step data before completing the wizard
-    for (let step = 1; step <= 4; step++) {
-      const stepData = getStepData(step)
-      if (stepData && Object.keys(stepData).length > 0) {
-        await saveStepData(step, stepData)
-      }
-    }
-    
-    // Complete the wizard and get the project
-    const project = await completeWizard()
-    
-    console.log('Project created successfully:', project)
-    
-    // Validate project has ID before navigation
-    if (!project || !project.id) {
-      throw new Error('Project creation failed - no project ID returned')
-    }
-    
-    // Navigate to the project detail page
-    await router.push({ 
-      name: 'project-detail', 
-      params: { id: project.id } 
-    })
-    
-    // Show success notification
-    // You can replace this with your notification system
-    if (typeof window !== 'undefined' && window.alert) {
-      setTimeout(() => {
-        alert('Project created successfully!')
-      }, 100)
-    }
-    
-    // Emit the completion event with the project data
-    emit('wizardCompleted', project)
-  } catch (error: any) {
-    console.error('Error creating project:', error)
-    
-    // Show user-friendly error message
-    const errorMessage = error.message || 'An unexpected error occurred while creating your project.'
-    
-    if (typeof window !== 'undefined' && window.alert) {
-      alert(`Error: ${errorMessage}`)
-    }
-    
-    // Don't navigate on error - stay on wizard
-    throw error
-  }
-}
-
-const cancelWizard = () => {
-  if (confirm('Are you sure you want to cancel? Any unsaved progress will be lost.')) {
-    emit('wizardCancelled')
-  }
-}
-
-const handleProjectCreated = async (project: any) => {
-  try {
-    // Update the project store to refresh the projects list
-    await projectStore.addProject(project)
-    
-    // Emit the completion event
-    emit('wizardCompleted', project)
+    const stepKey = ['details', 'location', 'vendors', 'budget'][currentStep.value - 1]
+    await projectWizardService.saveStepData(sessionId.value, currentStep.value, stepData[stepKey])
+    lastSaveStatus.value = 'success'
   } catch (error) {
-    console.error('Error handling project creation:', error)
-    
-    // Even if store update fails, still emit the completion event
-    // The navigation will still work
-    emit('wizardCompleted', project)
+    console.error('Auto-save failed:', error)
+    lastSaveStatus.value = 'error'
   }
 }
 
-// Auto-save functionality
-let autoSaveInterval: NodeJS.Timeout | null = null
-
-const startAutoSave = () => {
-  autoSaveInterval = setInterval(async () => {
-    // Skip auto-save for step 1 (template selection) and step 5 (review step)
-    if (currentStep.value > 1 && currentStep.value < 5) {
-      try {
-        await saveStepData(currentStep.value, getCurrentStepData())
-      } catch (error) {
-        console.warn('Auto-save failed:', error)
-        // Don't show error to user for auto-save failures
+const completeWizard = async () => {
+  isLoading.value = true
+  loadingMessage.value = 'Creating project...'
+  
+  try {
+    // Validate all steps
+    for (let i = 1; i <= totalSteps.value; i++) {
+      await validateStep(i)
+      if (stepErrors[i].length > 0) {
+        throw new Error(`Step ${i} has validation errors`)
       }
     }
-  }, 30000) // Auto-save every 30 seconds
-}
-
-const stopAutoSave = () => {
-  if (autoSaveInterval) {
-    clearInterval(autoSaveInterval)
-    autoSaveInterval = null
-  }
-}
-
-// Watch for template changes
-watch(() => props.selectedTemplate, (newTemplate) => {
-  if (newTemplate) {
-    selectedTemplate.value = newTemplate
-    // Pre-fill data from template
-    if (newTemplate.template_data) {
-      const templateData = typeof newTemplate.template_data === 'string' 
-        ? JSON.parse(newTemplate.template_data) 
-        : newTemplate.template_data
+    
+    // Complete the wizard
+    const result = await projectWizardService.completeWizard(sessionId.value)
+    
+    if (result.success) {
+      isCompleted.value = true
+      successMessage.value = 'Project created successfully!'
+      showSuccess('Project created successfully!')
       
-      // Pre-fill basic info
-      wizardData.basicInfo.category = newTemplate.category
-      wizardData.basicInfo.projectType = templateData.type || 'Standard'
-      
-      // Pre-fill budget info
-      wizardData.budgetInfo.totalBudget = newTemplate.default_budget || 0
-      wizardData.budgetInfo.estimatedDuration = newTemplate.estimated_duration || 365
+      // Redirect to project detail page
+      setTimeout(() => {
+        router.push(`/projects/${result.project.id}`)
+      }, 2000)
+    } else {
+      throw new Error(result.message || 'Failed to create project')
     }
+  } catch (error) {
+    console.error('Wizard completion failed:', error)
+    globalError.value = error.message
+    showError('Failed to create project. Please try again.')
+  } finally {
+    isLoading.value = false
   }
-}, { immediate: true })
+}
+
+const initializeWizard = async () => {
+  isLoading.value = true
+  loadingMessage.value = 'Initializing wizard...'
+  
+  try {
+    const result = await projectWizardService.initializeWizard()
+    
+    if (result.success) {
+      sessionId.value = result.sessionId
+      currentStep.value = result.currentStep || 1
+      totalSteps.value = result.totalSteps || 4
+    } else {
+      throw new Error(result.message || 'Failed to initialize wizard')
+    }
+  } catch (error) {
+    console.error('Wizard initialization failed:', error)
+    globalError.value = 'Failed to initialize wizard. Please refresh the page.'
+    showError('Failed to initialize wizard')
+  } finally {
+    isLoading.value = false
+  }
+}
 
 // Lifecycle
-onMounted(async () => {
-  await initializeWizard()
-  startAutoSave()
+onMounted(() => {
+  initializeWizard()
 })
 
-onUnmounted(() => {
-  stopAutoSave()
-})
+// Auto-save watcher
+watch(stepData, () => {
+  autoSave()
+}, { deep: true })
 </script>
 
 <style scoped>
-/* Wizard-specific styles */
-.step-indicator {
-  transition: all 0.2s ease-in-out;
+.project-wizard {
+  min-height: 100vh;
+  background-color: #f8fafc;
 }
 
-.progress-bar {
-  transition: width 0.3s ease-in-out;
+.wizard-header {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.step-indicator {
+  transition: all 0.3s ease;
+}
+
+.step-indicator:hover {
+  transform: translateY(-1px);
+}
+
+.loading-overlay {
+  backdrop-filter: blur(4px);
+}
+
+.error-banner, .success-banner {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.step-content {
+  min-height: 400px;
+}
+
+.wizard-navigation {
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
 }
 </style>
 

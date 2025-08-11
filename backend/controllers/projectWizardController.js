@@ -570,6 +570,74 @@ class ProjectWizardController {
       });
     }
   }
+
+  // Get available vendors - NEW METHOD (optional, with fallback)
+  async getAvailableVendors(req, res) {
+    try {
+      const queryText = `
+        SELECT 
+          id,
+          vendor_name,
+          vendor_type,
+          contact_email,
+          contact_phone,
+          specialties,
+          is_active,
+          rating
+        FROM vendors 
+        WHERE is_active = true
+        ORDER BY vendor_name
+      `;
+      
+      const result = await query(queryText);
+      
+      res.json({
+        success: true,
+        vendors: result.rows,
+        count: result.rows.length
+      });
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+      // Provide fallback if vendors table doesn't exist
+      res.json({ 
+        success: true, 
+        vendors: [],
+        count: 0,
+        message: 'Vendors table not available'
+      });
+    }
+  }
+
+  // Health check endpoint - NEW METHOD (optional)
+  async healthCheck(req, res) {
+    try {
+      const startTime = Date.now();
+      
+      // Test database connection
+      const dbResult = await query('SELECT NOW() as current_time, version() as version');
+      const dbDuration = Date.now() - startTime;
+      
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        database: {
+          status: 'connected',
+          duration: `${dbDuration}ms`,
+          version: dbResult.rows[0].version.split(' ')[0] + ' ' + dbResult.rows[0].version.split(' ')[1]
+        },
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        environment: process.env.NODE_ENV || 'development'
+      });
+    } catch (error) {
+      console.error('Health check failed:', error);
+      res.status(500).json({
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        error: error.message
+      });
+    }
+  }
 }
 
 module.exports = new ProjectWizardController();

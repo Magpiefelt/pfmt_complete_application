@@ -1,46 +1,480 @@
 const express = require('express');
 const router = express.Router();
-const projectWizardController = require('../controllers/projectWizardController');
+const { ProjectWizardController, wizardRateLimit } = require('../controllers/projectWizardController');
 const { flexibleAuth } = require('../middleware/flexibleAuth');
+const helmet = require('helmet');
+const cors = require('cors');
+const winston = require('winston');
 
-// Apply flexible authentication middleware to all routes
-router.use(flexibleAuth);
+// Enhanced logging for routes
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'wizard-routes' },
+  transports: [
+    new winston.transports.File({ filename: 'logs/routes.log' }),
+    new winston.transports.Console()
+  ]
+});
 
-// Add debug middleware to log all requests
+// Security middleware
+router.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// Compression middleware
+router.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  threshold: 1024
+}));
+
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow all origins in development
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    // In production, check against allowed origins
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:8080'];
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+router.use(cors(corsOptions));
+
+// Request logging middleware
 router.use((req, res, next) => {
-  console.log('🔧 ProjectWizard Route:', req.method, req.path);
-  console.log('🔧 ProjectWizard Params:', req.params);
-  console.log('🔧 ProjectWizard Query:', req.query);
-  console.log('🔧 ProjectWizard User:', req.user?.id);
+  const start = Date.now();
+  const correlationId = req.correlationId || require('uuid').v4();
+  req.correlationId = correlationId;
+  
+  logger.info('Incoming request', {
+    correlationId,
+    method: req.method,
+    url: req.url,
+    userAgent: req.get('User-Agent'),
+    ip: req.ip,
+    userId: req.user?.id
+  });
+  
+  // Log response
+  const originalSend = res.send;
+  res.send = function(data) {
+    const duration = Date.now() - start;
+    logger.info('Request completed', {
+      correlationId,
+      method: req.method,
+      url: req.url,
+      statusCode: res.statusCode,
+      duration,
+      responseSize: data ? data.length : 0
+    });
+    originalSend.call(this, data);
+  };
+  
   next();
 });
 
-// Initialize new project wizard session
-router.post('/init', projectWizardController.initializeWizard);
-
-// Get project templates
-router.get('/templates', projectWizardController.getProjectTemplates);
-
-// Get wizard session data
-router.get('/session/:sessionId', projectWizardController.getWizardSession);
-
-// Save step data - ENHANCED ROUTE
-router.post('/session/:sessionId/step/:stepId', (req, res, next) => {
-  console.log('🔧 Step data route hit - sessionId:', req.params.sessionId, 'stepId:', req.params.stepId);
+// Authentication middleware
+const requireAuth = (req, res, next) => {
+  if (!req.user || !req.user.id) {
+    logger.warn('Unauthorized access attempt', {
+      correlationId: req.correlationId,
+      url: req.url,
+      ip: req.ip
+    });
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required',
+      correlationId: req.correlationId
+    });
+  }
   next();
-}, projectWizardController.saveStepData);
+};
 
-// Validate step data
-router.post('/validate/step/:stepId', projectWizardController.validateStep);
-
-// Get available team members
-router.get('/team-members', projectWizardController.getAvailableTeamMembers);
-
-// Complete wizard and create project
-router.post('/session/:sessionId/complete', (req, res, next) => {
-  console.log('🔧 Complete wizard route hit - sessionId:', req.params.sessionId);
+// Input validation middleware
+const validateJsonBody = (req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PUT') {
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Request body is required',
+        correlationId: req.correlationId
+      });
+    }
+  }
   next();
-}, projectWizardController.completeWizard);
+};
+
+// Session validation middleware
+const validateSession = async (req, res, next) => {
+  const { sessionId } = req.params;
+  
+  if (sessionId) {
+    // Validate session ID format
+    if (!sessionId.startsWith('wizard_') || sessionId.length < 20) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid session ID format',
+        correlationId: req.correlationId
+      });
+    }
+    
+    // Check if user owns this session
+    const userId = req.user?.id;
+    if (!sessionId.includes(userId)) {
+      logger.warn('User attempting to access unauthorized session', {
+        correlationId: req.correlationId,
+        userId,
+        sessionId
+      });
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to session',
+        correlationId: req.correlationId
+      });
+    }
+  }
+  
+  next();
+};
+
+// Apply rate limiting to all wizard routes
+router.use(wizardRateLimit);
+
+// Health check endpoint (no auth required)
+router.get('/health', ProjectWizardController.healthCheck);
+
+// Apply authentication to all other routes
+router.use(requireAuth);
+
+// Wizard session management routes
+router.post('/init', validateJsonBody, ProjectWizardController.initializeWizard);
+router.get('/session/:sessionId', validateSession, ProjectWizardController.getWizardSession);
+
+// Step data management routes
+router.post('/session/:sessionId/step/:stepId', 
+  validateSession, 
+  validateJsonBody, 
+  ProjectWizardController.saveStepData
+);
+
+// Wizard completion route
+router.post('/session/:sessionId/complete', 
+  validateSession, 
+  ProjectWizardController.completeWizard
+);
+
+// Data retrieval routes
+router.get('/vendors', ProjectWizardController.getAvailableVendors);
+
+// Template management routes (if templates are implemented)
+router.get('/templates', async (req, res) => {
+  try {
+    const { query } = require('../database/db');
+    const result = await query(`
+      SELECT id, name, description, category, template_data, created_at
+      FROM project_templates 
+      WHERE status = 'active'
+      ORDER BY name ASC
+    `);
+    
+    logger.info('Templates retrieved', {
+      correlationId: req.correlationId,
+      count: result.rows.length
+    });
+    
+    res.json({
+      success: true,
+      templates: result.rows,
+      correlationId: req.correlationId
+    });
+  } catch (error) {
+    logger.error('Error retrieving templates', {
+      correlationId: req.correlationId,
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve templates',
+      correlationId: req.correlationId
+    });
+  }
+});
+
+// Team members route for project assignment
+router.get('/team-members', async (req, res) => {
+  try {
+    const { query } = require('../database/db');
+    const { search, role } = req.query;
+    
+    let queryText = `
+      SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.department
+      FROM users u
+      WHERE u.is_active = true
+    `;
+    
+    const queryParams = [];
+    let paramIndex = 1;
+    
+    if (search && search.trim()) {
+      queryText += ` AND (u.first_name ILIKE $${paramIndex} OR u.last_name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`;
+      queryParams.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+    
+    if (role && role.trim()) {
+      queryText += ` AND u.role = $${paramIndex}`;
+      queryParams.push(role.trim());
+      paramIndex++;
+    }
+    
+    queryText += ` ORDER BY u.last_name, u.first_name LIMIT 50`;
+    
+    const result = await query(queryText, queryParams);
+    
+    logger.info('Team members retrieved', {
+      correlationId: req.correlationId,
+      count: result.rows.length,
+      filters: { search, role }
+    });
+    
+    res.json({
+      success: true,
+      teamMembers: result.rows,
+      correlationId: req.correlationId
+    });
+  } catch (error) {
+    logger.error('Error retrieving team members', {
+      correlationId: req.correlationId,
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve team members',
+      correlationId: req.correlationId
+    });
+  }
+});
+
+// Validation endpoint for step data
+router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
+  try {
+    const { stepId } = req.params;
+    const stepData = req.body;
+    
+    const stepNumber = parseInt(stepId);
+    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 4) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid step ID',
+        correlationId: req.correlationId
+      });
+    }
+    
+    // Import validation function from controller
+    const { validateStepData } = require('../controllers/projectWizardController');
+    
+    // Validate the step data
+    validateStepData(stepNumber, stepData);
+    
+    logger.info('Step validation successful', {
+      correlationId: req.correlationId,
+      stepId: stepNumber
+    });
+    
+    res.json({
+      success: true,
+      message: 'Validation passed',
+      correlationId: req.correlationId
+    });
+  } catch (error) {
+    logger.warn('Step validation failed', {
+      correlationId: req.correlationId,
+      stepId: req.params.stepId,
+      error: error.message
+    });
+    
+    res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      details: error.message,
+      correlationId: req.correlationId
+    });
+  }
+});
+
+// Session cleanup endpoint (for administrative use)
+router.delete('/session/:sessionId', validateSession, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { query } = require('../database/db');
+    
+    // Delete session and related data
+    await query('DELETE FROM project_wizard_step_data WHERE session_id = $1', [sessionId]);
+    await query('DELETE FROM project_wizard_sessions WHERE session_id = $1 AND user_id = $2', [sessionId, req.user.id]);
+    
+    logger.info('Session deleted', {
+      correlationId: req.correlationId,
+      sessionId,
+      userId: req.user.id
+    });
+    
+    res.json({
+      success: true,
+      message: 'Session deleted successfully',
+      correlationId: req.correlationId
+    });
+  } catch (error) {
+    logger.error('Error deleting session', {
+      correlationId: req.correlationId,
+      sessionId: req.params.sessionId,
+      error: error.message
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete session',
+      correlationId: req.correlationId
+    });
+  }
+});
+
+// Analytics endpoint for wizard usage
+router.get('/analytics', async (req, res) => {
+  try {
+    const { query } = require('../database/db');
+    const { timeframe = '30d' } = req.query;
+    
+    let dateFilter = '';
+    switch (timeframe) {
+      case '7d':
+        dateFilter = "AND created_at >= NOW() - INTERVAL '7 days'";
+        break;
+      case '30d':
+        dateFilter = "AND created_at >= NOW() - INTERVAL '30 days'";
+        break;
+      case '90d':
+        dateFilter = "AND created_at >= NOW() - INTERVAL '90 days'";
+        break;
+      default:
+        dateFilter = "AND created_at >= NOW() - INTERVAL '30 days'";
+    }
+    
+    // Get wizard completion statistics
+    const completionStats = await query(`
+      SELECT 
+        COUNT(*) as total_sessions,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_sessions,
+        COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress_sessions,
+        AVG(EXTRACT(EPOCH FROM (completed_at - created_at))/60) as avg_completion_time_minutes
+      FROM project_wizard_sessions 
+      WHERE 1=1 ${dateFilter}
+    `);
+    
+    // Get step abandonment data
+    const stepStats = await query(`
+      SELECT 
+        step_id,
+        COUNT(*) as step_completions
+      FROM project_wizard_step_data wsd
+      JOIN project_wizard_sessions ws ON wsd.session_id = ws.session_id
+      WHERE 1=1 ${dateFilter}
+      GROUP BY step_id
+      ORDER BY step_id
+    `);
+    
+    logger.info('Analytics retrieved', {
+      correlationId: req.correlationId,
+      timeframe
+    });
+    
+    res.json({
+      success: true,
+      analytics: {
+        completion: completionStats.rows[0],
+        stepCompletions: stepStats.rows,
+        timeframe
+      },
+      correlationId: req.correlationId
+    });
+  } catch (error) {
+    logger.error('Error retrieving analytics', {
+      correlationId: req.correlationId,
+      error: error.message
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve analytics',
+      correlationId: req.correlationId
+    });
+  }
+});
+
+// Error handling middleware
+router.use((error, req, res, next) => {
+  logger.error('Unhandled route error', {
+    correlationId: req.correlationId,
+    error: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method
+  });
+  
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    correlationId: req.correlationId
+  });
+});
+
+// 404 handler for wizard routes
+router.use('*', (req, res) => {
+  logger.warn('Route not found', {
+    correlationId: req.correlationId,
+    url: req.url,
+    method: req.method
+  });
+  
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+    correlationId: req.correlationId
+  });
+});
 
 module.exports = router;
 

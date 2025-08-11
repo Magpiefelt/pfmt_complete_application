@@ -1,183 +1,637 @@
-import ApiService from './apiService'
+import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios'
+import { ref, reactive } from 'vue'
 
-export interface WizardSession {
-  id: string
-  current_step: number
-  created_at: string
-  updated_at: string
+// Types
+interface WizardSession {
+  sessionId: string
+  currentStep: number
+  totalSteps: number
+  templateId?: string
+  stepMapping: Record<number, string>
+  data?: any
 }
 
-export interface ProjectTemplate {
-  id: number
+interface StepData {
+  [key: string]: any
+}
+
+interface ValidationError {
+  field: string
+  message: string
+}
+
+interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  message?: string
+  errors?: ValidationError[]
+  correlationId?: string
+}
+
+interface Vendor {
+  id: string
   name: string
   description: string
   category: string
-  default_settings: any
+  status: string
+  project_count: number
+  avg_rating: number
 }
 
-export interface TeamMember {
-  id: number
-  first_name: string
-  last_name: string
-  email: string
-  role: string
-  is_available: boolean
+interface Template {
+  id: string
+  name: string
+  description: string
+  category: string
+  template_data: any
+  created_at: string
 }
 
-export interface ValidationResult {
-  isValid: boolean
-  errors: string[]
-  warnings?: string[]
+interface Project {
+  id: string
+  code: string
+  name: string
+  [key: string]: any
 }
 
-export class ProjectWizardService {
-  // Initialize a new wizard session
-  static async initializeWizard(): Promise<{ sessionId: string; currentStep: number }> {
-    try {
-      const response = await ApiService.request<any>('/project-wizard/init', {
-        method: 'POST'
+// Configuration
+const API_CONFIG = {
+  baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:3000/api',
+  timeout: 30000,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+}
+
+// Create axios instance with enhanced configuration
+const createApiClient = (): AxiosInstance => {
+  const client = axios.create(API_CONFIG)
+
+  // Request interceptor for correlation IDs and auth
+  client.interceptors.request.use(
+    (config) => {
+      // Add correlation ID for request tracking
+      config.headers['X-Correlation-ID'] = generateCorrelationId()
+      
+      // Add timestamp for request timing
+      config.metadata = { startTime: Date.now() }
+      
+      // Add auth token if available
+      const token = localStorage.getItem('auth_token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+      
+      return config
+    },
+    (error) => {
+      console.error('Request interceptor error:', error)
+      return Promise.reject(error)
+    }
+  )
+
+  // Response interceptor for error handling and logging
+  client.interceptors.response.use(
+    (response: AxiosResponse) => {
+      // Log successful requests
+      const duration = Date.now() - response.config.metadata?.startTime
+      console.log(`API Success: ${response.config.method?.toUpperCase()} ${response.config.url} (${duration}ms)`)
+      
+      return response
+    },
+    (error: AxiosError) => {
+      // Enhanced error handling
+      const duration = error.config?.metadata?.startTime ? Date.now() - error.config.metadata.startTime : 0
+      
+      console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} (${duration}ms)`, {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        correlationId: error.response?.headers['x-correlation-id']
       })
       
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to initialize wizard')
+      // Transform error for consistent handling
+      const transformedError = transformApiError(error)
+      return Promise.reject(transformedError)
+    }
+  )
+
+  return client
+}
+
+// Error transformation
+const transformApiError = (error: AxiosError): Error => {
+  const response = error.response
+  const data = response?.data as any
+  
+  if (data?.message) {
+    const enhancedError = new Error(data.message)
+    enhancedError.name = 'ApiError'
+    ;(enhancedError as any).status = response?.status
+    ;(enhancedError as any).correlationId = data.correlationId
+    ;(enhancedError as any).details = data.details
+    return enhancedError
+  }
+  
+  // Fallback error messages
+  switch (response?.status) {
+    case 400:
+      return new Error('Invalid request. Please check your input and try again.')
+    case 401:
+      return new Error('Authentication required. Please log in and try again.')
+    case 403:
+      return new Error('Access denied. You do not have permission to perform this action.')
+    case 404:
+      return new Error('Resource not found. The requested item may have been deleted.')
+    case 409:
+      return new Error('Conflict. The resource already exists or is in use.')
+    case 413:
+      return new Error('Request too large. Please reduce the size of your data.')
+    case 429:
+      return new Error('Too many requests. Please wait a moment and try again.')
+    case 500:
+      return new Error('Server error. Please try again later.')
+    default:
+      return new Error(error.message || 'An unexpected error occurred.')
+  }
+}
+
+// Utility functions
+const generateCorrelationId = (): string => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+const delay = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Cache implementation
+class ApiCache {
+  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
+  
+  set(key: string, data: any, ttl: number = 300000): void { // 5 minutes default
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    })
+  }
+  
+  get(key: string): any | null {
+    const item = this.cache.get(key)
+    if (!item) return null
+    
+    if (Date.now() - item.timestamp > item.ttl) {
+      this.cache.delete(key)
+      return null
+    }
+    
+    return item.data
+  }
+  
+  clear(): void {
+    this.cache.clear()
+  }
+  
+  delete(key: string): void {
+    this.cache.delete(key)
+  }
+}
+
+// Retry mechanism
+const withRetry = async <T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> => {
+  let lastError: Error
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error as Error
+      
+      // Don't retry on client errors (4xx)
+      if ((error as any).status >= 400 && (error as any).status < 500) {
+        throw error
       }
       
-      return {
-        sessionId: response.sessionId,
-        currentStep: response.currentStep
-      }
-    } catch (error: any) {
-      console.error('Error initializing wizard:', error)
-      
-      // If it's an authentication error, provide a more helpful message
-      if (error.message.includes('Authentication required') || error.message.includes('401')) {
-        throw new Error('Authentication required. Please check user context.')
+      if (attempt === maxRetries) {
+        throw lastError
       }
       
-      // For other errors, provide a generic server error message
-      if (error.message.includes('500') || error.message.includes('Server error')) {
-        throw new Error('Server error occurred. Please check the backend service.')
+      // Exponential backoff
+      const delayMs = baseDelay * Math.pow(2, attempt - 1)
+      console.log(`Retry attempt ${attempt}/${maxRetries} after ${delayMs}ms delay`)
+      await delay(delayMs)
+    }
+  }
+  
+  throw lastError!
+}
+
+// Enhanced Project Wizard Service
+class ProjectWizardService {
+  private apiClient: AxiosInstance
+  private cache: ApiCache
+  private baseUrl: string
+
+  // Reactive state for service status
+  public isOnline = ref(true)
+  public lastError = ref<string | null>(null)
+  public requestCount = ref(0)
+  public cacheHitRate = ref(0)
+
+  constructor() {
+    this.apiClient = createApiClient()
+    this.cache = new ApiCache()
+    this.baseUrl = '/project-wizard'
+    
+    // Monitor network status
+    this.setupNetworkMonitoring()
+  }
+
+  private setupNetworkMonitoring(): void {
+    window.addEventListener('online', () => {
+      this.isOnline.value = true
+      console.log('Network connection restored')
+    })
+    
+    window.addEventListener('offline', () => {
+      this.isOnline.value = false
+      console.log('Network connection lost')
+    })
+  }
+
+  private getCacheKey(endpoint: string, params?: any): string {
+    const paramString = params ? JSON.stringify(params) : ''
+    return `${endpoint}:${paramString}`
+  }
+
+  private async makeRequest<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    endpoint: string,
+    data?: any,
+    useCache: boolean = false,
+    cacheTtl: number = 300000
+  ): Promise<T> {
+    this.requestCount.value++
+    
+    // Check cache for GET requests
+    if (method === 'GET' && useCache) {
+      const cacheKey = this.getCacheKey(endpoint, data)
+      const cachedData = this.cache.get(cacheKey)
+      if (cachedData) {
+        console.log(`Cache hit for ${endpoint}`)
+        this.updateCacheHitRate(true)
+        return cachedData
       }
+      this.updateCacheHitRate(false)
+    }
+
+    const operation = async () => {
+      const config: any = {
+        method,
+        url: `${this.baseUrl}${endpoint}`
+      }
+
+      if (method === 'GET' && data) {
+        config.params = data
+      } else if (data) {
+        config.data = data
+      }
+
+      const response = await this.apiClient.request<ApiResponse<T>>(config)
       
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'API request failed')
+      }
+
+      const result = response.data.data || response.data
+      
+      // Cache successful GET requests
+      if (method === 'GET' && useCache) {
+        const cacheKey = this.getCacheKey(endpoint, data)
+        this.cache.set(cacheKey, result, cacheTtl)
+      }
+
+      this.lastError.value = null
+      return result
+    }
+
+    try {
+      return await withRetry(operation)
+    } catch (error) {
+      this.lastError.value = (error as Error).message
       throw error
     }
   }
 
-  // Get project templates
-  static async getProjectTemplates(): Promise<ProjectTemplate[]> {
+  private updateCacheHitRate(hit: boolean): void {
+    // Simple cache hit rate calculation (last 100 requests)
+    const currentRate = this.cacheHitRate.value
+    const newRate = hit ? currentRate + 0.01 : Math.max(0, currentRate - 0.01)
+    this.cacheHitRate.value = Math.min(1, Math.max(0, newRate))
+  }
+
+  // Wizard session management
+  async initializeWizard(templateId?: string): Promise<WizardSession> {
+    console.log('Initializing wizard session', { templateId })
+    
+    return this.makeRequest<WizardSession>('POST', '/init', { templateId })
+  }
+
+  async getWizardSession(sessionId: string): Promise<any> {
+    console.log('Retrieving wizard session', { sessionId })
+    
+    return this.makeRequest<any>('GET', `/session/${sessionId}`)
+  }
+
+  async deleteWizardSession(sessionId: string): Promise<void> {
+    console.log('Deleting wizard session', { sessionId })
+    
+    await this.makeRequest<void>('DELETE', `/session/${sessionId}`)
+    
+    // Clear related cache entries
+    this.cache.delete(`/session/${sessionId}`)
+  }
+
+  // Step data management
+  async saveStepData(sessionId: string, stepId: number, stepData: StepData): Promise<void> {
+    console.log('Saving step data', { sessionId, stepId, dataKeys: Object.keys(stepData) })
+    
+    await this.makeRequest<void>('POST', `/session/${sessionId}/step/${stepId}`, stepData)
+    
+    // Clear session cache to ensure fresh data
+    this.cache.delete(`/session/${sessionId}`)
+  }
+
+  async validateStep(stepId: number, stepData: StepData): Promise<boolean> {
+    console.log('Validating step data', { stepId, dataKeys: Object.keys(stepData) })
+    
     try {
-      const response = await ApiService.request<any>('/project-wizard/templates', {
-        method: 'GET'
+      await this.makeRequest<void>('POST', `/validate/step/${stepId}`, stepData)
+      return true
+    } catch (error) {
+      console.warn('Step validation failed:', error)
+      throw error
+    }
+  }
+
+  // Wizard completion
+  async completeWizard(sessionId: string): Promise<{ project: Project }> {
+    console.log('Completing wizard', { sessionId })
+    
+    const result = await this.makeRequest<{ project: Project }>('POST', `/session/${sessionId}/complete`)
+    
+    // Clear all wizard-related cache
+    this.cache.clear()
+    
+    return result
+  }
+
+  // Data retrieval with caching
+  async getAvailableVendors(filters?: {
+    search?: string
+    category?: string
+    status?: string
+  }): Promise<{ vendors: Vendor[]; count: number }> {
+    console.log('Retrieving available vendors', { filters })
+    
+    return this.makeRequest<{ vendors: Vendor[]; count: number }>(
+      'GET', 
+      '/vendors', 
+      filters,
+      true, // Use cache
+      300000 // 5 minutes cache
+    )
+  }
+
+  async getTemplates(): Promise<{ templates: Template[] }> {
+    console.log('Retrieving project templates')
+    
+    return this.makeRequest<{ templates: Template[] }>(
+      'GET', 
+      '/templates',
+      undefined,
+      true, // Use cache
+      1800000 // 30 minutes cache
+    )
+  }
+
+  async getTeamMembers(filters?: {
+    search?: string
+    role?: string
+  }): Promise<{ teamMembers: any[] }> {
+    console.log('Retrieving team members', { filters })
+    
+    return this.makeRequest<{ teamMembers: any[] }>(
+      'GET', 
+      '/team-members', 
+      filters,
+      true, // Use cache
+      600000 // 10 minutes cache
+    )
+  }
+
+  // Analytics and monitoring
+  async getWizardAnalytics(timeframe: string = '30d'): Promise<any> {
+    console.log('Retrieving wizard analytics', { timeframe })
+    
+    return this.makeRequest<any>(
+      'GET', 
+      '/analytics', 
+      { timeframe },
+      true, // Use cache
+      60000 // 1 minute cache
+    )
+  }
+
+  async getHealthStatus(): Promise<{ status: string; timestamp: string }> {
+    return this.makeRequest<{ status: string; timestamp: string }>('GET', '/health')
+  }
+
+  // Utility methods
+  clearCache(): void {
+    console.log('Clearing service cache')
+    this.cache.clear()
+    this.cacheHitRate.value = 0
+  }
+
+  getServiceStats(): {
+    requestCount: number
+    cacheHitRate: number
+    isOnline: boolean
+    lastError: string | null
+  } {
+    return {
+      requestCount: this.requestCount.value,
+      cacheHitRate: this.cacheHitRate.value,
+      isOnline: this.isOnline.value,
+      lastError: this.lastError.value
+    }
+  }
+
+  // Offline support methods
+  async syncWhenOnline(): Promise<void> {
+    if (!this.isOnline.value) {
+      console.log('Waiting for network connection...')
+      return new Promise((resolve) => {
+        const checkOnline = () => {
+          if (this.isOnline.value) {
+            resolve()
+          } else {
+            setTimeout(checkOnline, 1000)
+          }
+        }
+        checkOnline()
       })
+    }
+  }
+
+  // Batch operations
+  async batchSaveSteps(sessionId: string, stepsData: Record<number, StepData>): Promise<void> {
+    console.log('Batch saving step data', { sessionId, steps: Object.keys(stepsData) })
+    
+    const savePromises = Object.entries(stepsData).map(([stepId, data]) =>
+      this.saveStepData(sessionId, parseInt(stepId), data)
+    )
+    
+    await Promise.all(savePromises)
+  }
+
+  async batchValidateSteps(stepsData: Record<number, StepData>): Promise<Record<number, boolean>> {
+    console.log('Batch validating steps', { steps: Object.keys(stepsData) })
+    
+    const validationPromises = Object.entries(stepsData).map(async ([stepId, data]) => {
+      try {
+        const isValid = await this.validateStep(parseInt(stepId), data)
+        return [parseInt(stepId), isValid]
+      } catch (error) {
+        return [parseInt(stepId), false]
+      }
+    })
+    
+    const results = await Promise.all(validationPromises)
+    return Object.fromEntries(results)
+  }
+
+  // Advanced search with debouncing
+  private searchDebounceTimers = new Map<string, NodeJS.Timeout>()
+
+  async debouncedVendorSearch(
+    searchTerm: string, 
+    delay: number = 300
+  ): Promise<{ vendors: Vendor[]; count: number }> {
+    return new Promise((resolve, reject) => {
+      // Clear existing timer for this search
+      const existingTimer = this.searchDebounceTimers.get('vendors')
+      if (existingTimer) {
+        clearTimeout(existingTimer)
+      }
+
+      // Set new timer
+      const timer = setTimeout(async () => {
+        try {
+          const result = await this.getAvailableVendors({ search: searchTerm })
+          resolve(result)
+        } catch (error) {
+          reject(error)
+        } finally {
+          this.searchDebounceTimers.delete('vendors')
+        }
+      }, delay)
+
+      this.searchDebounceTimers.set('vendors', timer)
+    })
+  }
+
+  // Export/Import functionality
+  async exportWizardData(sessionId: string): Promise<Blob> {
+    console.log('Exporting wizard data', { sessionId })
+    
+    const sessionData = await this.getWizardSession(sessionId)
+    const exportData = {
+      sessionId,
+      exportedAt: new Date().toISOString(),
+      data: sessionData
+    }
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json'
+    })
+    
+    return blob
+  }
+
+  async importWizardData(file: File): Promise<any> {
+    console.log('Importing wizard data', { fileName: file.name })
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
       
-      if (!response.success) {
-        console.warn('Failed to fetch templates:', response.error)
-        return []
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target?.result as string)
+          resolve(data)
+        } catch (error) {
+          reject(new Error('Invalid file format'))
+        }
       }
       
-      return response.templates || []
-    } catch (error: any) {
-      console.error('Error fetching templates:', error)
-      // Return empty array instead of throwing error
-      // This allows the UI to continue working without templates
-      return []
-    }
-  }
-
-  // Get available team members
-  static async getAvailableTeamMembers(): Promise<TeamMember[]> {
-    const response = await ApiService.request<TeamMember[]>('/project-wizard/team-members', {
-      method: 'GET'
-    })
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to fetch team members')
-    }
-    
-    return response.data
-  }
-
-  // Save step data
-  static async saveStepData(sessionId: string, stepId: number, stepData: any): Promise<void> {
-    const response = await ApiService.request(`/project-wizard/session/${sessionId}/step/${stepId}`, {
-      method: 'POST',
-      body: JSON.stringify(stepData)
-    })
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to save step data')
-    }
-  }
-
-  // Validate step data
-  static async validateStep(stepId: number, stepData: any): Promise<ValidationResult> {
-    try {
-      const response = await ApiService.request<any>(`/project-wizard/validate/step/${stepId}`, {
-        method: 'POST',
-        body: JSON.stringify(stepData)
-      })
-      
-      if (!response.success) {
-        return { isValid: false, errors: [response.error || 'Validation failed'] }
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'))
       }
       
-      // Backend returns validation wrapped in a 'validation' property
-      return response.validation || { isValid: false, errors: ['Invalid validation response'] }
-    } catch (error: any) {
-      console.error('Error validating step:', error)
-      return { isValid: false, errors: ['Validation error occurred'] }
-    }
+      reader.readAsText(file)
+    })
   }
 
-  // Load wizard session
-  static async loadWizardSession(sessionId: string): Promise<{ session: WizardSession; stepData: any }> {
-    const response = await ApiService.request<{ session: WizardSession; stepData: any }>(`/project-wizard/session/${sessionId}`, {
-      method: 'GET'
-    })
+  // Performance monitoring
+  async measurePerformance<T>(
+    operation: () => Promise<T>,
+    operationName: string
+  ): Promise<{ result: T; duration: number }> {
+    const startTime = performance.now()
     
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to load wizard session')
+    try {
+      const result = await operation()
+      const duration = performance.now() - startTime
+      
+      console.log(`Performance: ${operationName} completed in ${duration.toFixed(2)}ms`)
+      
+      return { result, duration }
+    } catch (error) {
+      const duration = performance.now() - startTime
+      console.error(`Performance: ${operationName} failed after ${duration.toFixed(2)}ms`, error)
+      throw error
     }
-    
-    return response.data
   }
+}
 
-  // Complete wizard and create project
-  static async completeWizard(sessionId: string): Promise<any> {
-    const response = await ApiService.request<any>(`/project-wizard/session/${sessionId}/complete`, {
-      method: 'POST'
-    })
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to create project')
-    }
-    
-    // Return the project object directly, not the entire response
-    return response.project
-  }
+// Create and export service instance
+export const projectWizardService = new ProjectWizardService()
 
-  // Delete wizard session
-  static async deleteWizardSession(sessionId: string): Promise<void> {
-    const response = await ApiService.request(`/project-wizard/session/${sessionId}`, {
-      method: 'DELETE'
-    })
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to delete wizard session')
-    }
-  }
+// Export the class for direct instantiation if needed
+export { ProjectWizardService }
 
-  // Get wizard session status
-  static async getWizardSessionStatus(sessionId: string): Promise<{ status: string; progress: number }> {
-    const response = await ApiService.request<{ status: string; progress: number }>(`/project-wizard/session/${sessionId}/status`, {
-      method: 'GET'
-    })
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to get session status')
-    }
-    
-    return response.data
-  }
+// Export types for use in components
+export type {
+  WizardSession,
+  StepData,
+  ValidationError,
+  ApiResponse,
+  Vendor,
+  Template,
+  Project
+}
+
+// Export utility functions
+export {
+  generateCorrelationId,
+  delay,
+  withRetry
 }
 
