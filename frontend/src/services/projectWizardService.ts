@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios'
+import axios from 'axios'
+import type { AxiosInstance, AxiosResponse, AxiosError } from 'axios'
 import { ref, reactive } from 'vue'
 
 // Types
@@ -254,15 +255,17 @@ class ProjectWizardService {
   }
 
   private setupNetworkMonitoring(): void {
-    window.addEventListener('online', () => {
-      this.isOnline.value = true
-      console.log('Network connection restored')
-    })
-    
-    window.addEventListener('offline', () => {
-      this.isOnline.value = false
-      console.log('Network connection lost')
-    })
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.isOnline.value = true
+        console.log('Network connection restored')
+      })
+      
+      window.addEventListener('offline', () => {
+        this.isOnline.value = false
+        console.log('Network connection lost')
+      })
+    }
   }
 
   private getCacheKey(endpoint: string, params?: any): string {
@@ -473,165 +476,13 @@ class ProjectWizardService {
       lastError: this.lastError.value
     }
   }
-
-  // Offline support methods
-  async syncWhenOnline(): Promise<void> {
-    if (!this.isOnline.value) {
-      console.log('Waiting for network connection...')
-      return new Promise((resolve) => {
-        const checkOnline = () => {
-          if (this.isOnline.value) {
-            resolve()
-          } else {
-            setTimeout(checkOnline, 1000)
-          }
-        }
-        checkOnline()
-      })
-    }
-  }
-
-  // Batch operations
-  async batchSaveSteps(sessionId: string, stepsData: Record<number, StepData>): Promise<void> {
-    console.log('Batch saving step data', { sessionId, steps: Object.keys(stepsData) })
-    
-    const savePromises = Object.entries(stepsData).map(([stepId, data]) =>
-      this.saveStepData(sessionId, parseInt(stepId), data)
-    )
-    
-    await Promise.all(savePromises)
-  }
-
-  async batchValidateSteps(stepsData: Record<number, StepData>): Promise<Record<number, boolean>> {
-    console.log('Batch validating steps', { steps: Object.keys(stepsData) })
-    
-    const validationPromises = Object.entries(stepsData).map(async ([stepId, data]) => {
-      try {
-        const isValid = await this.validateStep(parseInt(stepId), data)
-        return [parseInt(stepId), isValid]
-      } catch (error) {
-        return [parseInt(stepId), false]
-      }
-    })
-    
-    const results = await Promise.all(validationPromises)
-    return Object.fromEntries(results)
-  }
-
-  // Advanced search with debouncing
-  private searchDebounceTimers = new Map<string, NodeJS.Timeout>()
-
-  async debouncedVendorSearch(
-    searchTerm: string, 
-    delay: number = 300
-  ): Promise<{ vendors: Vendor[]; count: number }> {
-    return new Promise((resolve, reject) => {
-      // Clear existing timer for this search
-      const existingTimer = this.searchDebounceTimers.get('vendors')
-      if (existingTimer) {
-        clearTimeout(existingTimer)
-      }
-
-      // Set new timer
-      const timer = setTimeout(async () => {
-        try {
-          const result = await this.getAvailableVendors({ search: searchTerm })
-          resolve(result)
-        } catch (error) {
-          reject(error)
-        } finally {
-          this.searchDebounceTimers.delete('vendors')
-        }
-      }, delay)
-
-      this.searchDebounceTimers.set('vendors', timer)
-    })
-  }
-
-  // Export/Import functionality
-  async exportWizardData(sessionId: string): Promise<Blob> {
-    console.log('Exporting wizard data', { sessionId })
-    
-    const sessionData = await this.getWizardSession(sessionId)
-    const exportData = {
-      sessionId,
-      exportedAt: new Date().toISOString(),
-      data: sessionData
-    }
-    
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json'
-    })
-    
-    return blob
-  }
-
-  async importWizardData(file: File): Promise<any> {
-    console.log('Importing wizard data', { fileName: file.name })
-    
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      
-      reader.onload = (event) => {
-        try {
-          const data = JSON.parse(event.target?.result as string)
-          resolve(data)
-        } catch (error) {
-          reject(new Error('Invalid file format'))
-        }
-      }
-      
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'))
-      }
-      
-      reader.readAsText(file)
-    })
-  }
-
-  // Performance monitoring
-  async measurePerformance<T>(
-    operation: () => Promise<T>,
-    operationName: string
-  ): Promise<{ result: T; duration: number }> {
-    const startTime = performance.now()
-    
-    try {
-      const result = await operation()
-      const duration = performance.now() - startTime
-      
-      console.log(`Performance: ${operationName} completed in ${duration.toFixed(2)}ms`)
-      
-      return { result, duration }
-    } catch (error) {
-      const duration = performance.now() - startTime
-      console.error(`Performance: ${operationName} failed after ${duration.toFixed(2)}ms`, error)
-      throw error
-    }
-  }
 }
 
-// Create and export service instance
-export const projectWizardService = new ProjectWizardService()
+// Create and export singleton instance
+const projectWizardService = new ProjectWizardService()
 
-// Export the class for direct instantiation if needed
-export { ProjectWizardService }
-
-// Export types for use in components
-export type {
-  WizardSession,
-  StepData,
-  ValidationError,
-  ApiResponse,
-  Vendor,
-  Template,
-  Project
-}
-
-// Export utility functions
-export {
-  generateCorrelationId,
-  delay,
-  withRetry
-}
+// Export both default and named exports for compatibility
+export default projectWizardService
+export { ProjectWizardService, projectWizardService }
+export type { WizardSession, StepData, ValidationError, ApiResponse, Vendor, Template, Project }
 

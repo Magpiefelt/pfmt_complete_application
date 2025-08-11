@@ -4,9 +4,17 @@ const { testConnection } = require('./config/database');
 require('dotenv').config();
 
 const app = express();
-const PORT = 3005;
+// FIXED: Use environment variable for port with fallback to 3002 (Docker expects 3002)
+const PORT = process.env.PORT || 3002;
 
 console.log('🚀 Starting PFMT Fixed Server...');
+
+// Configuration logging
+console.log('🔧 Server Configuration:');
+console.log(`   PORT: ${PORT}`);
+console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+console.log(`   DB_HOST: ${process.env.DB_HOST || 'localhost'}`);
+console.log(`   DB_NAME: ${process.env.DB_NAME || 'pfmt_integrated'}`);
 
 // Basic middleware
 app.use(cors({
@@ -39,6 +47,49 @@ app.use((req, res, next) => {
     next();
 });
 
+// ADDED: Helper function to safely require route files (prevents crashes)
+function safeRequireRoute(routePath, routeName) {
+    try {
+        const route = require(routePath);
+        console.log(`✅ Loaded route: ${routeName}`);
+        return route;
+    } catch (error) {
+        console.warn(`⚠️ Route ${routeName} not available: ${error.message}`);
+        // Return a dummy router that handles requests gracefully
+        const dummyRouter = express.Router();
+        dummyRouter.all('*', (req, res) => {
+            res.status(501).json({
+                success: false,
+                message: `Route ${routeName} is not implemented`,
+                path: req.path
+            });
+        });
+        return dummyRouter;
+    }
+}
+
+// ADDED: Load available route files safely (prevents crashes from missing files)
+console.log('🔄 Loading available API routes...');
+
+// Try to load common route files if they exist
+const routesToTry = [
+    { path: './routes/auth', name: 'auth', mount: '/api/auth' },
+    { path: './routes/users', name: 'users', mount: '/api/users' },
+    { path: './routes/projects', name: 'projects', mount: '/api/projects' },
+    { path: './routes/companies', name: 'companies', mount: '/api/companies' },
+    { path: './routes/vendors', name: 'vendors', mount: '/api/vendors' },
+    { path: './routes/budget', name: 'budget', mount: '/api/budget' },
+    { path: './routes/reporting', name: 'reporting', mount: '/api/reporting' },
+    { path: './routes/gateMeetings', name: 'gate-meetings', mount: '/api/gate-meetings' }
+];
+
+// Load routes that exist, skip ones that don't
+routesToTry.forEach(route => {
+    app.use(route.mount, safeRequireRoute(route.path, route.name));
+});
+
+console.log('✅ Route loading completed');
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     console.log('Health check requested');
@@ -46,6 +97,7 @@ app.get('/health', (req, res) => {
         status: 'OK',
         message: 'PFMT Fixed Server is running',
         timestamp: new Date().toISOString(),
+        port: PORT,
         user: req.user ? req.user.id : 'none'
     });
 });
@@ -309,8 +361,8 @@ app.use((req, res) => {
     });
 });
 
-// Start server
-const server = app.listen(PORT, () => {
+// Start server - FIXED: Listen on 0.0.0.0 for Docker compatibility
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 PFMT Fixed Server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🗄️  Database health: http://localhost:${PORT}/health/db`);
@@ -328,6 +380,23 @@ testConnection()
     .catch((err) => {
         console.error('❌ Database connection failed:', err.message);
     });
+
+// ADDED: Graceful shutdown handling
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('✅ Process terminated');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT received, shutting down gracefully');
+    server.close(() => {
+        console.log('✅ Process terminated');
+        process.exit(0);
+    });
+});
 
 module.exports = app;
 
