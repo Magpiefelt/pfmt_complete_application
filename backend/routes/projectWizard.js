@@ -68,7 +68,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-correlation-id']
 };
 
 router.use(cors(corsOptions));
@@ -126,6 +126,11 @@ const requireAuth = (req, res, next) => {
 // Input validation middleware
 const validateJsonBody = (req, res, next) => {
   if (req.method === 'POST' || req.method === 'PUT') {
+    // Allow empty body for init endpoint (templateId is optional)
+    if (req.url === '/init') {
+      return next();
+    }
+    
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({
         success: false,
@@ -202,7 +207,7 @@ router.get('/vendors', ProjectWizardController.getAvailableVendors);
 // Template management routes (with fallback for missing table)
 router.get('/templates', async (req, res) => {
   try {
-    const { query } = require('../database/db');
+    const { query } = require('../config/database');
     
     // First check if the project_templates table exists
     const tableExistsQuery = `
@@ -307,7 +312,7 @@ router.get('/templates', async (req, res) => {
 // Team members route for project assignment
 router.get('/team-members', async (req, res) => {
   try {
-    const { query } = require('../database/db');
+    const { query } = require('../config/database');
     const { search, role } = req.query;
     
     let queryText = `
@@ -410,7 +415,7 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
 router.delete('/session/:sessionId', validateSession, async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { query } = require('../database/db');
+    const { query } = require('../config/database');
     
     // Delete session and related data
     await query('DELETE FROM project_wizard_step_data WHERE session_id = $1', [sessionId]);
@@ -445,7 +450,7 @@ router.delete('/session/:sessionId', validateSession, async (req, res) => {
 // Analytics endpoint for wizard usage
 router.get('/analytics', async (req, res) => {
   try {
-    const { query } = require('../database/db');
+    const { query } = require('../config/database');
     const { timeframe = '30d' } = req.query;
     
     let dateFilter = '';

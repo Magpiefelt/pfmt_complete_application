@@ -57,7 +57,7 @@ interface Project {
 
 // Configuration
 const API_CONFIG = {
-  baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 30000,
   withCredentials: true,
   headers: {
@@ -481,8 +481,51 @@ class ProjectWizardService {
 // Create and export singleton instance
 const projectWizardService = new ProjectWizardService()
 
+// Add missing methods to the singleton instance for compatibility
+projectWizardService.getProjectTemplates = async function(): Promise<Template[]> {
+  try {
+    const response = await this.makeRequest<{ templates: Template[] }>('GET', '/templates')
+    return response.templates || []
+  } catch (error) {
+    console.error('Error fetching project templates:', error)
+    // Return fallback templates if API fails
+    return [
+      {
+        id: 'fallback-standard',
+        name: 'Standard Project',
+        description: 'Basic project template',
+        category: 'General',
+        template_data: {
+          projectType: 'Standard',
+          deliveryType: 'design_bid_build'
+        },
+        created_at: new Date().toISOString()
+      }
+    ]
+  }
+}
+
+projectWizardService.getAvailableVendors = async function(): Promise<Vendor[]> {
+  return this.getVendors()
+}
+
+projectWizardService.validateStepData = async function(stepId: number, stepData: any): Promise<{ success: boolean; errors?: any[] }> {
+  try {
+    await this.makeRequest('POST', `/validate/step/${stepId}`, stepData)
+    return { success: true }
+  } catch (error) {
+    return { 
+      success: false, 
+      errors: [{ message: 'Validation failed', field: 'general' }] 
+    }
+  }
+}
+
 // Export both default and named exports for compatibility
 export default projectWizardService
-export { ProjectWizardService, projectWizardService }
+
+// Export both the instance and as the named service (with added methods)
+export { projectWizardService }
+export { projectWizardService as ProjectWizardService }
 export type { WizardSession, StepData, ValidationError, ApiResponse, Vendor, Template, Project }
 

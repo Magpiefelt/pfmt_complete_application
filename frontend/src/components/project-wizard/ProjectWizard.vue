@@ -480,7 +480,7 @@ const initializeWizard = async () => {
   globalError.value = null
   
   try {
-    const result = await projectWizardService.initializeWizard()
+    const result = await projectWizardService.initializeWizard(null)
     
     if (result.success) {
       sessionId.value = result.sessionId

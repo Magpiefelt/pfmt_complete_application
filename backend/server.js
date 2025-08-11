@@ -21,7 +21,7 @@ app.use(cors({
     origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-user-name']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-user-name', 'x-correlation-id']
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -80,7 +80,8 @@ const routesToTry = [
     { path: './routes/vendors', name: 'vendors', mount: '/api/vendors' },
     { path: './routes/budget', name: 'budget', mount: '/api/budget' },
     { path: './routes/reporting', name: 'reporting', mount: '/api/reporting' },
-    { path: './routes/gateMeetings', name: 'gate-meetings', mount: '/api/gate-meetings' }
+    { path: './routes/gateMeetings', name: 'gate-meetings', mount: '/api/gate-meetings' },
+    { path: './routes/projectWizard', name: 'project-wizard', mount: '/api/project-wizard' }
 ];
 
 // Load routes that exist, skip ones that don't
@@ -120,143 +121,6 @@ app.get('/health/db', async (req, res) => {
             message: 'Database connection failed',
             error: error.message,
             timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Simple project wizard health endpoint
-app.get('/api/project-wizard/health', (req, res) => {
-    console.log('Project wizard health check requested');
-    res.json({
-        success: true,
-        message: 'Project Wizard API is healthy',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// Fixed project wizard completion endpoint
-app.post('/api/project-wizard/complete', async (req, res) => {
-    try {
-        console.log('Project wizard completion requested');
-        const { details, location, vendors, budget } = req.body;
-        
-        if (!details || !details.name) {
-            return res.status(400).json({
-                success: false,
-                message: 'Project name is required'
-            });
-        }
-
-        // Import database transaction function
-        const { transaction } = require('./config/database');
-        const { v4: uuidv4 } = require('uuid');
-        
-        const projectId = uuidv4();
-        
-        // Use transaction wrapper to ensure proper connection handling
-        const result = await transaction(async (client) => {
-            // Insert project
-            const projectQuery = `
-                INSERT INTO projects (id, name, code, description, status, budget_total, budget_currency, created_by)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                RETURNING *
-            `;
-            
-            const projectResult = await client.query(projectQuery, [
-                projectId,
-                details.name,
-                details.code || `PROJ-${Date.now()}`,
-                details.description || '',
-                'Active',
-                budget?.total || 0,
-                budget?.currency || 'CAD',
-                req.user.id
-            ]);
-            
-            // Insert location if provided
-            if (location && (location.municipality || location.addressLine1)) {
-                const locationQuery = `
-                    INSERT INTO project_locations (project_id, address_line1, address_line2, municipality, province, postal_code, country)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                `;
-                
-                await client.query(locationQuery, [
-                    projectId,
-                    location.addressLine1 || '',
-                    location.addressLine2 || '',
-                    location.municipality || '',
-                    location.province || '',
-                    location.postalCode || '',
-                    location.country || 'Canada'
-                ]);
-            }
-            
-            // Insert vendors if provided
-            const vendorResults = [];
-            if (vendors && Array.isArray(vendors) && vendors.length > 0) {
-                for (const vendor of vendors) {
-                    if (vendor.name) {
-                        const vendorId = uuidv4();
-                        
-                        // Insert vendor
-                        const vendorQuery = `
-                            INSERT INTO vendors (id, name, contact_name, contact_email, contact_phone)
-                            VALUES ($1, $2, $3, $4, $5)
-                            RETURNING *
-                        `;
-                        
-                        const vendorResult = await client.query(vendorQuery, [
-                            vendorId,
-                            vendor.name,
-                            vendor.contactName || '',
-                            vendor.contactEmail || '',
-                            vendor.contactPhone || ''
-                        ]);
-                        
-                        // Link vendor to project
-                        const linkQuery = `
-                            INSERT INTO project_vendors (project_id, vendor_id)
-                            VALUES ($1, $2)
-                        `;
-                        
-                        await client.query(linkQuery, [projectId, vendorId]);
-                        vendorResults.push(vendorResult.rows[0]);
-                    }
-                }
-            }
-            
-            return {
-                project: projectResult.rows[0],
-                vendors: vendorResults
-            };
-        });
-        
-        console.log(`Project created successfully: ${projectId}`);
-        
-        res.json({
-            success: true,
-            message: 'Project created successfully',
-            project: {
-                id: projectId,
-                name: details.name,
-                code: details.code || `PROJ-${Date.now()}`,
-                description: details.description || '',
-                status: 'Active',
-                budget: {
-                    total: budget?.total || 0,
-                    currency: budget?.currency || 'CAD'
-                },
-                location: location || null,
-                vendors: result.vendors || []
-            }
-        });
-        
-    } catch (error) {
-        console.error('Error creating project:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create project',
-            error: error.message
         });
     }
 });
