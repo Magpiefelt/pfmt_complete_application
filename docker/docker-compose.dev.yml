@@ -21,7 +21,7 @@ services:
       - ../database/vendor_management_schema.sql:/docker-entrypoint-initdb.d/05_vendor_management_schema.sql:ro
       - ../database/wizard_schema.sql:/docker-entrypoint-initdb.d/06_wizard_schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pfmt} -d ${POSTGRES_DB:-pfmt}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pfmt_user} -d ${POSTGRES_DB:-pfmt_integrated}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,9 +42,9 @@ services:
       NODE_ENV: development
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-pfmt}
-      DB_USER: ${POSTGRES_USER:-pfmt}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-pfmt}
+      DB_NAME: ${POSTGRES_DB:-pfmt_integrated}
+      DB_USER: ${POSTGRES_USER:-pfmt_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-pfmt_password}
     depends_on:
       db:
         condition: service_healthy
