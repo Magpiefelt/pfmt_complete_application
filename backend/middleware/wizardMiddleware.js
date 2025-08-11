@@ -1,6 +1,6 @@
 const redis = require('redis');
 const NodeCache = require('node-cache');
-const winston = require('winston');
+const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 // Initialize cache (fallback to in-memory if Redis not available)
@@ -43,23 +43,6 @@ const initializeCache = async () => {
     cache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
   }
 };
-
-// Logger configuration
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'wizard-middleware' },
-  transports: [
-    new winston.transports.File({ filename: 'logs/middleware.log' }),
-    new winston.transports.Console({
-      format: winston.format.simple()
-    })
-  ]
-});
 
 // Cache utility functions
 const cacheUtils = {
