@@ -1,4 +1,20 @@
 const { query, pool } = require('../config/database');
+const rateLimit = require('express-rate-limit');
+const { 
+  validateWizardData, 
+  validateBasicProjectInfo, 
+  formatValidationErrors,
+  ValidationError 
+} = require('../utils/validation');
+
+// Rate limiting for wizard operations
+const wizardRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many wizard requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 class ProjectWizardController {
   // Initialize wizard session
@@ -80,7 +96,7 @@ class ProjectWizardController {
     }
   }
 
-  // Save wizard step data - ENHANCED WITH DEBUGGING
+  // Save wizard step data - ENHANCED WITH VALIDATION
   async saveStepData(req, res) {
     console.log('🔧 saveStepData called with params:', req.params);
     console.log('🔧 saveStepData body:', req.body);
@@ -119,6 +135,13 @@ class ProjectWizardController {
         });
       }
 
+      // Validate step data based on step ID
+      const validationErrors = await validateStepData(parseInt(stepId), stepData);
+      if (validationErrors.length > 0) {
+        console.log('🔧 Validation errors found:', validationErrors);
+        return res.status(400).json(formatValidationErrors(validationErrors));
+      }
+
       // Save step data
       const saveQuery = `
         INSERT INTO project_wizard_step_data (session_id, step_id, step_data, created_at, updated_at)
@@ -152,7 +175,17 @@ class ProjectWizardController {
       });
     } catch (error) {
       console.error('❌ Error saving step data:', error);
-      console.error('❌ Error stack:', error.stack);
+      console.error('❌ Error stack:', error);
+      
+      if (error instanceof ValidationError) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+          field: error.field,
+          code: error.code
+        });
+      }
+      
       res.status(500).json({ 
         success: false, 
         message: 'Failed to save step data',
@@ -285,6 +318,14 @@ class ProjectWizardController {
         }
       }
 
+      // Comprehensive validation of all wizard data
+      console.log('🔧 Validating complete wizard data...');
+      const validationErrors = await validateWizardData(stepData);
+      if (validationErrors.length > 0) {
+        console.log('🔧 Wizard validation errors found:', validationErrors);
+        return res.status(400).json(formatValidationErrors(validationErrors));
+      }
+
       // Create project from wizard data
       const templateInfo = stepData[1];
       const basicInfo = stepData[2];
@@ -299,9 +340,28 @@ class ProjectWizardController {
         currentUserId: userId
       });
 
-      // Validate required fields
+      // Additional business logic validation
       if (!basicInfo.projectName || !basicInfo.description) {
         throw new Error('Project name and description are required');
+      }
+
+      // Check for duplicate project names
+      const duplicateCheck = await query(
+        'SELECT id FROM projects WHERE LOWER(project_name) = LOWER($1)',
+        [basicInfo.projectName]
+      );
+      
+      if (duplicateCheck.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'A project with this name already exists',
+          errors: {
+            projectName: [{
+              message: 'A project with this name already exists',
+              code: 'DUPLICATE_PROJECT_NAME'
+            }]
+          }
+        });
       }
 
       // Insert project
@@ -411,7 +471,8 @@ class ProjectWizardController {
         createdBy: userId
       });
 
-      res.json({
+      // Ensure response is sent properly
+      const response = {
         success: true,
         message: 'Project created successfully',
         project: {
@@ -420,17 +481,25 @@ class ProjectWizardController {
           name: projectResult.rows[0].project_name,
           projectName: projectResult.rows[0].project_name
         }
-      });
+      };
+
+      console.log('✅ Sending success response:', response);
+      return res.status(200).json(response);
 
     } catch (error) {
       await client.query('ROLLBACK');
       console.error('❌ Error completing wizard:', error);
       console.error('❌ Error stack:', error.stack);
-      res.status(500).json({ 
+      
+      const errorResponse = { 
         success: false, 
         message: error.message || 'Failed to create project',
-        error: error.message 
-      });
+        error: error.message,
+        correlationId: `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      };
+      
+      console.log('❌ Sending error response:', errorResponse);
+      return res.status(500).json(errorResponse);
     } finally {
       client.release();
     }
@@ -640,5 +709,59 @@ class ProjectWizardController {
   }
 }
 
-module.exports = new ProjectWizardController();
+/**
+ * Validates step data based on step ID
+ */
+async function validateStepData(stepId, stepData) {
+  const errors = [];
+  
+  try {
+    switch (stepId) {
+      case 1: // Template selection
+        // Template step validation is minimal
+        break;
+        
+      case 2: // Basic information
+        const basicErrors = await validateBasicProjectInfo(stepData);
+        errors.push(...basicErrors);
+        break;
+        
+      case 3: // Budget information
+        const { validateBudgetInfo } = require('../utils/validation');
+        const budgetErrors = validateBudgetInfo(stepData);
+        errors.push(...budgetErrors);
+        break;
+        
+      case 4: // Team assignment
+        const { validateTeamInfo } = require('../utils/validation');
+        const teamErrors = validateTeamInfo(stepData);
+        errors.push(...teamErrors);
+        break;
+        
+      case 5: // Location information (if separate step)
+        const { validateLocationInfo } = require('../utils/validation');
+        const locationErrors = validateLocationInfo(stepData);
+        errors.push(...locationErrors);
+        break;
+        
+      default:
+        // Unknown step, no validation
+        break;
+    }
+  } catch (error) {
+    console.error('Error during step validation:', error);
+    errors.push({
+      field: 'general',
+      message: 'Validation error occurred',
+      code: 'VALIDATION_ERROR'
+    });
+  }
+  
+  return errors;
+}
+
+module.exports = { 
+  ProjectWizardController: new ProjectWizardController(),
+  wizardRateLimit
+};
 

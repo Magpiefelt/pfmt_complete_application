@@ -1,9 +1,67 @@
 <template>
   <div class="space-y-6">
+    <!-- Loading State -->
+    <div v-if="loading" class="flex items-center justify-center py-12">
+      <div class="flex items-center space-x-3">
+        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        <span class="text-gray-600">Loading project details...</span>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800">Error Loading Project Details</h3>
+          <p class="mt-1 text-sm text-red-700">{{ error }}</p>
+          <button 
+            @click="loadProjectData" 
+            class="mt-2 text-sm text-red-600 hover:text-red-500 underline"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success Message -->
+    <div v-if="successMessage" class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-green-800">{{ successMessage }}</p>
+        </div>
+        <div class="ml-auto">
+          <button @click="successMessage = ''" class="text-green-400 hover:text-green-600">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Project Information Form -->
-    <Card>
+    <Card v-if="!loading && !error">
       <CardHeader>
-        <CardTitle>Project Information</CardTitle>
+        <CardTitle class="flex items-center justify-between">
+          <span>Project Information</span>
+          <div v-if="hasUnsavedChanges" class="flex items-center text-amber-600 text-sm">
+            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            Unsaved changes
+          </div>
+        </CardTitle>
         <CardDescription v-if="!canEdit">
           View detailed project information and specifications.
         </CardDescription>
@@ -554,7 +612,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { Save } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { Button } from '@/components/ui'
@@ -570,6 +628,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui"
+import { normalizeProject, databaseToFrontend } from '@/utils/fieldNormalization'
 
 // Types
 interface Project {
@@ -629,17 +688,31 @@ const emit = defineEmits<{
   'save-changes': [changes: Partial<Project>]
 }>()
 
-// FIXED: Initialize form data with proper boolean defaults
+// Reactive state
+const loading = ref(false)
+const saving = ref(false)
+const error = ref('')
+const successMessage = ref('')
+const originalFormData = ref<Project>({})
+const hasUnsavedChanges = ref(false)
+
+// Auto-save timer
+let autoSaveTimer: NodeJS.Timeout | null = null
+
+// ENHANCED: Initialize form data with proper field normalization
 const initializeFormData = (project: Project): Project => {
+  // Use field normalization utility to handle different naming conventions
+  const normalized = normalizeProject(project)
+  
   return {
-    ...project,
+    ...normalized,
     // Ensure boolean fields have proper defaults to prevent Switch component warnings
-    funded_to_complete: Boolean(project.funded_to_complete || false),
-    is_charter_school: Boolean(project.is_charter_school || false),
+    funded_to_complete: Boolean(normalized.funded_to_complete || false),
+    is_charter_school: Boolean(normalized.is_charter_school || false),
     // Normalize field names for consistency
-    name: project.name || project.project_name || '',
-    description: project.description || project.project_description || '',
-    category: project.category || project.project_category || '',
+    name: normalized.name || normalized.projectName || '',
+    description: normalized.description || '',
+    category: normalized.category || '',
     status: project.status || project.project_status || '',
     region: project.region || project.geographic_region || '',
   }
@@ -647,36 +720,102 @@ const initializeFormData = (project: Project): Project => {
 
 // Form data with proper initialization
 const formData = ref<Project>(initializeFormData(props.project))
-const originalData = ref<Project>(initializeFormData(props.project))
 
 // Computed
 const hasChanges = computed(() => {
-  return JSON.stringify(formData.value) !== JSON.stringify(originalData.value)
+  return JSON.stringify(formData.value) !== JSON.stringify(originalFormData.value)
 })
 
-// Methods
-const resetForm = () => {
-  formData.value = { ...originalData.value }
+// Enhanced Methods
+const loadProjectData = async () => {
+  if (!props.project?.id) return
+  
+  loading.value = true
+  error.value = ''
+  
+  try {
+    // Simulate API call - replace with actual API call
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    const initializedData = initializeFormData(props.project)
+    formData.value = initializedData
+    originalFormData.value = { ...initializedData }
+    hasUnsavedChanges.value = false
+    
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to load project data'
+    console.error('Error loading project data:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
-const saveChanges = () => {
-  const changes: Partial<Project> = {}
-  
-  // Only include changed fields
-  Object.keys(formData.value).forEach(key => {
-    if (formData.value[key] !== originalData.value[key]) {
-      changes[key] = formData.value[key]
-    }
-  })
+const resetForm = () => {
+  formData.value = { ...originalFormData.value }
+  hasUnsavedChanges.value = false
+  successMessage.value = ''
+  error.value = ''
+}
 
-  emit('save-changes', changes)
-  originalData.value = { ...formData.value }
+const saveChanges = async () => {
+  if (!hasUnsavedChanges.value) return
+  
+  saving.value = true
+  error.value = ''
+  
+  try {
+    const changes: Partial<Project> = {}
+    
+    // Only include changed fields
+    Object.keys(formData.value).forEach(key => {
+      if (formData.value[key] !== originalFormData.value[key]) {
+        changes[key] = formData.value[key]
+      }
+    })
+
+    // Emit save event
+    emit('save-changes', changes)
+    
+    // Update original data
+    originalFormData.value = { ...formData.value }
+    hasUnsavedChanges.value = false
+    
+    // Show success message
+    successMessage.value = 'Project details saved successfully!'
+    
+    // Auto-hide success message after 3 seconds
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 3000)
+    
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to save changes'
+    console.error('Error saving changes:', err)
+  } finally {
+    saving.value = false
+  }
+}
+
+const scheduleAutoSave = () => {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  
+  if (props.canEdit && hasUnsavedChanges.value) {
+    autoSaveTimer = setTimeout(() => {
+      saveChanges()
+    }, 30000) // Auto-save after 30 seconds of inactivity
+  }
 }
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return 'N/A'
   try {
-    return new Date(dateString).toLocaleDateString()
+    return new Date(dateString).toLocaleDateString('en-CA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
   } catch {
     return 'Invalid Date'
   }
@@ -700,22 +839,60 @@ const getReportStatusVariant = (status?: string) => {
   }
 }
 
-// Watch for external project changes
+// Enhanced Watchers
 watch(() => props.project, (newProject) => {
-  const initializedData = initializeFormData(newProject)
-  formData.value = initializedData
-  originalData.value = initializedData
-}, { deep: true })
+  if (newProject) {
+    const initializedData = initializeFormData(newProject)
+    formData.value = initializedData
+    originalFormData.value = { ...initializedData }
+    hasUnsavedChanges.value = false
+  }
+}, { deep: true, immediate: true })
 
-// Watch for form changes and emit updates
+// Watch for form changes
 watch(formData, (newData) => {
+  hasUnsavedChanges.value = JSON.stringify(newData) !== JSON.stringify(originalFormData.value)
   emit('update:project', { ...newData })
+  
+  // Schedule auto-save
+  scheduleAutoSave()
 }, { deep: true })
 
+// Lifecycle
+onMounted(async () => {
+  await loadProjectData()
+})
+
+// Cleanup
+onUnmounted(() => {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+})
+
+// Keyboard shortcuts
 onMounted(() => {
-  const initializedData = initializeFormData(props.project)
-  formData.value = initializedData
-  originalData.value = initializedData
+  const handleKeydown = (event: KeyboardEvent) => {
+    // Ctrl+S or Cmd+S to save
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+      event.preventDefault()
+      if (props.canEdit && hasUnsavedChanges.value) {
+        saveChanges()
+      }
+    }
+    
+    // Escape to reset form
+    if (event.key === 'Escape' && hasUnsavedChanges.value) {
+      resetForm()
+    }
+  }
+  
+  document.addEventListener('keydown', handleKeydown)
+  
+  // Cleanup
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeydown)
+  })
 })
 </script>
 

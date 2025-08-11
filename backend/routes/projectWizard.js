@@ -4,21 +4,20 @@ const { ProjectWizardController, wizardRateLimit } = require('../controllers/pro
 const { flexibleAuth } = require('../middleware/flexibleAuth');
 const helmet = require('helmet');
 const cors = require('cors');
-const winston = require('winston');
+const compression = require('compression');
 
-// Enhanced logging for routes
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'wizard-routes' },
-  transports: [
-    new winston.transports.File({ filename: 'logs/routes.log' }),
-    new winston.transports.Console()
-  ]
-});
+// Simple logging utility (replacing winston for Docker compatibility)
+const logger = {
+  info: (message, meta = {}) => {
+    console.log(`[INFO] ${new Date().toISOString()} - ${message}`, meta);
+  },
+  warn: (message, meta = {}) => {
+    console.warn(`[WARN] ${new Date().toISOString()} - ${message}`, meta);
+  },
+  error: (message, meta = {}) => {
+    console.error(`[ERROR] ${new Date().toISOString()} - ${message}`, meta);
+  }
+};
 
 // Security middleware
 router.use(helmet({
@@ -200,10 +199,64 @@ router.post('/session/:sessionId/complete',
 // Data retrieval routes
 router.get('/vendors', ProjectWizardController.getAvailableVendors);
 
-// Template management routes (if templates are implemented)
+// Template management routes (with fallback for missing table)
 router.get('/templates', async (req, res) => {
   try {
     const { query } = require('../database/db');
+    
+    // First check if the project_templates table exists
+    const tableExistsQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'project_templates'
+      );
+    `;
+    
+    const tableExists = await query(tableExistsQuery);
+    
+    if (!tableExists.rows[0].exists) {
+      // Table doesn't exist, return default templates
+      logger.info('Templates table not found, returning default templates', {
+        correlationId: req.correlationId
+      });
+      
+      const defaultTemplates = [
+        {
+          id: 'default-infrastructure',
+          name: 'Infrastructure Project',
+          description: 'Standard template for infrastructure development projects',
+          category: 'Infrastructure',
+          template_data: {
+            projectType: 'Standard',
+            deliveryType: 'design_bid_build',
+            program: 'transportation_infrastructure'
+          },
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'default-construction',
+          name: 'Construction Project',
+          description: 'Standard template for construction projects',
+          category: 'Construction',
+          template_data: {
+            projectType: 'Standard',
+            deliveryType: 'design_bid_build',
+            program: 'government_facilities'
+          },
+          created_at: new Date().toISOString()
+        }
+      ];
+      
+      return res.json({
+        success: true,
+        templates: defaultTemplates,
+        correlationId: req.correlationId,
+        note: 'Using default templates - database table not configured'
+      });
+    }
+    
+    // Table exists, query it
     const result = await query(`
       SELECT id, name, description, category, template_data, created_at
       FROM project_templates 
@@ -211,7 +264,7 @@ router.get('/templates', async (req, res) => {
       ORDER BY name ASC
     `);
     
-    logger.info('Templates retrieved', {
+    logger.info('Templates retrieved from database', {
       correlationId: req.correlationId,
       count: result.rows.length
     });
@@ -226,10 +279,27 @@ router.get('/templates', async (req, res) => {
       correlationId: req.correlationId,
       error: error.message
     });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve templates',
-      correlationId: req.correlationId
+    
+    // Provide fallback templates even on error
+    const fallbackTemplates = [
+      {
+        id: 'fallback-standard',
+        name: 'Standard Project',
+        description: 'Basic project template',
+        category: 'General',
+        template_data: {
+          projectType: 'Standard',
+          deliveryType: 'design_bid_build'
+        },
+        created_at: new Date().toISOString()
+      }
+    ];
+    
+    res.json({
+      success: true,
+      templates: fallbackTemplates,
+      correlationId: req.correlationId,
+      warning: 'Using fallback templates due to database error'
     });
   }
 });
@@ -462,7 +532,7 @@ router.use((error, req, res, next) => {
 });
 
 // 404 handler for wizard routes
-router.use('*', (req, res) => {
+router.use((req, res) => {
   logger.warn('Route not found', {
     correlationId: req.correlationId,
     url: req.url,

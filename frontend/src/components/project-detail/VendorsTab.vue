@@ -428,11 +428,30 @@ const loadVendors = async () => {
   error.value = null
   
   try {
-    // Load vendors from API - no demo data
-    vendors.value = []
+    // Load vendors from API using the project ID
+    const response = await fetch(`/api/projects/${props.project.id}/vendors`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load vendors: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      vendors.value = data.data || []
+    } else {
+      throw new Error(data.message || 'Failed to load vendors')
+    }
   } catch (err) {
     error.value = 'Failed to load vendors'
     console.error('Error loading vendors:', err)
+    // Set empty array as fallback
+    vendors.value = []
   } finally {
     loading.value = false
   }

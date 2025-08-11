@@ -218,6 +218,16 @@ import { useToast } from '@/composables/useToast'
 const router = useRouter()
 const { showSuccess, showError } = useToast()
 
+// Enhanced state for completion and error handling
+const showCompletionModal = ref(false)
+const showErrorModal = ref(false)
+const createdProject = ref(null)
+const errorTitle = ref('')
+const errorMessage = ref('')
+const errorDetails = ref('')
+const retryAvailable = ref(false)
+const lastFailedAction = ref(null)
+
 // Reactive state
 const currentStep = ref(1)
 const totalSteps = ref(4)
@@ -277,16 +287,68 @@ const updateStepData = (stepId, dataKey, data) => {
 const validateStep = async (stepId) => {
   try {
     const stepKey = ['details', 'location', 'vendors', 'budget'][stepId - 1]
-    const result = await projectWizardService.validateStepData(stepId, stepData[stepKey])
+    const currentStepData = stepData[stepKey]
     
-    if (result.success) {
-      stepErrors[stepId] = []
-    } else {
-      stepErrors[stepId] = result.errors || []
+    // Clear previous errors
+    stepErrors[stepId] = []
+    
+    // Client-side validation first
+    switch (stepId) {
+      case 1: // Project Details
+        if (!currentStepData.projectName || currentStepData.projectName.trim().length < 3) {
+          stepErrors[stepId].push({ field: 'projectName', message: 'Project name must be at least 3 characters' })
+        }
+        if (!currentStepData.description || currentStepData.description.trim().length < 10) {
+          stepErrors[stepId].push({ field: 'description', message: 'Description must be at least 10 characters' })
+        }
+        if (!currentStepData.category) {
+          stepErrors[stepId].push({ field: 'category', message: 'Project category is required' })
+        }
+        break
+        
+      case 2: // Location
+        if (!currentStepData.municipality || currentStepData.municipality.trim().length < 2) {
+          stepErrors[stepId].push({ field: 'municipality', message: 'Municipality is required' })
+        }
+        break
+        
+      case 3: // Vendors
+        // Vendors are optional, but if added, validate them
+        if (currentStepData.vendors && currentStepData.vendors.length > 0) {
+          currentStepData.vendors.forEach((vendor, index) => {
+            if (!vendor.role || vendor.role.trim().length < 2) {
+              stepErrors[stepId].push({ field: `vendor_${index}_role`, message: `Vendor ${index + 1} role is required` })
+            }
+          })
+        }
+        break
+        
+      case 4: // Budget
+        if (!currentStepData.totalBudget || currentStepData.totalBudget <= 0) {
+          stepErrors[stepId].push({ field: 'totalBudget', message: 'Total budget must be greater than 0' })
+        }
+        if (currentStepData.initialBudget && currentStepData.initialBudget > currentStepData.totalBudget) {
+          stepErrors[stepId].push({ field: 'initialBudget', message: 'Initial budget cannot exceed total budget' })
+        }
+        break
+    }
+    
+    // If client-side validation passes, do server-side validation
+    if (stepErrors[stepId].length === 0) {
+      try {
+        const result = await projectWizardService.validateStepData(stepId, currentStepData)
+        
+        if (!result.success && result.errors) {
+          stepErrors[stepId] = result.errors
+        }
+      } catch (serverError) {
+        console.warn('Server validation failed, using client-side validation only:', serverError)
+        // Continue with client-side validation only
+      }
     }
   } catch (error) {
     console.error('Validation error:', error)
-    stepErrors[stepId] = [{ field: 'general', message: 'Validation failed' }]
+    stepErrors[stepId] = [{ field: 'general', message: 'Validation failed. Please check your input.' }]
   }
 }
 
@@ -322,33 +384,91 @@ const completeWizard = async () => {
   loadingMessage.value = 'Creating project...'
   
   try {
-    // Validate all steps
+    // Clear previous errors
+    globalError.value = null
+    successMessage.value = null
+    
+    // Validate all steps first
+    let hasValidationErrors = false
     for (let i = 1; i <= totalSteps.value; i++) {
       await validateStep(i)
       if (stepErrors[i].length > 0) {
-        throw new Error(`Step ${i} has validation errors`)
+        hasValidationErrors = true
+        console.error(`Step ${i} validation errors:`, stepErrors[i])
       }
     }
     
-    // Complete the wizard
+    if (hasValidationErrors) {
+      // Find first step with errors and navigate to it
+      for (let i = 1; i <= totalSteps.value; i++) {
+        if (stepErrors[i].length > 0) {
+          currentStep.value = i
+          break
+        }
+      }
+      throw new Error('Please fix validation errors before creating the project')
+    }
+    
+    // Validate required data exists
+    if (!stepData.details.projectName || stepData.details.projectName.trim().length < 3) {
+      currentStep.value = 1
+      throw new Error('Project name is required and must be at least 3 characters')
+    }
+    
+    if (!stepData.details.description || stepData.details.description.trim().length < 10) {
+      currentStep.value = 1
+      throw new Error('Project description is required and must be at least 10 characters')
+    }
+    
+    if (!stepData.budget.totalBudget || stepData.budget.totalBudget <= 0) {
+      currentStep.value = 4
+      throw new Error('Total budget must be greater than 0')
+    }
+    
+    // Complete the wizard with enhanced error handling
     const result = await projectWizardService.completeWizard(sessionId.value)
     
-    if (result.success) {
+    if (result.success && result.project) {
       isCompleted.value = true
       successMessage.value = 'Project created successfully!'
       showSuccess('Project created successfully!')
       
-      // Redirect to project detail page
+      // Clear wizard data
+      sessionId.value = null
+      
+      // Redirect to project detail page with proper error handling
       setTimeout(() => {
-        router.push(`/projects/${result.project.id}`)
-      }, 2000)
+        try {
+          router.push(`/projects/${result.project.id}`)
+        } catch (routerError) {
+          console.error('Navigation error:', routerError)
+          // Fallback to projects list
+          router.push('/projects')
+        }
+      }, 1500)
     } else {
-      throw new Error(result.message || 'Failed to create project')
+      throw new Error(result.message || 'Failed to create project - no project data returned')
     }
   } catch (error) {
     console.error('Wizard completion failed:', error)
-    globalError.value = error.message
-    showError('Failed to create project. Please try again.')
+    
+    // Provide specific error messages based on error type
+    if (error.message.includes('validation errors') || error.message.includes('required')) {
+      globalError.value = error.message
+    } else if (error.message.includes('session not found') || error.message.includes('session expired')) {
+      globalError.value = 'Your session has expired. Please start the wizard again.'
+      // Reset wizard state
+      sessionId.value = null
+      currentStep.value = 1
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      globalError.value = 'Network error. Please check your connection and try again.'
+    } else if (error.message.includes('Authentication') || error.message.includes('Unauthorized')) {
+      globalError.value = 'Authentication error. Please refresh the page and try again.'
+    } else {
+      globalError.value = error.message || 'Failed to create project. Please try again.'
+    }
+    
+    showError(globalError.value)
   } finally {
     isLoading.value = false
   }
@@ -357,6 +477,7 @@ const completeWizard = async () => {
 const initializeWizard = async () => {
   isLoading.value = true
   loadingMessage.value = 'Initializing wizard...'
+  globalError.value = null
   
   try {
     const result = await projectWizardService.initializeWizard()
@@ -365,16 +486,106 @@ const initializeWizard = async () => {
       sessionId.value = result.sessionId
       currentStep.value = result.currentStep || 1
       totalSteps.value = result.totalSteps || 4
+      
+      console.log('Wizard initialized successfully:', {
+        sessionId: sessionId.value,
+        currentStep: currentStep.value,
+        totalSteps: totalSteps.value
+      })
     } else {
       throw new Error(result.message || 'Failed to initialize wizard')
     }
   } catch (error) {
     console.error('Wizard initialization failed:', error)
-    globalError.value = 'Failed to initialize wizard. Please refresh the page.'
-    showError('Failed to initialize wizard')
+    
+    // Provide specific error messages
+    if (error.message.includes('network') || error.message.includes('fetch')) {
+      globalError.value = 'Network error. Please check your connection and try again.'
+    } else if (error.message.includes('Authentication') || error.message.includes('Unauthorized')) {
+      globalError.value = 'Authentication error. Please refresh the page and try again.'
+    } else {
+      globalError.value = 'Failed to initialize wizard. Please refresh the page and try again.'
+    }
+    
+    showError(globalError.value)
   } finally {
     isLoading.value = false
   }
+}
+
+// Enhanced error handling methods
+const showEnhancedError = (title, message, details = '', retry = false) => {
+  errorTitle.value = title
+  errorMessage.value = message
+  errorDetails.value = details
+  retryAvailable.value = retry
+  showErrorModal.value = true
+}
+
+const getErrorMessage = (error) => {
+  if (error.message.includes('validation errors') || error.message.includes('required')) {
+    return error.message
+  } else if (error.message.includes('session not found') || error.message.includes('session expired')) {
+    return 'Your session has expired. Please start the wizard again.'
+  } else if (error.message.includes('network') || error.message.includes('fetch')) {
+    return 'Network error. Please check your connection and try again.'
+  } else if (error.message.includes('Authentication') || error.message.includes('Unauthorized')) {
+    return 'Authentication error. Please refresh the page and try again.'
+  } else if (error.message.includes('duplicate') || error.message.includes('already exists')) {
+    return 'A project with this name already exists. Please choose a different name.'
+  } else {
+    return error.message || 'An unexpected error occurred. Please try again.'
+  }
+}
+
+const retryLastAction = async () => {
+  closeErrorModal()
+  
+  if (lastFailedAction.value === 'completeWizard') {
+    await completeWizard()
+  } else if (lastFailedAction.value === 'initializeWizard') {
+    await initializeWizard()
+  }
+}
+
+const closeErrorModal = () => {
+  showErrorModal.value = false
+  errorTitle.value = ''
+  errorMessage.value = ''
+  errorDetails.value = ''
+  retryAvailable.value = false
+  lastFailedAction.value = null
+}
+
+const navigateToProject = () => {
+  showCompletionModal.value = false
+  if (createdProject.value?.id) {
+    router.push(`/projects/${createdProject.value.id}`)
+  } else {
+    router.push('/projects')
+  }
+}
+
+const createAnotherProject = () => {
+  showCompletionModal.value = false
+  // Reset wizard state
+  currentStep.value = 1
+  sessionId.value = null
+  createdProject.value = null
+  isCompleted.value = false
+  
+  // Clear step data
+  Object.keys(stepData).forEach(key => {
+    stepData[key] = {}
+  })
+  
+  // Clear errors
+  Object.keys(stepErrors).forEach(key => {
+    stepErrors[key] = []
+  })
+  
+  // Initialize new wizard
+  initializeWizard()
 }
 
 // Lifecycle
