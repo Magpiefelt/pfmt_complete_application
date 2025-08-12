@@ -699,3 +699,55 @@ BEGIN
     RAISE NOTICE '========================================';
 END $$;
 
+
+-- WIZARD TABLES ADDED FOR FUNCTIONALITY
+-- Missing Project Wizard Tables
+-- These tables are required for the project wizard functionality
+
+-- Project Templates table for wizard template selection
+CREATE TABLE project_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(100),
+    default_budget DECIMAL(15,2),
+    estimated_duration INTEGER, -- in days
+    required_roles TEXT[], -- array of required roles
+    template_data JSONB, -- template configuration data
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Project Wizard Sessions table for tracking wizard progress
+CREATE TABLE project_wizard_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id VARCHAR(255) UNIQUE NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    current_step INTEGER DEFAULT 1,
+    total_steps INTEGER DEFAULT 5,
+    template_id UUID REFERENCES project_templates(id),
+    step_data JSONB, -- stores data for each step
+    is_completed BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_project_wizard_sessions_user_id ON project_wizard_sessions(user_id);
+CREATE INDEX idx_project_wizard_sessions_session_id ON project_wizard_sessions(session_id);
+CREATE INDEX idx_project_templates_category ON project_templates(category);
+CREATE INDEX idx_project_templates_active ON project_templates(is_active);
+
+-- Insert some default project templates
+INSERT INTO project_templates (name, description, category, default_budget, estimated_duration, required_roles, template_data, is_active) VALUES
+('Basic Infrastructure Project', 'Standard infrastructure development project template', 'Infrastructure', 100000.00, 180, ARRAY['PM', 'Engineer', 'Architect'], '{"phases": ["Planning", "Design", "Implementation", "Testing", "Deployment"]}', true),
+('Software Development Project', 'Template for software development projects', 'Software', 75000.00, 120, ARRAY['PM', 'Developer', 'QA'], '{"phases": ["Requirements", "Design", "Development", "Testing", "Deployment"]}', true),
+('Research Project', 'Template for research and analysis projects', 'Research', 50000.00, 90, ARRAY['PM', 'Researcher', 'Analyst'], '{"phases": ["Literature Review", "Data Collection", "Analysis", "Reporting"]}', true);
+
+-- Add comments for documentation
+COMMENT ON TABLE project_templates IS 'Templates for different types of projects in the wizard';
+COMMENT ON TABLE project_wizard_sessions IS 'Tracks user progress through the project creation wizard';
+COMMENT ON COLUMN project_wizard_sessions.step_data IS 'JSON data containing form inputs for each wizard step';
+COMMENT ON COLUMN project_templates.template_data IS 'JSON configuration data for the project template';
+
