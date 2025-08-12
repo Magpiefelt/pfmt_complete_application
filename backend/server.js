@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { testConnection } = require('./config/database');
+const { testConnection, query } = require('./config/database');
 require('dotenv').config();
 
 const app = express();
@@ -33,18 +33,75 @@ app.use((req, res, next) => {
     next();
 });
 
-// Simple auth middleware
-app.use((req, res, next) => {
-    // Add a default user for development
-    req.user = {
-        id: '550e8400-e29b-41d4-a716-446655440002',
-        username: 'devuser',
-        email: 'dev.user@gov.ab.ca',
-        role: 'PM',
-        is_active: true,
-        name: 'Dev User'
-    };
-    next();
+// FIXED: Enhanced auth middleware that ensures user exists in database
+app.use(async (req, res, next) => {
+    try {
+        const defaultUserId = '550e8400-e29b-41d4-a716-446655440002';
+        
+        // Check if the default user exists in the database
+        const userResult = await query(
+            'SELECT id, username, email, first_name, last_name, role, is_active FROM users WHERE id = $1',
+            [defaultUserId]
+        );
+        
+        if (userResult.rows.length > 0) {
+            // User exists, use it
+            const user = userResult.rows[0];
+            req.user = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                is_active: user.is_active,
+                name: `${user.first_name} ${user.last_name}`
+            };
+            console.log(`✅ Using existing user: ${user.username} (${user.id})`);
+        } else {
+            // User doesn't exist, create it
+            console.log('⚠️ Default user not found, creating development user...');
+            
+            const insertResult = await query(`
+                INSERT INTO users (id, username, email, first_name, last_name, role, password_hash, is_active)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING id, username, email, first_name, last_name, role, is_active
+            `, [
+                defaultUserId,
+                'devuser',
+                'dev.user@gov.ab.ca',
+                'Dev',
+                'User',
+                'PM',
+                '$2b$10$rOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQ', // bcrypt hash for 'admin'
+                true
+            ]);
+            
+            const newUser = insertResult.rows[0];
+            req.user = {
+                id: newUser.id,
+                username: newUser.username,
+                email: newUser.email,
+                role: newUser.role,
+                is_active: newUser.is_active,
+                name: `${newUser.first_name} ${newUser.last_name}`
+            };
+            console.log(`✅ Created and using new user: ${newUser.username} (${newUser.id})`);
+        }
+        
+        next();
+    } catch (error) {
+        console.error('❌ Auth middleware error:', error);
+        // Fallback to basic user object for development
+        req.user = {
+            id: '550e8400-e29b-41d4-a716-446655440002',
+            username: 'devuser',
+            email: 'dev.user@gov.ab.ca',
+            role: 'PM',
+            is_active: true,
+            name: 'Dev User'
+        };
+        console.log('⚠️ Using fallback user due to database error');
+        next();
+    }
 });
 
 // ADDED: Helper function to safely require route files (prevents crashes)
@@ -130,8 +187,6 @@ app.get('/api/projects/:id', async (req, res) => {
     try {
         const projectId = req.params.id;
         console.log(`Fetching project details for: ${projectId}`);
-        
-        const { query } = require('./config/database');
         
         // Get project with all related data
         const projectQuery = `

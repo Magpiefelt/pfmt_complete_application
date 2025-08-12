@@ -26,7 +26,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: process.env.VITE_PROXY_TARGET || 'http://localhost:3002',
+        target: process.env.VITE_PROXY_TARGET || 'http://pfmt_backend_dev:3000',
         changeOrigin: true,
         secure: false,
       },

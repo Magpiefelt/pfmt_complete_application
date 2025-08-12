@@ -58,7 +58,8 @@ services:
       # Mount uploads directory
       - uploads_data:/app/uploads
     working_dir: /app
-    command: ["sh", "-c", "npm install && npm run dev"]
+    # FIXED: Changed from npm run dev to node server.js to avoid nodemon dependency
+    command: ["sh", "-c", "npm install && node server.js"]
     networks:
       - pfmt-network
     healthcheck:
