@@ -65,6 +65,10 @@ const API_CONFIG = {
   }
 }
 
+// Debug logging
+console.log('API_CONFIG.baseURL:', API_CONFIG.baseURL)
+console.log('VITE_API_BASE_URL env var:', import.meta.env.VITE_API_BASE_URL)
+
 // Create axios instance with enhanced configuration
 const createApiClient = (): AxiosInstance => {
   const client = axios.create(API_CONFIG)
@@ -312,7 +316,18 @@ class ProjectWizardService {
         throw new Error(response.data.message || 'API request failed')
       }
 
-      const result = response.data.data || response.data
+      // For wizard initialization, the session data is directly in response.data (excluding success field)
+      // For other endpoints, data might be in response.data.data
+      let result: T
+      if (response.data.data !== undefined && endpoint !== '/init') {
+        // For non-init endpoints, use response.data.data if it exists
+        result = response.data.data
+      } else {
+        // For init endpoint or when response.data.data doesn't exist,
+        // extract session data by removing metadata fields
+        const { success, message, errors, correlationId, ...sessionData } = response.data as any
+        result = sessionData as T
+      }
       
       // Cache successful GET requests
       if (method === 'GET' && useCache) {
@@ -384,15 +399,31 @@ class ProjectWizardService {
   }
 
   // Wizard completion
-  async completeWizard(sessionId: string): Promise<{ project: Project }> {
+  async completeWizard(sessionId: string): Promise<{ success: boolean; project: Project; message?: string }> {
     console.log('Completing wizard', { sessionId })
     
-    const result = await this.makeRequest<{ project: Project }>('POST', `/session/${sessionId}/complete`)
-    
-    // Clear all wizard-related cache
-    this.cache.clear()
-    
-    return result
+    try {
+      const result = await this.makeRequest<{ project: Project }>('POST', `/session/${sessionId}/complete`)
+      
+      // Clear all wizard-related cache
+      this.cache.clear()
+      
+      // Return success format expected by the component
+      return {
+        success: true,
+        project: result.project,
+        message: 'Project created successfully'
+      }
+    } catch (error) {
+      console.error('Failed to complete wizard:', error)
+      
+      // Return error format
+      return {
+        success: false,
+        project: null,
+        message: error.message || 'Failed to create project'
+      }
+    }
   }
 
   // Data retrieval with caching
@@ -506,7 +537,29 @@ projectWizardService.getProjectTemplates = async function(): Promise<Template[]>
 }
 
 projectWizardService.getAvailableVendors = async function(): Promise<Vendor[]> {
-  return this.getVendors()
+  try {
+    const response = await this.makeRequest('GET', '/vendors')
+    return response || []
+  } catch (error) {
+    console.warn('Failed to load vendors, using mock data:', error)
+    // Return mock vendors as fallback
+    return [
+      {
+        id: '1',
+        name: 'ABC Construction Ltd.',
+        status: 'Certified',
+        capabilities: ['General Construction', 'Project Management'],
+        rating: 4.5
+      },
+      {
+        id: '2', 
+        name: 'XYZ Engineering Inc.',
+        status: 'Professional',
+        capabilities: ['Engineering Design', 'Consulting'],
+        rating: 4.8
+      }
+    ]
+  }
 }
 
 projectWizardService.validateStepData = async function(stepId: number, stepData: any): Promise<{ success: boolean; errors?: any[] }> {

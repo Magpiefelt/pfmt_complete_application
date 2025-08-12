@@ -244,7 +244,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-  dataUpdated: [data: any]
+  'update:data': [data: any]
   stepCompleted: [isValid: boolean]
 }>()
 
@@ -306,7 +306,7 @@ const validateForm = () => {
 
 // Watch for form changes
 watch(formData, (newData) => {
-  emit('dataUpdated', { ...newData })
+  emit('update:data', { ...newData })
 }, { deep: true })
 
 // Initialize with existing data or template

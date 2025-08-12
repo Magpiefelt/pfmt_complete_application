@@ -120,7 +120,7 @@
             :data="stepData.location"
             :errors="stepErrors[2]"
             @update:data="updateStepData(2, 'location', $event)"
-            @validate="validateStep(2)"
+            @validate="handleStepValidation(2, $event)"
           />
           
           <VendorsStep 
@@ -193,7 +193,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui'
 import { 
@@ -234,6 +234,9 @@ const totalSteps = ref(4)
 const sessionId = ref(null)
 const isLoading = ref(false)
 const lastSaveStatus = ref(null)
+const autoSaveTimeout = ref(null)
+const isAutoSaveEnabled = ref(true)
+const AUTO_SAVE_DELAY = 2000 // 2 seconds delay
 const globalError = ref(null)
 const successMessage = ref(null)
 const isCompleted = ref(false)
@@ -269,8 +272,10 @@ const progressPercentage = computed(() => {
 })
 
 const saveStatusText = computed(() => {
+  if (lastSaveStatus.value === 'saving') return 'Saving...'
   if (lastSaveStatus.value === 'success') return 'Saved'
   if (lastSaveStatus.value === 'error') return 'Save failed'
+  if (!isAutoSaveEnabled.value) return 'Auto-save paused'
   return 'Auto-save enabled'
 })
 
@@ -307,8 +312,8 @@ const validateStep = async (stepId) => {
         break
         
       case 2: // Location
-        if (!currentStepData.municipality || currentStepData.municipality.trim().length < 2) {
-          stepErrors[stepId].push({ field: 'municipality', message: 'Municipality is required' })
+        if (!currentStepData.primaryLocation || currentStepData.primaryLocation.trim().length < 2) {
+          stepErrors[stepId].push({ field: 'primaryLocation', message: 'Primary location is required' })
         }
         break
         
@@ -336,11 +341,8 @@ const validateStep = async (stepId) => {
     // If client-side validation passes, do server-side validation
     if (stepErrors[stepId].length === 0) {
       try {
-        const result = await projectWizardService.validateStepData(stepId, currentStepData)
-        
-        if (!result.success && result.errors) {
-          stepErrors[stepId] = result.errors
-        }
+        await projectWizardService.validateStep(stepId, currentStepData)
+        // If no error is thrown, validation passed
       } catch (serverError) {
         console.warn('Server validation failed, using client-side validation only:', serverError)
         // Continue with client-side validation only
@@ -350,6 +352,12 @@ const validateStep = async (stepId) => {
     console.error('Validation error:', error)
     stepErrors[stepId] = [{ field: 'general', message: 'Validation failed. Please check your input.' }]
   }
+}
+
+const handleStepValidation = (stepId, errors) => {
+  // Update step errors with validation results from step component
+  stepErrors[stepId] = errors || []
+  console.log(`Step ${stepId} validation:`, errors)
 }
 
 const nextStep = async () => {
@@ -367,19 +375,44 @@ const previousStep = () => {
 }
 
 const autoSave = async () => {
-  if (!sessionId.value) return
+  if (!sessionId.value || !isAutoSaveEnabled.value) return
   
-  try {
-    const stepKey = ['details', 'location', 'vendors', 'budget'][currentStep.value - 1]
-    await projectWizardService.saveStepData(sessionId.value, currentStep.value, stepData[stepKey])
-    lastSaveStatus.value = 'success'
-  } catch (error) {
-    console.error('Auto-save failed:', error)
-    lastSaveStatus.value = 'error'
+  // Clear existing timeout
+  if (autoSaveTimeout.value) {
+    clearTimeout(autoSaveTimeout.value)
   }
+  
+  // Set new timeout for debounced save
+  autoSaveTimeout.value = setTimeout(async () => {
+    try {
+      lastSaveStatus.value = 'saving'
+      const stepKey = ['details', 'location', 'vendors', 'budget'][currentStep.value - 1]
+      await projectWizardService.saveStepData(sessionId.value, currentStep.value, stepData[stepKey])
+      lastSaveStatus.value = 'success'
+    } catch (error) {
+      console.error('Auto-save failed:', error)
+      lastSaveStatus.value = 'error'
+      
+      // If rate limited, disable auto-save temporarily
+      if (error.message && error.message.includes('Too many requests')) {
+        isAutoSaveEnabled.value = false
+        setTimeout(() => {
+          isAutoSaveEnabled.value = true
+        }, 10000) // Re-enable after 10 seconds
+      }
+    }
+  }, AUTO_SAVE_DELAY)
 }
 
 const completeWizard = async () => {
+  // Disable auto-save during project creation
+  isAutoSaveEnabled.value = false
+  
+  // Clear any pending auto-save
+  if (autoSaveTimeout.value) {
+    clearTimeout(autoSaveTimeout.value)
+  }
+  
   isLoading.value = true
   loadingMessage.value = 'Creating project...'
   
@@ -439,7 +472,15 @@ const completeWizard = async () => {
       // Redirect to project detail page with proper error handling
       setTimeout(() => {
         try {
-          router.push(`/projects/${result.project.id}`)
+          // Use the correct project ID field from the response
+          const projectId = result.project.id || result.project.project_id
+          if (projectId) {
+            console.log('Navigating to project details:', projectId)
+            router.push(`/projects/${projectId}`)
+          } else {
+            console.warn('No project ID found in response, redirecting to projects list')
+            router.push('/projects')
+          }
         } catch (routerError) {
           console.error('Navigation error:', routerError)
           // Fallback to projects list
@@ -482,19 +523,16 @@ const initializeWizard = async () => {
   try {
     const result = await projectWizardService.initializeWizard(null)
     
-    if (result.success) {
-      sessionId.value = result.sessionId
-      currentStep.value = result.currentStep || 1
-      totalSteps.value = result.totalSteps || 4
-      
-      console.log('Wizard initialized successfully:', {
-        sessionId: sessionId.value,
-        currentStep: currentStep.value,
-        totalSteps: totalSteps.value
-      })
-    } else {
-      throw new Error(result.message || 'Failed to initialize wizard')
-    }
+    // If we reach here, the service call was successful (service validates response.data.success)
+    sessionId.value = result.sessionId
+    currentStep.value = result.currentStep || 1
+    totalSteps.value = result.totalSteps || 4
+    
+    console.log('Wizard initialized successfully:', {
+      sessionId: sessionId.value,
+      currentStep: currentStep.value,
+      totalSteps: totalSteps.value
+    })
   } catch (error) {
     console.error('Wizard initialization failed:', error)
     
@@ -593,10 +631,19 @@ onMounted(() => {
   initializeWizard()
 })
 
-// Auto-save watcher
+// Auto-save watcher with throttling
 watch(stepData, () => {
-  autoSave()
+  if (isAutoSaveEnabled.value) {
+    autoSave()
+  }
 }, { deep: true })
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (autoSaveTimeout.value) {
+    clearTimeout(autoSaveTimeout.value)
+  }
+})
 </script>
 
 <style scoped>

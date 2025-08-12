@@ -24,9 +24,10 @@ export default defineConfig({
     hmr: {
       host: 'localhost'
     },
+    // Proxy API calls to mock backend
     proxy: {
       '/api': {
-        target: process.env.VITE_PROXY_TARGET || 'http://pfmt_backend_dev:3000',
+        target: 'http://localhost:3002',
         changeOrigin: true,
         secure: false,
       },

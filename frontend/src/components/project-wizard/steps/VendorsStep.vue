@@ -232,7 +232,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-  dataUpdated: [data: any]
+  'update:data': [data: any]
   stepCompleted: [isValid: boolean]
 }>()
 
@@ -252,13 +252,14 @@ const errors = ref<Record<string, string>>({})
 
 // Computed
 const filteredVendors = computed(() => {
-  let filtered = availableVendors.value
+  // Ensure availableVendors is an array
+  let filtered = Array.isArray(availableVendors.value) ? availableVendors.value : []
 
   // Filter by search term
   if (searchTerm.value) {
     const term = searchTerm.value.toLowerCase()
     filtered = filtered.filter(vendor =>
-      vendor.name.toLowerCase().includes(term) ||
+      vendor.name && vendor.name.toLowerCase().includes(term) ||
       (vendor.capabilities && vendor.capabilities.toLowerCase().includes(term))
     )
   }
@@ -285,8 +286,19 @@ const isValid = computed(() => {
 const loadVendors = async () => {
   try {
     loading.value = true
-    const vendors = await ProjectWizardService.getAvailableVendors()
-    availableVendors.value = vendors
+    const response = await ProjectWizardService.getAvailableVendors()
+    
+    // Handle different response formats
+    if (Array.isArray(response)) {
+      availableVendors.value = response
+    } else if (response && Array.isArray(response.data)) {
+      availableVendors.value = response.data
+    } else if (response && response.vendors && Array.isArray(response.vendors)) {
+      availableVendors.value = response.vendors
+    } else {
+      console.warn('Unexpected vendor data format:', response)
+      availableVendors.value = []
+    }
   } catch (error) {
     console.error('Error loading vendors:', error)
     // Provide fallback data for development
@@ -351,7 +363,7 @@ const validateForm = () => {
 
 // Watch for form changes
 watch(formData, (newData) => {
-  emit('dataUpdated', { ...newData })
+  emit('update:data', { ...newData })
 }, { deep: true })
 
 // Initialize

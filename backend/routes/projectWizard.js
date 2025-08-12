@@ -131,6 +131,11 @@ const validateJsonBody = (req, res, next) => {
       return next();
     }
     
+    // Allow empty body for validation endpoints (step data can be empty for validation)
+    if (req.url.includes('/validate/step/')) {
+      return next();
+    }
+    
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({
         success: false,
@@ -382,8 +387,24 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
     // Import validation function from controller
     const { validateStepData } = require('../controllers/projectWizardController');
     
-    // Validate the step data
-    validateStepData(stepNumber, stepData);
+    // Validate the step data (await the async function)
+    const validationErrors = await validateStepData(stepNumber, stepData);
+    
+    // Check if there are validation errors
+    if (validationErrors && validationErrors.length > 0) {
+      logger.warn('Step validation failed', {
+        correlationId: req.correlationId,
+        stepId: stepNumber,
+        errors: validationErrors
+      });
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors,
+        correlationId: req.correlationId
+      });
+    }
     
     logger.info('Step validation successful', {
       correlationId: req.correlationId,
@@ -393,6 +414,7 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
     res.json({
       success: true,
       message: 'Validation passed',
+      errors: [],
       correlationId: req.correlationId
     });
   } catch (error) {

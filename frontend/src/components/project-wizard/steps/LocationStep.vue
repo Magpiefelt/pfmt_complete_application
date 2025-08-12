@@ -18,14 +18,14 @@
           Primary Location *
         </label>
         <input
-          v-model="formData.location"
+          v-model="formData.primaryLocation"
           type="text"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="e.g., Calgary, Edmonton, Red Deer"
           @input="validateForm"
         />
-        <p v-if="errors.location" class="mt-1 text-sm text-red-600">
-          {{ errors.location }}
+        <p v-if="errors.primaryLocation" class="mt-1 text-sm text-red-600">
+          {{ errors.primaryLocation }}
         </p>
       </div>
 
@@ -187,13 +187,14 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-  dataUpdated: [data: any]
+  'update:data': [data: any]
   stepCompleted: [isValid: boolean]
+  validate: [errors: any[]]
 }>()
 
 // Form data
 const formData = ref({
-  location: '',
+  primaryLocation: '',
   municipality: '',
   urbanRural: '',
   address: '',
@@ -208,7 +209,7 @@ const errors = ref<Record<string, string>>({})
 
 // Computed
 const isValid = computed(() => {
-  return Object.keys(errors.value).length === 0 && formData.value.location.trim().length > 0
+  return Object.keys(errors.value).length === 0 && formData.value.primaryLocation.trim().length > 0
 })
 
 // Methods
@@ -216,8 +217,8 @@ const validateForm = () => {
   errors.value = {}
 
   // Validate required fields
-  if (!formData.value.location || formData.value.location.trim().length === 0) {
-    errors.value.location = 'Primary location is required'
+  if (!formData.value.primaryLocation || formData.value.primaryLocation.trim().length === 0) {
+    errors.value.primaryLocation = 'Primary location is required'
   }
 
   // Validate coordinates if provided
@@ -229,13 +230,22 @@ const validateForm = () => {
     errors.value.longitude = 'Longitude must be between -180 and 180'
   }
 
-  // Emit validation status
+  // Convert errors object to array format for ProjectWizard
+  const errorArray = Object.entries(errors.value).map(([field, message]) => ({
+    field,
+    message
+  }))
+
+  // Emit validation status for internal use
   emit('stepCompleted', isValid.value)
+  
+  // Emit validation errors for ProjectWizard
+  emit('validate', errorArray)
 }
 
 // Watch for form changes
 watch(formData, (newData) => {
-  emit('dataUpdated', { ...newData })
+  emit('update:data', { ...newData })
 }, { deep: true })
 
 // Initialize with existing data
