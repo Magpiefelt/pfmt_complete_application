@@ -280,7 +280,9 @@ const saveStatusText = computed(() => {
 })
 
 const canProceed = computed(() => {
-  return stepErrors[currentStep.value].length === 0
+  // Add null safety check
+  const errors = stepErrors[currentStep.value]
+  return errors ? errors.length === 0 : true
 })
 
 // Methods
@@ -294,7 +296,10 @@ const validateStep = async (stepId) => {
     const stepKey = ['details', 'location', 'vendors', 'budget'][stepId - 1]
     const currentStepData = stepData[stepKey]
     
-    // Clear previous errors
+    // Clear previous errors - ensure stepErrors[stepId] exists
+    if (!stepErrors[stepId]) {
+      stepErrors[stepId] = []
+    }
     stepErrors[stepId] = []
     
     // Client-side validation first
@@ -339,7 +344,8 @@ const validateStep = async (stepId) => {
     }
     
     // If client-side validation passes, do server-side validation
-    if (stepErrors[stepId].length === 0) {
+    const currentErrors = stepErrors[stepId] || []
+    if (currentErrors.length === 0) {
       try {
         await projectWizardService.validateStep(stepId, currentStepData)
         // If no error is thrown, validation passed
@@ -350,12 +356,20 @@ const validateStep = async (stepId) => {
     }
   } catch (error) {
     console.error('Validation error:', error)
+    // Ensure stepErrors[stepId] exists before setting
+    if (!stepErrors[stepId]) {
+      stepErrors[stepId] = []
+    }
     stepErrors[stepId] = [{ field: 'general', message: 'Validation failed. Please check your input.' }]
   }
 }
 
 const handleStepValidation = (stepId, errors) => {
   // Update step errors with validation results from step component
+  // Ensure stepErrors[stepId] exists before setting
+  if (!stepErrors[stepId]) {
+    stepErrors[stepId] = []
+  }
   stepErrors[stepId] = errors || []
   console.log(`Step ${stepId} validation:`, errors)
 }
@@ -425,7 +439,8 @@ const completeWizard = async () => {
     let hasValidationErrors = false
     for (let i = 1; i <= totalSteps.value; i++) {
       await validateStep(i)
-      if (stepErrors[i].length > 0) {
+      const errors = stepErrors[i] || []
+      if (errors.length > 0) {
         hasValidationErrors = true
         console.error(`Step ${i} validation errors:`, stepErrors[i])
       }
@@ -434,7 +449,8 @@ const completeWizard = async () => {
     if (hasValidationErrors) {
       // Find first step with errors and navigate to it
       for (let i = 1; i <= totalSteps.value; i++) {
-        if (stepErrors[i].length > 0) {
+        const errors = stepErrors[i] || []
+        if (errors.length > 0) {
           currentStep.value = i
           break
         }
