@@ -1,4 +1,4 @@
-const express = require('express'); // ADDED: Missing express import
+const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Project = require('../models/Project');
 const { query } = require('../config/database');
@@ -63,7 +63,10 @@ router.get('/', authenticateToken, async (req, res) => {
 
         console.log('🔍 GET /projects - Query params:', {
             status, phase, search, page, limit, sortBy, sortOrder,
-            region, category, manager, budgetMin, budgetMax, dateFrom, dateTo, mine
+            region, category, manager, budgetMin, budgetMax, dateFrom, dateTo, mine,
+            userRole: req.user?.role,
+            userId: req.user?.id,
+            userEmail: req.user?.email
         });
 
         // Build dynamic WHERE clause
@@ -73,9 +76,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
         // ADDED: "My Projects" filter - projects modified by current user
         if (mine === 'true' && req.user?.id) {
+            console.log('🎯 Applying "My Projects" filter for user:', req.user.id);
             conditions.push(`p.modified_by = $${paramCount}`);
             params.push(req.user.id);
             paramCount++;
+        } else if (mine === 'true') {
+            console.log('⚠️ "My Projects" filter requested but no user ID available');
         }
 
         // FIXED: Filter by specific manager/user id if provided
@@ -124,15 +130,15 @@ router.get('/', authenticateToken, async (req, res) => {
             paramCount++;
         }
 
-        // Budget range filter
+        // Budget range filter (FIXED: use budget_total column)
         if (budgetMin) {
-            conditions.push(`total_budget >= $${paramCount}`);
+            conditions.push(`budget_total >= $${paramCount}`);
             params.push(parseFloat(budgetMin));
             paramCount++;
         }
 
         if (budgetMax) {
-            conditions.push(`total_budget <= $${paramCount}`);
+            conditions.push(`budget_total <= $${paramCount}`);
             params.push(parseFloat(budgetMax));
             paramCount++;
         }
@@ -154,7 +160,7 @@ router.get('/', authenticateToken, async (req, res) => {
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
         // Validate sort parameters
-        const validSortFields = ['created_at', 'updated_at', 'project_name', 'project_status', 'project_phase', 'total_budget'];
+        const validSortFields = ['created_at', 'updated_at', 'project_name', 'project_status', 'project_phase', 'budget_total'];
         const validSortOrders = ['asc', 'desc'];
         
         const safeSortBy = validSortFields.includes(sortBy) ? sortBy : 'created_at';
@@ -475,10 +481,20 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 
                 console.log('✅ Generated comprehensive fallback project data for wizard project');
             } else {
-                // For non-wizard projects, try direct database query as fallback
+                // For non-wizard projects, try direct database query as fallback with schema fixes
                 try {
                     const directQuery = `
-                        SELECT * FROM projects WHERE id = $1
+                        SELECT 
+                            p.*,
+                            u.first_name || ' ' || u.last_name as project_manager_name,
+                            -- Add compatibility fields for frontend
+                            p.budget_total as total_budget,
+                            p.project_name as name,
+                            p.project_description as description
+                        FROM projects p
+                        LEFT JOIN project_teams pt ON p.id = pt.project_id
+                        LEFT JOIN users u ON pt.project_manager_id = u.id
+                        WHERE p.id = $1
                     `;
                     const directResult = await query(directQuery, [id]);
                     
