@@ -362,6 +362,42 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
+// Normalize a project object (DB row, Project instance, or wizard fallback) to frontend shape
+function presentProject(p = {}) {
+    const base = typeof p.toJSON === 'function' ? p.toJSON() : p;
+    return {
+        ...base,
+        // primary + aliases used by the UI
+        name: base.name ?? base.projectName ?? base.project_name ?? 'Unnamed Project',
+        projectName: base.projectName ?? base.name ?? base.project_name,
+        description: base.description ?? base.projectDescription ?? base.project_description ?? '',
+        projectDescription: base.projectDescription ?? base.description ?? base.project_description ?? '',
+        status: base.status ?? base.projectStatus ?? base.project_status,
+        projectStatus: base.projectStatus ?? base.status ?? base.project_status,
+        phase: base.phase ?? base.projectPhase ?? base.project_phase,
+        projectPhase: base.projectPhase ?? base.phase ?? base.project_phase,
+        category: base.category ?? base.projectCategory ?? base.project_category,
+        projectCategory: base.projectCategory ?? base.category ?? base.project_category,
+        type: base.type ?? base.projectType ?? base.project_type,
+        projectType: base.projectType ?? base.type ?? base.project_type,
+        region: base.region ?? base.geographicRegion ?? base.geographic_region,
+        geographicRegion: base.geographicRegion ?? base.region ?? base.geographic_region,
+        cpdNumber: base.cpdNumber ?? base.cpd_number,
+        approvalYear: base.approvalYear ?? base.approval_year,
+        fundedToComplete: base.fundedToComplete ?? base.funded_to_complete,
+        createdAt: base.createdAt ?? base.created_at,
+        updatedAt: base.updatedAt ?? base.updated_at,
+        // normalize nested shapes
+        location: base.location
+            ? {
+                ...base.location,
+                projectAddress: base.location.projectAddress ?? base.location.address,
+                address: base.location.address ?? base.location.projectAddress
+            }
+            : base.location
+    };
+}
+
 // Get project by ID with comprehensive fallback handling
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
@@ -526,38 +562,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
             });
         }
 
-        // Normalize project data for frontend compatibility
-        const normalizedProject = {
-            ...project,
-            // Ensure all expected fields are present
-            name: project.project_name || project.name,
-            projectName: project.project_name || project.name,
-            description: project.project_description || project.description,
-            projectDescription: project.project_description || project.description,
-            status: project.project_status || project.status,
-            projectStatus: project.project_status || project.status,
-            phase: project.project_phase || project.phase,
-            projectPhase: project.project_phase || project.phase,
-            category: project.project_category || project.category,
-            projectCategory: project.project_category || project.category,
-            type: project.project_type || project.type,
-            projectType: project.project_type || project.type,
-            region: project.geographic_region || project.region,
-            geographicRegion: project.geographic_region || project.region,
-            cpdNumber: project.cpd_number || project.cpdNumber,
-            approvalYear: project.approval_year || project.approvalYear,
-            fundedToComplete: project.funded_to_complete || project.fundedToComplete,
-            createdAt: project.created_at || project.createdAt,
-            updatedAt: project.updated_at || project.updatedAt,
-            modifiedBy: project.modified_by || project.modifiedBy
-        };
-
-        console.log('✅ Returning normalized project data for:', normalizedProject.id);
-
-        res.json({
-            success: true,
-            data: normalizedProject
-        });
+        const payload = presentProject(project);
+        console.log('✅ Returning project details for:', payload.id, '-', payload.name);
+        res.json({ success: true, data: payload });
 
     } catch (error) {
         console.error('❌ Error fetching project:', error);
