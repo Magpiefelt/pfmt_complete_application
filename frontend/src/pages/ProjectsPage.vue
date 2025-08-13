@@ -1,8 +1,8 @@
 <template>
   <div class="p-6">
     <div class="mb-6">
-      <h2 class="text-2xl font-bold text-gray-900">Projects</h2>
-      <p class="text-gray-600">Manage and view project information</p>
+      <h2 class="text-2xl font-bold text-gray-900">{{ pageTitle }}</h2>
+      <p class="text-gray-600">{{ pageDescription }}</p>
     </div>
     
     <ProjectList 
@@ -24,9 +24,32 @@ const router = useRouter()
 // Use standardized loading state
 const { isLoading: pageLoading } = useLoading('Loading projects...')
 
-const filter = computed(() => 
-  (route.query.filter as string) || 'all'
+// Determine if this is "My Projects" or "All Projects" view
+const isMyView = computed(() => 
+  route.meta.view === 'my' || route.name === 'projects'
 )
+
+// Dynamic page title and description based on view
+const pageTitle = computed(() => 
+  isMyView.value ? 'My Projects' : 'All Projects'
+)
+
+const pageDescription = computed(() => 
+  isMyView.value 
+    ? 'Manage and view projects you are involved with' 
+    : 'Manage and view all projects in the system'
+)
+
+const filter = computed(() => {
+  // If it's "My Projects" view, we'll pass 'my' as the filter
+  // If it's "All Projects" view, we'll pass 'all' as the filter
+  // This can be overridden by query parameters
+  const queryFilter = route.query.filter as string
+  if (queryFilter) {
+    return queryFilter
+  }
+  return isMyView.value ? 'my' : 'all'
+})
 
 // Watch for route changes to update filter immediately
 watch(() => route.query.filter, (newFilter) => {

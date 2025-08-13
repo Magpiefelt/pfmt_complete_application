@@ -55,7 +55,7 @@ const router = createRouter({
       path: '/projects',
       name: 'projects',
       component: ProjectsPage,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, view: 'my' }
     },
     {
       path: '/projects/:id',
@@ -73,7 +73,7 @@ const router = createRouter({
       path: '/projects/all',
       name: 'projects-all',
       component: ProjectsPage,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, view: 'all' }
     },
     {
       path: '/meetings',

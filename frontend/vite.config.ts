@@ -24,10 +24,10 @@ export default defineConfig({
     hmr: {
       host: 'localhost'
     },
-    // Proxy API calls to mock backend
+    // Proxy API calls to backend service in Docker
     proxy: {
       '/api': {
-        target: 'http://localhost:3002',
+        target: 'http://backend:3000', // Use Docker service name and correct port
         changeOrigin: true,
         secure: false,
       },

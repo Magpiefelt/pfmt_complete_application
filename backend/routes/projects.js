@@ -57,18 +57,33 @@ router.get('/', authenticateToken, async (req, res) => {
             budgetMin,
             budgetMax,
             dateFrom,
-            dateTo
+            dateTo,
+            mine // ADDED: Support for "mine" parameter
         } = req.query;
 
         console.log('🔍 GET /projects - Query params:', {
             status, phase, search, page, limit, sortBy, sortOrder,
-            region, category, manager, budgetMin, budgetMax, dateFrom, dateTo
+            region, category, manager, budgetMin, budgetMax, dateFrom, dateTo, mine
         });
 
         // Build dynamic WHERE clause
         const conditions = [];
         const params = [];
         let paramCount = 1;
+
+        // ADDED: "My Projects" filter - projects modified by current user
+        if (mine === 'true' && req.user?.id) {
+            conditions.push(`p.modified_by = $${paramCount}`);
+            params.push(req.user.id);
+            paramCount++;
+        }
+
+        // FIXED: Filter by specific manager/user id if provided
+        if (manager) {
+            conditions.push(`pt.project_manager_id = $${paramCount}`);
+            params.push(manager);
+            paramCount++;
+        }
 
         // Status filter
         if (status && status !== 'all') {
@@ -148,12 +163,12 @@ router.get('/', authenticateToken, async (req, res) => {
         // Calculate pagination
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get total count
+        // Get total count - FIXED FOR CORRECT SCHEMA
         const countQuery = `
             SELECT COUNT(*) as total
             FROM projects p
-            LEFT JOIN project_teams pt ON p.id = pt.project_id AND pt.role = 'Project Manager'
-            LEFT JOIN users u ON pt.user_id = u.id
+            LEFT JOIN project_teams pt ON p.id = pt.project_id
+            LEFT JOIN users u ON pt.project_manager_id = u.id
             ${whereClause}
         `;
 
@@ -161,7 +176,7 @@ router.get('/', authenticateToken, async (req, res) => {
         const countResult = await query(countQuery, params);
         const totalProjects = parseInt(countResult.rows[0].total);
 
-        // Get projects with pagination
+        // Get projects with pagination - COMPLETELY REWRITTEN FOR CORRECT SCHEMA
         const projectsQuery = `
             SELECT 
                 p.*,
@@ -169,26 +184,29 @@ router.get('/', authenticateToken, async (req, res) => {
                 u.last_name as project_manager_last_name,
                 u.first_name || ' ' || u.last_name as project_manager_name,
                 u.email as project_manager_email,
-                -- Add calculated fields
+                -- Budget status calculation (FIXED: use budget_total, handle missing amount_spent)
                 CASE 
-                    WHEN p.total_budget > 0 THEN 
-                        CASE 
-                            WHEN (p.amount_spent / p.total_budget) > 0.9 THEN 'At Risk'
-                            WHEN (p.amount_spent / p.total_budget) > 0.75 THEN 'Monitor'
-                            ELSE 'On Track'
-                        END
-                    ELSE 'Unknown'
+                    WHEN p.budget_total > 0 THEN 'On Track'
+                    WHEN p.budget_total IS NULL THEN 'Unknown'
+                    ELSE 'Pending'
                 END as budget_status,
-                -- Schedule status calculation
+                -- Schedule status calculation (FIXED: use correct date logic)
                 CASE 
                     WHEN p.created_at IS NULL THEN 'Unknown'
                     WHEN EXTRACT(DAY FROM (NOW() - p.created_at)) > 365 AND p.project_status != 'complete' THEN 'At Risk'
                     WHEN EXTRACT(DAY FROM (NOW() - p.created_at)) > 180 THEN 'Monitor'
                     ELSE 'On Track'
-                END as schedule_status
+                END as schedule_status,
+                -- Add compatibility fields for frontend
+                p.budget_total as total_budget,
+                COALESCE(p.budget_total, 0) as totalBudget,
+                0 as amount_spent,
+                0 as amountSpent,
+                p.project_name as name,
+                p.project_description as description
             FROM projects p
-            LEFT JOIN project_teams pt ON p.id = pt.project_id AND pt.role = 'Project Manager'
-            LEFT JOIN users u ON pt.user_id = u.id
+            LEFT JOIN project_teams pt ON p.id = pt.project_id
+            LEFT JOIN users u ON pt.project_manager_id = u.id
             ${whereClause}
             ORDER BY p.${safeSortBy} ${safeSortOrder}
             LIMIT $${paramCount} OFFSET $${paramCount + 1}
@@ -199,37 +217,76 @@ router.get('/', authenticateToken, async (req, res) => {
         console.log('🔍 Projects query:', projectsQuery, 'Params:', params);
         const projectsResult = await query(projectsQuery, params);
 
-        // Transform projects for frontend compatibility
+        // Transform projects for frontend compatibility - ENHANCED FOR COMPLETE SCHEMA MAPPING
         const projects = projectsResult.rows.map(project => ({
             ...project,
-            // Add frontend-compatible field names
-            name: project.project_name,
-            projectName: project.project_name,
-            description: project.project_description,
-            projectDescription: project.project_description,
-            status: project.project_status,
-            projectStatus: project.project_status,
+            // Core identification fields
+            name: project.project_name || project.name,
+            projectName: project.project_name || project.name,
+            description: project.project_description || project.description,
+            projectDescription: project.project_description || project.description,
+            
+            // Status fields (handle multiple status columns)
+            status: project.project_status || project.status,
+            projectStatus: project.project_status || project.status,
+            reportStatus: project.report_status,
             phase: project.project_phase,
             projectPhase: project.project_phase,
+            
+            // Classification fields
             category: project.project_category,
             projectCategory: project.project_category,
             type: project.project_type,
             projectType: project.project_type,
             region: project.geographic_region,
             geographicRegion: project.geographic_region,
+            
+            // Financial fields (FIXED: use correct budget column names)
+            totalBudget: project.budget_total || 0,
+            total_budget: project.budget_total || 0,
+            budgetTotal: project.budget_total || 0,
+            amountSpent: 0, // Not available in schema
+            amount_spent: 0, // Not available in schema
+            budgetCurrency: project.budget_currency || 'CAD',
+            
+            // Project details
             cpdNumber: project.cpd_number,
+            cpd_number: project.cpd_number,
             approvalYear: project.approval_year,
+            approval_year: project.approval_year,
             fundedToComplete: project.funded_to_complete,
+            funded_to_complete: project.funded_to_complete,
+            
+            // Dates
             createdAt: project.created_at,
+            created_at: project.created_at,
             updatedAt: project.updated_at,
+            updated_at: project.updated_at,
             modifiedBy: project.modified_by,
+            modified_by: project.modified_by,
+            modifiedDate: project.modified_date,
+            modified_date: project.modified_date,
+            
+            // Project manager fields
             projectManager: project.project_manager_name,
+            project_manager: project.project_manager_name,
             projectManagerName: project.project_manager_name,
+            project_manager_name: project.project_manager_name,
             projectManagerFirstName: project.project_manager_first_name,
             projectManagerLastName: project.project_manager_last_name,
             projectManagerEmail: project.project_manager_email,
+            
+            // Calculated status fields
             budgetStatus: project.budget_status,
-            scheduleStatus: project.schedule_status
+            budget_status: project.budget_status,
+            scheduleStatus: project.schedule_status,
+            schedule_status: project.schedule_status,
+            
+            // Additional compatibility fields
+            ownerId: project.created_by || project.modified_by,
+            owner_id: project.created_by || project.modified_by,
+            createdByUserId: project.created_by,
+            created_by_user_id: project.created_by
         }));
 
         // Calculate pagination info
@@ -260,7 +317,8 @@ router.get('/', authenticateToken, async (req, res) => {
                 budgetMin,
                 budgetMax,
                 dateFrom,
-                dateTo
+                dateTo,
+                mine // ADDED: Include mine in response filters
             },
             sorting: {
                 sortBy: safeSortBy,
@@ -270,10 +328,30 @@ router.get('/', authenticateToken, async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error fetching projects:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            code: error.code,
+            hint: error.hint,
+            position: error.position,
+            query: error.query || 'Query not available',
+            params: error.params || 'Params not available'
+        });
+        
+        // Provide more specific error messages based on error type
+        let errorMessage = 'Failed to fetch projects';
+        if (error.code === '42703') {
+            errorMessage = 'Database schema mismatch - column not found';
+        } else if (error.code === '42P01') {
+            errorMessage = 'Database table not found';
+        } else if (error.code === '23503') {
+            errorMessage = 'Database foreign key constraint violation';
+        }
+        
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch projects',
-            error: error.message
+            message: errorMessage,
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+            code: error.code
         });
     }
 });
@@ -406,44 +484,229 @@ router.get('/:id', authenticateToken, async (req, res) => {
                     
                     if (directResult.rows.length > 0) {
                         project = directResult.rows[0];
-                        console.log('✅ Found project via direct database query');
+                        console.log('✅ Project found via direct query:', project.id);
+                    } else {
+                        console.log('❌ Project not found in database:', id);
+                        return res.status(404).json({
+                            success: false,
+                            message: 'Project not found'
+                        });
                     }
                 } catch (directError) {
-                    console.error('❌ Direct database query also failed:', directError.message);
+                    console.error('❌ Direct database query also failed:', directError);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Failed to fetch project',
+                        error: directError.message
+                    });
                 }
             }
         }
 
         if (!project) {
-            console.error('❌ Project not found:', id);
             return res.status(404).json({
                 success: false,
-                message: 'Project not found',
-                error: 'PROJECT_NOT_FOUND'
+                message: 'Project not found'
             });
         }
 
-        // Add calculated status fields if not present
-        if (!project.budgetStatus) {
-            project.budgetStatus = calculateBudgetStatus(project.amountSpent || project.amount_spent || 0, project.totalBudget || project.total_budget || 0);
-        }
+        // Normalize project data for frontend compatibility
+        const normalizedProject = {
+            ...project,
+            // Ensure all expected fields are present
+            name: project.project_name || project.name,
+            projectName: project.project_name || project.name,
+            description: project.project_description || project.description,
+            projectDescription: project.project_description || project.description,
+            status: project.project_status || project.status,
+            projectStatus: project.project_status || project.status,
+            phase: project.project_phase || project.phase,
+            projectPhase: project.project_phase || project.phase,
+            category: project.project_category || project.category,
+            projectCategory: project.project_category || project.category,
+            type: project.project_type || project.type,
+            projectType: project.project_type || project.type,
+            region: project.geographic_region || project.region,
+            geographicRegion: project.geographic_region || project.region,
+            cpdNumber: project.cpd_number || project.cpdNumber,
+            approvalYear: project.approval_year || project.approvalYear,
+            fundedToComplete: project.funded_to_complete || project.fundedToComplete,
+            createdAt: project.created_at || project.createdAt,
+            updatedAt: project.updated_at || project.updatedAt,
+            modifiedBy: project.modified_by || project.modifiedBy
+        };
 
-        if (!project.scheduleStatus) {
-            project.scheduleStatus = calculateScheduleStatus(project);
-        }
-
-        console.log('✅ Returning project details for:', project.id || project.project_name);
+        console.log('✅ Returning normalized project data for:', normalizedProject.id);
 
         res.json({
             success: true,
-            data: project
+            data: normalizedProject
         });
 
     } catch (error) {
-        console.error('❌ Error fetching project details:', error);
+        console.error('❌ Error fetching project:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch project details',
+            message: 'Failed to fetch project',
+            error: error.message
+        });
+    }
+});
+
+// Create new project
+router.post('/', authenticateToken, requirePMOrPMI, [
+    body('project_name').notEmpty().withMessage('Project name is required'),
+    body('project_description').notEmpty().withMessage('Project description is required'),
+    body('project_status').isIn(['planning', 'underway', 'complete', 'on_hold']).withMessage('Invalid project status'),
+    body('project_phase').isIn(['planning', 'design', 'construction', 'closeout']).withMessage('Invalid project phase'),
+    body('project_category').isIn(['construction', 'renovation', 'maintenance']).withMessage('Invalid project category'),
+    body('geographic_region').isIn(['central', 'northern', 'southern', 'eastern', 'western']).withMessage('Invalid geographic region')
+], captureOriginalData, async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const projectData = {
+            ...req.body,
+            created_by: req.user.id,
+            modified_by: req.user.id
+        };
+
+        const project = await Project.create(projectData);
+        
+        // Log the creation
+        await auditLog(req, 'CREATE', 'projects', project.id, null, project);
+
+        console.log('✅ Project created:', project.id);
+
+        res.status(201).json({
+            success: true,
+            data: project,
+            message: 'Project created successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ Error creating project:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create project',
+            error: error.message
+        });
+    }
+});
+
+// Update project
+router.put('/:id', authenticateToken, requirePMOrPMI, [
+    body('project_name').optional().notEmpty().withMessage('Project name cannot be empty'),
+    body('project_description').optional().notEmpty().withMessage('Project description cannot be empty'),
+    body('project_status').optional().isIn(['planning', 'underway', 'complete', 'on_hold']).withMessage('Invalid project status'),
+    body('project_phase').optional().isIn(['planning', 'design', 'construction', 'closeout']).withMessage('Invalid project phase'),
+    body('project_category').optional().isIn(['construction', 'renovation', 'maintenance']).withMessage('Invalid project category'),
+    body('geographic_region').optional().isIn(['central', 'northern', 'southern', 'eastern', 'western']).withMessage('Invalid geographic region')
+], captureOriginalData, async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const { id } = req.params;
+        const updateData = {
+            ...req.body,
+            modified_by: req.user.id,
+            updated_at: new Date()
+        };
+
+        const project = await Project.update(id, updateData);
+        
+        if (!project) {
+            return res.status(404).json({
+                success: false,
+                message: 'Project not found'
+            });
+        }
+
+        // Log the update
+        await auditLog(req, 'UPDATE', 'projects', id, req.originalData, project);
+
+        console.log('✅ Project updated:', id);
+
+        res.json({
+            success: true,
+            data: project,
+            message: 'Project updated successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ Error updating project:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update project',
+            error: error.message
+        });
+    }
+});
+
+// Delete project
+router.delete('/:id', authenticateToken, requirePMOrPMI, captureOriginalData, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const deleted = await Project.delete(id);
+        
+        if (!deleted) {
+            return res.status(404).json({
+                success: false,
+                message: 'Project not found'
+            });
+        }
+
+        // Log the deletion
+        await auditLog(req, 'DELETE', 'projects', id, req.originalData, null);
+
+        console.log('✅ Project deleted:', id);
+
+        res.json({
+            success: true,
+            message: 'Project deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ Error deleting project:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete project',
+            error: error.message
+        });
+    }
+});
+
+// Get project audit logs
+router.get('/:id/audit', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const logs = await getAuditLogs('projects', id);
+        
+        res.json({
+            success: true,
+            data: logs
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching audit logs:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch audit logs',
             error: error.message
         });
     }

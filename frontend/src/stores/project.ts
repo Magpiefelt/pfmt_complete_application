@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { defineStore } from 'pinia'
 import { ProjectAPI } from '@/services/apiService'
 import { useAuthStore } from './auth'
 
@@ -113,10 +113,6 @@ export const useProjectStore = defineStore('project', () => {
         ...options
       }
 
-      // For "my" filter, don't send UUID-based parameters to backend
-      // Instead, fetch all projects and filter client-side
-      let shouldFilterClientSide = false
-      
       if (filter.value !== 'all') {
         switch (filter.value) {
           case 'active':
@@ -132,19 +128,14 @@ export const useProjectStore = defineStore('project', () => {
             apiOptions.reportStatus = 'update_required'
             break
           case 'my':
-            // Don't send UUID parameters, we'll filter client-side
-            shouldFilterClientSide = true
-            // Clear previous projects when switching to "My Projects"
-            setProjects([])
+            // Use backend "mine" parameter instead of client-side filtering
+            apiOptions.mine = 'true'
             break
         }
-      } else {
-        // Clear previous projects when switching to "All Projects"
-        setProjects([])
       }
 
-      // Always include user context for proper role-based filtering (except for 'my' filter)
-      if (currentUser && !shouldFilterClientSide) {
+      // Always include user context for proper role-based filtering
+      if (currentUser) {
         apiOptions.userRole = currentUser.role
         
         // Role-based filtering logic
@@ -197,64 +188,31 @@ export const useProjectStore = defineStore('project', () => {
         createdByUserId: project.createdByUserId || project.created_by_user_id,
         modifiedBy: project.modifiedBy || project.modified_by
       }))
+
+      // Use backend filtering for all cases
+      setProjects(normalizedProjects)
       
-      // Client-side filtering for "my" projects
-      if (shouldFilterClientSide && currentUser) {
-        const myProjects = normalizedProjects.filter((project: any) => {
-          // Check multiple possible fields for user ownership/assignment
-          const userId = currentUser.id
-          const userName = currentUser.name
-          
-          return (
-            project.ownerId === userId ||
-            project.createdByUserId === userId ||
-            project.modifiedBy === userId ||
-            project.projectManager === userName ||
-            project.project_manager === userName ||
-            project.modifiedByName === userName ||
-            project.modified_by_name === userName
-          )
-        })
-        
-        // If no matches found, fall back to showing all projects to avoid blank page
-        const finalProjects = myProjects.length > 0 ? myProjects : normalizedProjects
-        
-        // Implement client-side pagination for large numbers of "my" projects
-        const currentPageValue = currentPage.value
-        const pageSizeValue = pageSize.value
-        const startIndex = (currentPageValue - 1) * pageSizeValue
-        const endIndex = startIndex + pageSizeValue
-        const paginatedProjects = finalProjects.slice(startIndex, endIndex)
-        
-        setProjects(paginatedProjects)
-        
-        // Set proper pagination data for client-side pagination
-        const totalMyProjects = finalProjects.length
-        const totalPagesCalculated = Math.ceil(totalMyProjects / pageSizeValue)
-        
+      // Handle nested pagination structure
+      const paginationData = response.data?.pagination || response.pagination
+      if (paginationData) {
         setPaginationData({
-          page: currentPageValue,
-          limit: pageSizeValue,
-          total: totalMyProjects,
-          totalPages: totalPagesCalculated,
-          hasNext: currentPageValue < totalPagesCalculated,
-          hasPrev: currentPageValue > 1
+          page: paginationData.currentPage || paginationData.page || currentPage.value,
+          limit: paginationData.projectsPerPage || paginationData.limit || pageSize.value,
+          total: paginationData.totalProjects || paginationData.total || normalizedProjects.length,
+          totalPages: paginationData.totalPages || paginationData.pages || Math.ceil((paginationData.totalProjects || paginationData.total || normalizedProjects.length) / (paginationData.projectsPerPage || paginationData.limit || pageSize.value)),
+          hasNext: paginationData.hasNextPage || paginationData.hasNext || false,
+          hasPrev: paginationData.hasPrevPage || paginationData.hasPrev || false
         })
       } else {
-        setProjects(normalizedProjects)
-        
-        // Handle nested pagination structure for non-"my" filters
-        const paginationData = response.data?.pagination || response.pagination
-        if (paginationData) {
-          setPaginationData({
-            page: paginationData.page,
-            limit: paginationData.limit,
-            total: paginationData.total,
-            totalPages: paginationData.pages || paginationData.totalPages || Math.ceil(paginationData.total / paginationData.limit),
-            hasNext: paginationData.page < (paginationData.pages || paginationData.totalPages || Math.ceil(paginationData.total / paginationData.limit)),
-            hasPrev: paginationData.page > 1
-          })
-        }
+        // Fallback pagination if not provided by backend
+        setPaginationData({
+          page: currentPage.value,
+          limit: pageSize.value,
+          total: normalizedProjects.length,
+          totalPages: Math.ceil(normalizedProjects.length / pageSize.value),
+          hasNext: false,
+          hasPrev: false
+        })
       }
     } catch (err: any) {
       console.error('❌ Project fetch error:', err)
