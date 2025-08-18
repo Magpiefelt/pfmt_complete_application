@@ -273,7 +273,8 @@ const resumableProjects = computed(() => {
       project.workflow_status,
       project.assigned_pm,
       project.assigned_spm,
-      userId
+      userId,
+      project.id
     )
     
     return nextStep !== null
@@ -358,7 +359,8 @@ const resumeProject = (project: any) => {
     project.workflow_status,
     project.assigned_pm,
     project.assigned_spm,
-    userId
+    userId,
+    project.id
   )
   
   if (nextStep) {
@@ -392,7 +394,8 @@ const getNextStepForProject = (project: any): string => {
     project.workflow_status,
     project.assigned_pm,
     project.assigned_spm,
-    userId
+    userId,
+    project.id
   )
   
   switch (nextStep) {

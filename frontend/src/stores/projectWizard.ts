@@ -178,7 +178,8 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
       project.value.workflow_status || '',
       project.value.assigned_pm,
       project.value.assigned_spm,
-      authStore.currentUser.id.toString()
+      authStore.currentUser.id.toString(),
+      project.value.id
     )
   })
 

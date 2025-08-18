@@ -30,7 +30,7 @@ A comprehensive project management application with dual-wizard workflow system,
 ## 📋 Requirements
 
 ### System Requirements
-- Node.js 16.x or higher
+- Node.js 20.x or higher
 - PostgreSQL 12.x or higher
 - npm or yarn package manager
 - Modern web browser (Chrome, Firefox, Safari, Edge)
