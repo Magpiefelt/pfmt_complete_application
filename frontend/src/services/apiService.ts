@@ -321,7 +321,7 @@ class ApiService {
     return {
       success: false,
       error: 'Backend service not available',
-      message: 'Please ensure the backend server is running on port 3002',
+      message: 'Please ensure the backend server is running and reachable',
       data: null as T
     }
   }
