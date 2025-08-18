@@ -9,7 +9,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useProjectWizardStore } from '@/stores/projectWizard'
 import { ProjectWorkflowAPI } from '@/services/projectWorkflowApi'
 import { WIZARD_STEPS, getStepConfig, isValidWizardStep, type WizardStepId } from './wizardRoutes'
+import { WizardProgressService, type WizardProgressResponse } from '@/services/WizardProgressService'
+import { useToast } from '@/composables/useToast'
 import { normalizeRole } from '@/constants/roles'
+
+const progressCache = new Map<string, WizardProgressResponse>()
 
 // Guard result types
 export interface GuardResult {
@@ -231,7 +235,7 @@ export const wizardGuard = async (
   try {
     // Extract route parameters
     const projectId = to.params.projectId as string
-    const stepParam = to.params.step as string
+      const stepParam = to.params.step as string
     
     // Determine step from route
     let stepId: WizardStepId | undefined
@@ -280,8 +284,38 @@ export const wizardGuard = async (
         return
       }
       
+      // Fetch wizard progress once per project
+      let progress: WizardProgressResponse | undefined = progressCache.get(projectId)
+      if (!progress) {
+        try {
+          progress = await WizardProgressService.getProgress(projectId)
+          progressCache.set(projectId, progress)
+        } catch (err) {
+          console.error('Failed to fetch wizard progress:', err)
+        }
+      }
+      if (progress) {
+        wizardStore.setProgress(progress)
+      }
+
       // Check workflow access if step is specified
       if (stepId) {
+        // Enforce step progression based on server-reported progress
+        if (progress) {
+          const stepConfig = getStepConfig(stepId)
+          const stepOrder = stepConfig?.order || 0
+          if (stepOrder > progress.nextAllowed) {
+            const nextStep = Object.values(WIZARD_STEPS).find(s => s.order === progress!.nextAllowed)
+            if (nextStep) {
+              useToast().error('Please complete previous steps first')
+              next({ name: `wizard-project-${nextStep.id}`, params: { projectId } })
+            } else {
+              next({ name: 'wizard-dashboard' })
+            }
+            return
+          }
+        }
+
         const workflowCheck = await checkStepWorkflowAccess(projectId, stepId, userRole, userId)
         if (!workflowCheck.allowed) {
           if (workflowCheck.redirect) {
