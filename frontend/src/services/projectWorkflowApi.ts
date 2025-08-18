@@ -412,8 +412,8 @@ export class ProjectWorkflowAPI {
     userId?: string
   ): { route: string; params?: any; message?: string } | null {
     
-    // If project is finalized, active, or completed, go to project details
-    if (['finalized', 'active', 'completed'].includes(projectStatus)) {
+    // If project is finalized, active, or complete, go to project details
+    if (['finalized', 'active', 'complete'].includes(projectStatus)) {
       return {
         route: 'project-details',
         params: { id: userId }, // This should be projectId, will be corrected in calling code

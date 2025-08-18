@@ -103,9 +103,9 @@ describe('getNextStepForUser', () => {
       })
     })
 
-    it('should handle completed status projects', () => {
+    it('should handle complete status projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'completed' }, 
+        { ...mockProject, workflow_status: 'complete' },
         'director'
       )
       
