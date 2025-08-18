@@ -76,16 +76,24 @@ class ApiService {
     }
     
     const currentUser = getCurrentUser()
-    
+    const headers: HeadersInit = {
+      // Add user context to headers with UUID format
+      ...(currentUser && {
+        'X-User-Id': convertUserIdToUuid(currentUser.id),
+        'X-User-Role': currentUser.role,
+        'X-User-Name': currentUser.name
+      })
+    }
+
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json'
+    }
+
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
-        // Add user context to headers with UUID format
-        ...(currentUser && {
-          'X-User-Id': convertUserIdToUuid(currentUser.id),
-          'X-User-Role': currentUser.role,
-          'X-User-Name': currentUser.name
-        }),
+        ...headers,
         ...options.headers
       },
       credentials: 'include',
