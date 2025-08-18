@@ -135,6 +135,7 @@ describe('Controller Integration Tests', () => {
             const fixture = response.body.find(p => p.description === paymentDescription);
             expect(fixture).toBeDefined();
             expect(fixture).toHaveProperty('amount', paymentAmount);
+            expect(fixture.contract_id).toBe(testContractId);
 
             // Every returned payment should include the amount property
             response.body.forEach(payment => {

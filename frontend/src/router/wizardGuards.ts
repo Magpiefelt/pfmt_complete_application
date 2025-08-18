@@ -85,7 +85,8 @@ export const checkStepWorkflowAccess = async (
           workflowStatus.workflow_status,
           workflowStatus.assigned_pm,
           workflowStatus.assigned_spm,
-          userId
+          userId,
+          projectId
         )
         
         if (nextStep) {
@@ -317,7 +318,8 @@ export const wizardGuard = async (
         wizardStore.project?.workflow_status || '',
         wizardStore.project?.assigned_pm,
         wizardStore.project?.assigned_spm,
-        userId
+        userId,
+        projectId
       )
       
       if (nextStep) {

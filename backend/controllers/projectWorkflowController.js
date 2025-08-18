@@ -587,7 +587,7 @@ const getNextStepForUser = (project, userRole) => {
   const status = project.workflow_status;
   
   // If project is finalized, go to project details
-  if (['finalized', 'active', 'completed'].includes(status)) {
+  if (['finalized', 'active', 'complete'].includes(status)) {
     return { 
       name: 'project-details', 
       params: { id: project.id },
