@@ -1,6 +1,6 @@
 -- COMPLETE DOCKER DATABASE FIX
 -- This script fixes all the missing tables and columns identified in the error logs
-
+-- Sample data is managed separately in database/sample_data.sql and is not included in this migration.
 -- 1. Create missing project_wizard_step_data table
 CREATE TABLE IF NOT EXISTS project_wizard_step_data (
   session_id TEXT NOT NULL,
@@ -80,69 +80,10 @@ CREATE INDEX IF NOT EXISTS idx_projects_project_name ON projects(project_name);
 CREATE INDEX IF NOT EXISTS idx_projects_cpd_number ON projects(cpd_number);
 CREATE INDEX IF NOT EXISTS idx_project_locations_project_id ON project_locations(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_teams_project_id ON project_teams(project_id);
-
--- 9. Insert sample vendors if table is empty
-INSERT INTO vendors (name, vendor_name, vendor_type, contact_email, specialties, is_active, rating)
-SELECT 
-  'ABC Construction Ltd.', 'ABC Construction Ltd.', 'General Contractor', 'contact@abc-construction.com', 
-  ARRAY['General Construction', 'Project Management'], true, 4.5
-WHERE NOT EXISTS (SELECT 1 FROM vendors WHERE name = 'ABC Construction Ltd.')
-UNION ALL
-SELECT 
-  'XYZ Engineering Inc.', 'XYZ Engineering Inc.', 'Engineering', 'info@xyz-engineering.com',
-  ARRAY['Engineering Design', 'Consulting'], true, 4.8
-WHERE NOT EXISTS (SELECT 1 FROM vendors WHERE name = 'XYZ Engineering Inc.')
-UNION ALL
-SELECT 
-  'DEF Architects', 'DEF Architects', 'Architecture', 'hello@def-architects.com',
-  ARRAY['Architectural Design', 'Planning'], true, 4.6
-WHERE NOT EXISTS (SELECT 1 FROM vendors WHERE name = 'DEF Architects');
-
--- 10. Insert sample project templates if table is empty
-INSERT INTO project_templates (name, description, category, status, template_data, created_at)
-SELECT 
-  'Standard Construction Project', 'Basic construction project template', 'Construction', 'active',
-  '{"projectType": "new_construction", "deliveryType": "design_bid_build", "defaultBudget": 1000000}',
-  NOW()
-WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE name = 'Standard Construction Project')
-UNION ALL
-SELECT 
-  'Renovation Project', 'Template for renovation projects', 'Renovation', 'active',
-  '{"projectType": "renovation", "deliveryType": "design_build", "defaultBudget": 500000}',
-  NOW()
-WHERE NOT EXISTS (SELECT 1 FROM project_templates WHERE name = 'Renovation Project');
-
--- 11. Add comments for documentation
+-- 9. Add comments for documentation
 COMMENT ON TABLE project_wizard_step_data IS 'Stores step-by-step data during project wizard completion';
 COMMENT ON TABLE vendors IS 'Vendor information with enhanced columns for project wizard';
 COMMENT ON COLUMN vendors.vendor_name IS 'Vendor display name (compatibility column)';
 COMMENT ON COLUMN vendors.vendor_type IS 'Type of vendor (General, Engineering, Architecture, etc.)';
 COMMENT ON COLUMN project_templates.status IS 'Template status (active, inactive, draft)';
-
--- 12. Verification queries (these will show results to confirm the fix worked)
-SELECT 'project_wizard_step_data table' as check_name, 
-       CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'project_wizard_step_data') 
-            THEN 'EXISTS' ELSE 'MISSING' END as status;
-
-SELECT 'vendor_name column' as check_name,
-       CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'vendors' AND column_name = 'vendor_name')
-            THEN 'EXISTS' ELSE 'MISSING' END as status;
-
-SELECT 'vendor_type column' as check_name,
-       CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'vendors' AND column_name = 'vendor_type')
-            THEN 'EXISTS' ELSE 'MISSING' END as status;
-
-SELECT 'status column in project_templates' as check_name,
-       CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'project_templates' AND column_name = 'status')
-            THEN 'EXISTS' ELSE 'MISSING' END as status;
-
-SELECT 'projects table' as check_name,
-       CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'projects')
-            THEN 'EXISTS' ELSE 'MISSING' END as status;
-
--- Show vendor count
-SELECT 'vendor count' as check_name, COUNT(*)::text as status FROM vendors;
-
--- Show template count  
-SELECT 'template count' as check_name, COUNT(*)::text as status FROM project_templates;
 
