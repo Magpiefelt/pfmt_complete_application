@@ -65,10 +65,6 @@ const API_CONFIG = {
   }
 }
 
-// Debug logging
-console.log('API_CONFIG.baseURL:', API_CONFIG.baseURL)
-console.log('VITE_API_BASE_URL env var:', import.meta.env.VITE_API_BASE_URL)
-
 // ENHANCED: Data validation helpers
 const validateStepDataStructure = (stepData: any): StepData => {
   console.log('🔧 validateStepDataStructure input:', stepData, 'type:', typeof stepData)
