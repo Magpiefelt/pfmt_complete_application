@@ -4,10 +4,10 @@ This folder contains the essential database files for the PFMT Integrated Applic
 
 ## Current Files
 
-### `schema.sql` - **MAIN SCHEMA FILE**
-- **Purpose**: Complete unified database schema for PFMT application
+### `fresh_schema.sql` - **BASELINE SCHEMA**
+- **Purpose**: Complete unified database schema for the PFMT application
 - **Usage**: Apply this file to create the entire database structure
-- **Command**: `psql -d pfmt_integrated -f schema.sql`
+- **Command**: `psql -d pfmt_integrated -f fresh_schema.sql`
 - **Contains**:
   - All table definitions with UUID primary keys
   - Enhanced audit logging system
@@ -17,10 +17,10 @@ This folder contains the essential database files for the PFMT Integrated Applic
   - Comprehensive indexes and constraints
   - Triggers for audit logging and updated_at columns
 
-### `minimal_working_seeds.sql` - **SEED DATA**
-- **Purpose**: Essential seed data for development and testing
-- **Usage**: Apply after schema to populate lookup tables and demo data
-- **Command**: `psql -d pfmt_integrated -f minimal_working_seeds.sql`
+### `seed.sql` - **SEED DATA**
+- **Purpose**: Sample data for development and testing
+- **Usage**: Apply after the schema to populate lookup tables and demo data
+- **Command**: `psql -d pfmt_integrated -f seed.sql`
 - **Contains**:
   - Demo users (3 users)
   - Demo vendors (2 vendors)
@@ -33,19 +33,20 @@ This folder contains the essential database files for the PFMT Integrated Applic
 
 1. **First**: Apply the schema
    ```bash
-   psql -d pfmt_integrated -f schema.sql
+   psql -d pfmt_integrated -f fresh_schema.sql
    ```
 
 2. **Second**: Apply the seed data
    ```bash
-   psql -d pfmt_integrated -f minimal_working_seeds.sql
+   psql -d pfmt_integrated -f seed.sql
    ```
 
 ## Removed Files
 
 The following obsolete files have been removed from this repository:
 
-### Obsolete Schema Files (replaced by unified schema.sql):
+### Obsolete Schema Files (replaced by `fresh_schema.sql`):
+- `schema.sql`
 - `approval_audit_schema.sql`
 - `financial_management_schema.sql`
 - `fix_uuid_schema.sql`
@@ -53,8 +54,8 @@ The following obsolete files have been removed from this repository:
 - `wizard_schema.sql`
 - `wizard_schema_fixed.sql`
 
-### Obsolete Seed Files (replaced by minimal_working_seeds.sql):
-- `seed.sql`
+### Obsolete Seed Files (replaced by `seed.sql`):
+- `minimal_working_seeds.sql`
 - `demo_seeds.sql`
 - `corrected_demo_seeds.sql`
 - `comprehensive_seeds.sql`
@@ -103,6 +104,6 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO your_user;
 
 ---
 
-*Last updated: August 8, 2025*  
+*Last updated: August 18, 2025*
 *Schema version: 2.0.0 (Unified)*
 
