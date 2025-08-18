@@ -463,8 +463,8 @@ const loadVendorProjects = async () => {
 }
 
 const editVendor = () => {
-  // TODO: Implement edit vendor functionality
-  console.log('Edit vendor:', vendor.value)
+  if (!vendor.value) return
+  router.push(`/vendors/${vendorId.value}/edit`)
 }
 
 const assignToProject = () => {
@@ -476,8 +476,7 @@ const viewProject = (project: VendorProject) => {
 }
 
 const editAssignment = (project: VendorProject) => {
-  // TODO: Implement edit assignment functionality
-  console.log('Edit assignment:', project)
+  router.push(`/projects/${project.project_id}/vendors/${vendorId.value}/edit`)
 }
 
 const removeFromProject = async (project: VendorProject) => {

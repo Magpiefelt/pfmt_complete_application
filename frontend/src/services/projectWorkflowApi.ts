@@ -124,30 +124,7 @@ export class ProjectWorkflowAPI {
       }
       
     } catch (error: any) {
-      console.error('❌ Project initiation failed:', error)
-      
-      // Parse error response
-      let errorMessage = 'Failed to initiate project'
-      let errorCode = 'INITIATION_FAILED'
-      
-      if (error.message) {
-        try {
-          const errorData = JSON.parse(error.message)
-          errorMessage = errorData.error?.message || errorData.message || error.message
-          errorCode = errorData.error?.code || errorCode
-        } catch {
-          errorMessage = error.message
-        }
-      }
-      
-      return {
-        success: false,
-        error: {
-          message: errorMessage,
-          code: errorCode,
-          details: error.stack
-        }
-      }
+      return this.handleError(error, 'Failed to initiate project', 'INITIATION_FAILED')
     }
   }
 
@@ -405,55 +382,51 @@ export class ProjectWorkflowAPI {
    * Helper method to determine what step user should see
    */
   static getNextStepForUser(
-    userRole: string, 
-    projectStatus: string, 
-    assignedPm?: string, 
+    userRole: string,
+    projectStatus: string,
+    projectId?: string,
+    assignedPm?: string,
     assignedSpm?: string,
     userId?: string
-  ): { route: string; params?: any; message?: string } | null {
-    
-    // If project is finalized, active, or complete, go to project details
+  ): string | null {
+    // Projects that are finalized/active/complete should go to details
     if (['finalized', 'active', 'complete'].includes(projectStatus)) {
-      return {
-        route: 'project-details',
-        params: { id: userId }, // This should be projectId, will be corrected in calling code
-        message: 'Project is ready for management'
-      }
+      return null
     }
-    
+
     // If project is assigned and user is PM/SPM, go to configuration
     if (projectStatus === 'assigned' && ['pm', 'spm'].includes(userRole)) {
       if (userId && (assignedPm === userId || assignedSpm === userId || userRole === 'admin')) {
-        return {
-          route: 'wizard-config',
-          params: { projectId: userId, substep: 'overview' }, // projectId will be corrected in calling code
-          message: 'Configure project details'
-        }
+        return 'configure'
       }
     }
-    
+
     // If project is initiated and user is director, go to assignment
     if (projectStatus === 'initiated' && userRole === 'director') {
-      return {
-        route: 'wizard-assign',
-        params: { projectId: userId }, // projectId will be corrected in calling code
-        message: 'Assign project team'
-      }
+      return 'assign'
     }
-    
-    // PMI can initiate new projects
-    if (userRole === 'pmi' || userRole === 'admin') {
-      return {
-        route: 'wizard-initiate',
-        message: 'Initiate new project'
-      }
+
+    // PMI/Admin can initiate new projects when no project selected
+    if ((userRole === 'pmi' || userRole === 'admin') && !projectId) {
+      return 'initiate'
     }
-    
-    // Default fallback to project details
+
+    // Default: no wizard step
+    return null
+  }
+
+  /**
+   * Centralized error handling for workflow API
+   */
+  private static handleError(error: any, defaultMessage: string, defaultCode: string): ApiResponse<any> {
+    console.error('API error handling:', error)
     return {
-      route: 'project-details',
-      params: { id: userId }, // This should be projectId, will be corrected in calling code
-      message: 'View project details'
+      success: false,
+      error: {
+        message: error?.response?.data?.error?.message || error.message || defaultMessage,
+        code: error?.response?.data?.error?.code || defaultCode,
+        details: error.stack
+      }
     }
   }
 }

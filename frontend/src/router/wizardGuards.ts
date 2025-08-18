@@ -83,6 +83,7 @@ export const checkStepWorkflowAccess = async (
         const nextStep = ProjectWorkflowAPI.getNextStepForUser(
           userRole,
           workflowStatus.workflow_status,
+          projectId,
           workflowStatus.assigned_pm,
           workflowStatus.assigned_spm,
           userId
@@ -315,6 +316,7 @@ export const wizardGuard = async (
       const nextStep = ProjectWorkflowAPI.getNextStepForUser(
         userRole,
         wizardStore.project?.workflow_status || '',
+        projectId,
         wizardStore.project?.assigned_pm,
         wizardStore.project?.assigned_spm,
         userId
