@@ -431,7 +431,7 @@
             placeholder="0.00"
           />
           <AlbertaText variant="body-xs" color="secondary" class="mt-1">
-            Maximum available: ${{ formatCurrency(getAvailableForTransfer(transferForm.from_category_id)) }}
+            Amount available: ${{ formatCurrency(getAvailableForTransfer(transferForm.from_category_id)) }}
           </AlbertaText>
         </div>
 
