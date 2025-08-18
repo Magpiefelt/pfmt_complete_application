@@ -207,7 +207,7 @@ class ProjectWizardController {
       
       if (validationErrors.length > 0) {
         console.log('🔧 Validation errors found:', validationErrors);
-        return res.status(400).json(formatValidationErrors(validationErrors));
+        return res.status(422).json(formatValidationErrors(validationErrors));
       }
 
       // ENHANCED: Guard against null/undefined stepData before JSON.stringify
@@ -735,9 +735,17 @@ class ProjectWizardController {
 
       validation.isValid = validation.errors.length === 0;
 
+      if (!validation.isValid) {
+        return res.status(422).json({
+          success: false,
+          message: 'Validation failed',
+          fieldErrors: { general: validation.errors.map(message => ({ message })) }
+        });
+      }
+
       res.json({
         success: true,
-        validation: validation
+        validation: { isValid: true, errors: [] }
       });
     } catch (error) {
       console.error('Error validating step:', error);

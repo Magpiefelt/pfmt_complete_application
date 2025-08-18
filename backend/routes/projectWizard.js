@@ -5,6 +5,7 @@ const { flexibleAuth } = require('../middleware/flexibleAuth');
 const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
+const { formatValidationErrors } = require('../utils/validation');
 
 // Simple logging utility (replacing winston for Docker compatibility)
 const logger = {
@@ -403,11 +404,10 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
         stepId: stepNumber,
         errors: validationErrors
       });
-      
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: validationErrors,
+
+      const formatted = formatValidationErrors(validationErrors);
+      return res.status(422).json({
+        ...formatted,
         correlationId: req.correlationId
       });
     }
@@ -420,7 +420,7 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
     res.json({
       success: true,
       message: 'Validation passed',
-      errors: [],
+      fieldErrors: {},
       correlationId: req.correlationId
     });
   } catch (error) {
@@ -430,7 +430,7 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
       error: error.message
     });
     
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: 'Validation failed',
       details: error.message,
