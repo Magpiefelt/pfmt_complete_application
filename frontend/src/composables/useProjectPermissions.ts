@@ -1,6 +1,8 @@
-import { computed, type Ref } from 'vue'
+import { computed } from 'vue'
+import type { Ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { ROLES, type Role } from '@/constants/roles'
+import { ROLES } from '@/constants/roles'
+import type { Role } from '@/constants/roles'
 
 export interface ProjectPermissions {
   canView: boolean
