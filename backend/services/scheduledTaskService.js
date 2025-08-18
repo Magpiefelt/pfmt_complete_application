@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const { Pool } = require('pg');
+const nodemailer = require('nodemailer');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
@@ -274,13 +275,34 @@ class ScheduledTaskService {
      * Send notification email about auto-submission results
      */
     async sendNotificationEmail(successCount, errorCount, projects) {
-        // This would integrate with your email service
-        // For now, just log the notification
-        console.log(`📧 Email notification: ${successCount} successful submissions, ${errorCount} errors`);
-        
-        // TODO: Implement actual email sending using nodemailer
-        // const nodemailer = require('nodemailer');
-        // ... email implementation
+        const to = process.env.NOTIFICATION_EMAIL;
+        if (!to) {
+            console.log(`📧 Email notification: ${successCount} successful submissions, ${errorCount} errors`);
+            return;
+        }
+
+        try {
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'localhost',
+                port: parseInt(process.env.SMTP_PORT || '587'),
+                secure: process.env.SMTP_SECURE === 'true',
+                auth: process.env.SMTP_USER ? {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                } : undefined
+            });
+
+            const info = await transporter.sendMail({
+                from: process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@example.com',
+                to,
+                subject: 'Scheduled Submission Results',
+                text: `Auto-submission completed: ${successCount} success, ${errorCount} errors.`
+            });
+
+            console.log(`📧 Notification email sent: ${info.messageId}`);
+        } catch (error) {
+            console.error('❌ Failed to send notification email:', error);
+        }
     }
 
     /**

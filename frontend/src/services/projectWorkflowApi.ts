@@ -4,7 +4,7 @@
  * Integrates with existing API service structure
  */
 
-import { api } from './api'
+import { BaseService } from './BaseService'
 
 // Type definitions for workflow API
 export interface InitiationPayload {
@@ -91,8 +91,7 @@ export interface ApiResponse<T> {
  * Project Workflow API Client
  * Provides methods for all workflow endpoints
  */
-export class ProjectWorkflowAPI {
-  
+export class ProjectWorkflowAPI extends BaseService {
   /**
    * Initiate a new project (PMI/Admin role)
    * POST /api/project-workflow
@@ -100,7 +99,7 @@ export class ProjectWorkflowAPI {
   static async initiateProject(payload: InitiationPayload): Promise<ApiResponse<ProjectSummary>> {
     try {
       console.log('🚀 Initiating project:', payload)
-      
+
       // Map frontend field names to backend expected names
       const backendPayload = {
         project_name: payload.name,
@@ -113,41 +112,17 @@ export class ProjectWorkflowAPI {
         project_category: payload.project_category,
         geographic_region: payload.geographic_region
       }
-      
-      const response = await api.post('/project-workflow/initiate', backendPayload)
-      
+
+      const response = await this.post<any>('/project-workflow/initiate', backendPayload)
+
       console.log('✅ Project initiated successfully:', response)
       return {
         success: true,
         project: response.project || response.data,
         message: response.message || 'Project initiated successfully'
       }
-      
     } catch (error: any) {
-      console.error('❌ Project initiation failed:', error)
-      
-      // Parse error response
-      let errorMessage = 'Failed to initiate project'
-      let errorCode = 'INITIATION_FAILED'
-      
-      if (error.message) {
-        try {
-          const errorData = JSON.parse(error.message)
-          errorMessage = errorData.error?.message || errorData.message || error.message
-          errorCode = errorData.error?.code || errorCode
-        } catch {
-          errorMessage = error.message
-        }
-      }
-      
-      return {
-        success: false,
-        error: {
-          message: errorMessage,
-          code: errorCode,
-          details: error.stack
-        }
-      }
+      return this.handleApiError(error, 'Failed to initiate project', 'INITIATION_FAILED')
     }
   }
 
@@ -158,40 +133,17 @@ export class ProjectWorkflowAPI {
   static async assignTeam(projectId: string, payload: AssignmentPayload): Promise<ApiResponse<ProjectSummary>> {
     try {
       console.log('👥 Assigning team to project:', { projectId, payload })
-      
-      const response = await api.post(`/project-workflow/${projectId}/assign`, payload)
-      
+
+      const response = await this.post<any>(`/project-workflow/${projectId}/assign`, payload)
+
       console.log('✅ Team assigned successfully:', response)
       return {
         success: true,
         project: response.project || response.data,
         message: response.message || 'Team assigned successfully'
       }
-      
     } catch (error: any) {
-      console.error('❌ Team assignment failed:', error)
-      
-      let errorMessage = 'Failed to assign team'
-      let errorCode = 'ASSIGNMENT_FAILED'
-      
-      if (error.message) {
-        try {
-          const errorData = JSON.parse(error.message)
-          errorMessage = errorData.error?.message || errorData.message || error.message
-          errorCode = errorData.error?.code || errorCode
-        } catch {
-          errorMessage = error.message
-        }
-      }
-      
-      return {
-        success: false,
-        error: {
-          message: errorMessage,
-          code: errorCode,
-          details: error.stack
-        }
-      }
+      return this.handleApiError(error, 'Failed to assign team', 'ASSIGNMENT_FAILED')
     }
   }
 
@@ -202,40 +154,17 @@ export class ProjectWorkflowAPI {
   static async finalizeProject(projectId: string, payload: FinalizationPayload): Promise<ApiResponse<ProjectSummary>> {
     try {
       console.log('🏁 Finalizing project:', { projectId, payload })
-      
-      const response = await api.post(`/project-workflow/${projectId}/finalize`, payload)
-      
+
+      const response = await this.post<any>(`/project-workflow/${projectId}/finalize`, payload)
+
       console.log('✅ Project finalized successfully:', response)
       return {
         success: true,
         project: response.project || response.data,
         message: response.message || 'Project finalized successfully'
       }
-      
     } catch (error: any) {
-      console.error('❌ Project finalization failed:', error)
-      
-      let errorMessage = 'Failed to finalize project'
-      let errorCode = 'FINALIZATION_FAILED'
-      
-      if (error.message) {
-        try {
-          const errorData = JSON.parse(error.message)
-          errorMessage = errorData.error?.message || errorData.message || error.message
-          errorCode = errorData.error?.code || errorCode
-        } catch {
-          errorMessage = error.message
-        }
-      }
-      
-      return {
-        success: false,
-        error: {
-          message: errorMessage,
-          code: errorCode,
-          details: error.stack
-        }
-      }
+      return this.handleApiError(error, 'Failed to finalize project', 'FINALIZATION_FAILED')
     }
   }
 
@@ -246,15 +175,14 @@ export class ProjectWorkflowAPI {
   static async getWorkflowStatus(projectId: string): Promise<WorkflowStatusResponse> {
     try {
       console.log('📊 Getting workflow status for project:', projectId)
-      
-      const response = await api.get(`/project-workflow/${projectId}/status`)
-      
+
+      const response = await this.get<any>(`/project-workflow/${projectId}/status`)
+
       console.log('✅ Workflow status retrieved:', response)
       return response.data || response
-      
     } catch (error: any) {
-      console.error('❌ Failed to get workflow status:', error)
-      throw new Error(`Failed to get workflow status: ${error.message}`)
+      const handled = this.handleApiError(error, 'Failed to get workflow status', 'STATUS_FAILED')
+      throw new Error(handled.error!.message)
     }
   }
 
@@ -265,17 +193,16 @@ export class ProjectWorkflowAPI {
   static async getProject(projectId: string): Promise<{ project: ProjectSummary }> {
     try {
       console.log('📋 Getting full project details:', projectId)
-      
-      const response = await api.get(`/projects/${projectId}`)
-      
+
+      const response = await this.get<any>(`/projects/${projectId}`)
+
       console.log('✅ Project details retrieved:', response)
       return {
         project: response.data || response.project || response
       }
-      
     } catch (error: any) {
-      console.error('❌ Failed to get project details:', error)
-      throw new Error(`Failed to get project details: ${error.message}`)
+      const handled = this.handleApiError(error, 'Failed to get project details', 'PROJECT_FETCH_FAILED')
+      throw new Error(handled.error!.message)
     }
   }
 
@@ -291,23 +218,22 @@ export class ProjectWorkflowAPI {
   }>> {
     try {
       console.log('👤 Getting available users for dual-wizard')
-      
-      const response = await api.get('/project-workflow/users/available')
-      
+
+      const response = await this.get<any>('/project-workflow/users/available')
+
       console.log('✅ Available users retrieved:', response)
       return response.users || response.data || []
-      
     } catch (error: any) {
       console.error('❌ Failed to get available users:', error)
-      
+
       // Fallback to legacy endpoint
       try {
         const roleQuery = roles.join(',')
-        const fallbackResponse = await api.get(`/users?role=${roleQuery}&is_active=true`)
+        const fallbackResponse = await this.get<any>(`/users?role=${roleQuery}&is_active=true`)
         return fallbackResponse.data || []
       } catch (fallbackError) {
-        console.error('❌ Fallback user fetch also failed:', fallbackError)
-        return []
+        const handled = this.handleApiError(fallbackError, 'Failed to get available users', 'USERS_FETCH_FAILED')
+        throw new Error(handled.error!.message)
       }
     }
   }
@@ -325,22 +251,21 @@ export class ProjectWorkflowAPI {
   }>> {
     try {
       console.log('🏢 Getting available vendors for dual-wizard')
-      
-      const response = await api.get('/project-workflow/vendors/available')
-      
+
+      const response = await this.get<any>('/project-workflow/vendors/available')
+
       console.log('✅ Available vendors retrieved:', response)
       return response.vendors || response.data || []
-      
     } catch (error: any) {
       console.error('❌ Failed to get available vendors:', error)
-      
+
       // Fallback to legacy endpoint
       try {
-        const fallbackResponse = await api.get('/vendors?status=active')
+        const fallbackResponse = await this.get<any>('/vendors?status=active')
         return fallbackResponse.data || []
       } catch (fallbackError) {
-        console.error('❌ Fallback vendor fetch also failed:', fallbackError)
-        return []
+        const handled = this.handleApiError(fallbackError, 'Failed to get available vendors', 'VENDORS_FETCH_FAILED')
+        throw new Error(handled.error!.message)
       }
     }
   }
@@ -352,17 +277,16 @@ export class ProjectWorkflowAPI {
   static async getProjectWithStatus(projectId: string): Promise<{ project: ProjectSummary & { lifecycle_status?: string } }> {
     try {
       console.log('📋 Getting enhanced project details for dual-wizard:', projectId)
-      
-      const response = await api.get(`/project-workflow/${projectId}/details`)
-      
+
+      const response = await this.get<any>(`/project-workflow/${projectId}/details`)
+
       console.log('✅ Enhanced project details retrieved:', response)
       return {
         project: response.project || response.data || response
       }
-      
     } catch (error: any) {
       console.error('❌ Failed to get enhanced project details, falling back to standard:', error)
-      
+
       // Fallback to standard project endpoint
       return await this.getProject(projectId)
     }
@@ -373,8 +297,8 @@ export class ProjectWorkflowAPI {
    * Helper method to check if user can perform specific workflow actions
    */
   static canUserPerformAction(
-    userRole: string, 
-    action: 'initiate' | 'assign' | 'finalize', 
+    userRole: string,
+    action: 'initiate' | 'assign' | 'finalize',
     projectStatus?: string
   ): boolean {
     const rolePermissions = {
@@ -382,21 +306,21 @@ export class ProjectWorkflowAPI {
       assign: ['admin', 'director'],
       finalize: ['admin', 'pm', 'spm']
     }
-    
+
     const allowedRoles = rolePermissions[action]
     if (!allowedRoles.includes(userRole)) {
       return false
     }
-    
+
     // Additional status-based validation
     if (action === 'assign' && projectStatus && projectStatus !== 'initiated') {
       return false
     }
-    
+
     if (action === 'finalize' && projectStatus && projectStatus !== 'assigned') {
       return false
     }
-    
+
     return true
   }
 
@@ -405,55 +329,70 @@ export class ProjectWorkflowAPI {
    * Helper method to determine what step user should see
    */
   static getNextStepForUser(
-    userRole: string, 
-    projectStatus: string, 
-    assignedPm?: string, 
+    userRole: string,
+    projectStatus: string,
+    assignedPm?: string,
     assignedSpm?: string,
-    userId?: string
+    userId?: string,
+    projectId?: string
   ): { route: string; params?: any; message?: string } | null {
-    
     // If project is finalized, active, or complete, go to project details
     if (['finalized', 'active', 'complete'].includes(projectStatus)) {
       return {
         route: 'project-details',
-        params: { id: userId }, // This should be projectId, will be corrected in calling code
+        params: { id: projectId },
         message: 'Project is ready for management'
       }
     }
-    
+
     // If project is assigned and user is PM/SPM, go to configuration
     if (projectStatus === 'assigned' && ['pm', 'spm'].includes(userRole)) {
       if (userId && (assignedPm === userId || assignedSpm === userId || userRole === 'admin')) {
         return {
           route: 'wizard-config',
-          params: { projectId: userId, substep: 'overview' }, // projectId will be corrected in calling code
+          params: { projectId, substep: 'overview' },
           message: 'Configure project details'
         }
       }
     }
-    
+
     // If project is initiated and user is director, go to assignment
     if (projectStatus === 'initiated' && userRole === 'director') {
       return {
         route: 'wizard-assign',
-        params: { projectId: userId }, // projectId will be corrected in calling code
+        params: { projectId },
         message: 'Assign project team'
       }
     }
-    
-    // PMI can initiate new projects
+
+    // PMI or admin can initiate new projects
     if (userRole === 'pmi' || userRole === 'admin') {
       return {
         route: 'wizard-initiate',
         message: 'Initiate new project'
       }
     }
-    
+
     // Default fallback to project details
     return {
       route: 'project-details',
-      params: { id: userId }, // This should be projectId, will be corrected in calling code
+      params: { id: projectId },
       message: 'View project details'
+    }
+  }
+
+  /**
+   * Centralized error handling for workflow API
+   */
+  private static handleApiError(error: any, defaultMessage: string, defaultCode: string): ApiResponse<any> {
+    console.error('API error handling:', error)
+    return {
+      success: false,
+      error: {
+        message: error?.response?.data?.error?.message || error.message || defaultMessage,
+        code: error?.response?.data?.error?.code || defaultCode,
+        details: error.stack
+      }
     }
   }
 }
@@ -469,4 +408,3 @@ export const getAvailableVendors = ProjectWorkflowAPI.getAvailableVendors
 
 // Default export
 export default ProjectWorkflowAPI
-

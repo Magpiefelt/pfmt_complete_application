@@ -271,6 +271,7 @@ const resumableProjects = computed(() => {
     const nextStep = ProjectWorkflowAPI.getNextStepForUser(
       userRole,
       project.workflow_status,
+      project.id,
       project.assigned_pm,
       project.assigned_spm,
       userId
@@ -356,6 +357,7 @@ const resumeProject = (project: any) => {
   const nextStep = ProjectWorkflowAPI.getNextStepForUser(
     userRole,
     project.workflow_status,
+    project.id,
     project.assigned_pm,
     project.assigned_spm,
     userId
@@ -390,6 +392,7 @@ const getNextStepForProject = (project: any): string => {
   const nextStep = ProjectWorkflowAPI.getNextStepForUser(
     userRole,
     project.workflow_status,
+    project.id,
     project.assigned_pm,
     project.assigned_spm,
     userId
