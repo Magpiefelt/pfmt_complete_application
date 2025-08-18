@@ -247,9 +247,16 @@ const completeTask = async (taskId: string) => {
   }
 }
 
-const editTask = (task: any) => {
-  // TODO: Implement task editing modal
-  console.log('Edit task:', task)
+const editTask = async (task: any) => {
+  const newTitle = prompt('Edit task title', task.title)
+  if (!newTitle || newTitle === task.title) return
+
+  try {
+    await updateTask(task.id, { ...task, title: newTitle })
+    await refreshWorkflow()
+  } catch (err) {
+    console.error('Failed to update task:', err)
+  }
 }
 
 const completeMeeting = async (meetingId: string) => {
@@ -266,8 +273,15 @@ const completeMeeting = async (meetingId: string) => {
 }
 
 const rescheduleMeeting = async (meetingId: string) => {
-  // TODO: Implement reschedule modal
-  console.log('Reschedule meeting:', meetingId)
+  const newDate = prompt('Enter new meeting date (YYYY-MM-DD)')
+  if (!newDate) return
+
+  try {
+    await rescheduleGateMeeting(meetingId, { scheduled_date: newDate })
+    await refreshWorkflow()
+  } catch (err) {
+    console.error('Failed to reschedule meeting:', err)
+  }
 }
 
 // Utility functions

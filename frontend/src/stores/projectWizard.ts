@@ -176,6 +176,7 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
     return ProjectWorkflowAPI.getNextStepForUser(
       authStore.currentUser.role,
       project.value.workflow_status || '',
+      project.value.id?.toString(),
       project.value.assigned_pm,
       project.value.assigned_spm,
       authStore.currentUser.id.toString()
