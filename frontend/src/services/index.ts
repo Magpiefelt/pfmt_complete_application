@@ -7,6 +7,7 @@ export { BudgetService } from './BudgetService'
 export { WorkflowService } from './WorkflowService'
 export { VendorService } from './VendorService'
 export { ProjectWizardService } from './projectWizardService'
+export { WizardProgressService } from './WizardProgressService'
 export { default as TeamService } from './TeamService'
 export { default as LocationService } from './LocationService'
 

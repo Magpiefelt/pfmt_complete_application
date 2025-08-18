@@ -107,6 +107,14 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
   const error = ref<WizardError | null>(null)
   const lastSavedAt = ref<string | null>(null)
 
+  // Wizard progress tracking
+  const completedSteps = ref<number[]>([])
+  const nextAllowedStep = ref(1)
+  const totalSteps = 3 // keep in sync with defined wizard steps
+  const progressPercent = computed(() =>
+    totalSteps ? (completedSteps.value.length / totalSteps) * 100 : 0
+  )
+
   // Wizard step data
   const initiation = ref<WizardInitiation>({
     name: '',
@@ -603,6 +611,11 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
     error.value = null
   }
 
+  const setProgress = (progress: { completedSteps: number[]; nextAllowed: number }) => {
+    completedSteps.value = progress.completedSteps
+    nextAllowedStep.value = progress.nextAllowed
+  }
+
   // Watch for changes to mark sections dirty
   watch(initiation, () => markDirty('initiation'), { deep: true })
   watch(assignment, () => markDirty('assignment'), { deep: true })
@@ -627,6 +640,10 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
     autoSaveEnabled,
     availableUsers,
     availableVendors,
+    completedSteps,
+    nextAllowedStep,
+    totalSteps,
+    progressPercent,
     
     // Computed
     hasUnsavedChanges,
@@ -647,7 +664,8 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
     loadAvailableUsers,
     loadAvailableVendors,
     resetWizard,
-    clearError
+    clearError,
+    setProgress
   }
 })
 
