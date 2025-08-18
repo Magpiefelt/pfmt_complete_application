@@ -151,6 +151,27 @@ async function testApiServer() {
 }
 
 /**
+ * Test wizard authorization (vendor role should be forbidden)
+ */
+async function testWizardAuthorization() {
+  log('blue', '\n🚫 Testing wizard authorization (vendor role)...');
+
+  try {
+    await apiRequest('/api/project-wizard/templates', { method: 'GET' }, {
+      id: 'vendor-test-user',
+      role: 'vendor',
+      name: 'Vendor User',
+      email: 'vendor@example.com'
+    });
+    log('red', '❌ Vendor user was able to access wizard endpoint');
+    return false;
+  } catch (error) {
+    log('green', '✅ Vendor access correctly blocked');
+    return true;
+  }
+}
+
+/**
  * Test project initiation (PMI role)
  */
 async function testProjectInitiation() {
@@ -355,7 +376,13 @@ async function runIntegrationTests() {
   if (!apiAvailable) {
     allTestsPassed = false;
   }
-  
+
+  // Test 3: Authorization on wizard endpoints
+  const authz = await testWizardAuthorization();
+  if (!authz) {
+    allTestsPassed = false;
+  }
+
   // If basic infrastructure is not available, skip workflow tests
   if (!dbConnected || !apiAvailable) {
     log('red', '\n❌ Basic infrastructure not available. Skipping workflow tests.');

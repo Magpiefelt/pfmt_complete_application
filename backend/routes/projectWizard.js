@@ -124,6 +124,24 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
+// Authorization middleware for project managers
+const requirePMRole = (req, res, next) => {
+  if (req.user?.role !== 'project_manager') {
+    logger.warn('Forbidden access attempt', {
+      correlationId: req.correlationId,
+      url: req.url,
+      userId: req.user?.id,
+      role: req.user?.role
+    });
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden',
+      correlationId: req.correlationId
+    });
+  }
+  next();
+};
+
 // Input validation middleware
 const validateJsonBody = (req, res, next) => {
   if (req.method === 'POST' || req.method === 'PUT') {
@@ -184,11 +202,13 @@ const validateSession = async (req, res, next) => {
 // Apply rate limiting to all wizard routes
 router.use(wizardRateLimit);
 
-// Health check endpoint (no auth required)
-router.get('/health', ProjectWizardController.healthCheck);
+// Liveness and readiness endpoints (no auth required)
+router.get('/health', ProjectWizardController.livenessCheck);
+router.get('/health/db', ProjectWizardController.healthCheck);
 
 // Apply authentication to all other routes
 router.use(requireAuth);
+router.use(requirePMRole);
 
 // Wizard session management routes
 router.post('/init', validateJsonBody, ProjectWizardController.initializeWizard);

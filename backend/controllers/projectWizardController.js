@@ -187,19 +187,29 @@ class ProjectWizardController {
       console.log('🔧 Checking session with query:', sessionQuery, [sessionId, userId]);
       const sessionResult = await query(sessionQuery, [sessionId, userId]);
       console.log('🔧 Session query result:', sessionResult.rows.length, 'rows');
-      
+
       if (sessionResult.rows.length === 0) {
         console.error('❌ Wizard session not found for sessionId:', sessionId, 'userId:', userId);
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Wizard session not found' 
+        return res.status(404).json({
+          success: false,
+          message: 'Wizard session not found'
+        });
+      }
+
+      const currentStep = sessionResult.rows[0].current_step;
+      const requestedStep = parseInt(stepId);
+      if (requestedStep > currentStep + 1) {
+        console.warn('❌ Step gating violation:', { sessionId, currentStep, requestedStep });
+        return res.status(409).json({
+          success: false,
+          message: `Step ${currentStep} must be completed before accessing step ${requestedStep}`
         });
       }
 
       // Validate step data based on step ID
       let validationErrors = [];
       try {
-        validationErrors = await validateStepData(parseInt(stepId), stepData);
+        validationErrors = await validateStepData(requestedStep, stepData);
       } catch (validationError) {
         console.warn('Step validation failed, continuing without validation:', validationError);
         // Continue without validation if validation service fails
@@ -973,6 +983,11 @@ class ProjectWizardController {
   }
 
   // Health check endpoint
+  async livenessCheck(req, res) {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  }
+
+  // Readiness check endpoint
   async healthCheck(req, res) {
     try {
       const startTime = Date.now();
@@ -1060,8 +1075,9 @@ async function validateStepData(stepId, stepData) {
   return errors;
 }
 
-module.exports = { 
+module.exports = {
   ProjectWizardController: new ProjectWizardController(),
-  wizardRateLimit
+  wizardRateLimit,
+  validateStepData
 };
 
