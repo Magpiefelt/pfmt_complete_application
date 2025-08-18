@@ -5,6 +5,7 @@ const { flexibleAuth } = require('../middleware/flexibleAuth');
 const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
+const { formatValidationErrors } = require('../utils/validation');
 
 // Simple logging utility (replacing winston for Docker compatibility)
 const logger = {
@@ -123,6 +124,24 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
+// Authorization middleware for project managers
+const requirePMRole = (req, res, next) => {
+  if (req.user?.role !== 'project_manager') {
+    logger.warn('Forbidden access attempt', {
+      correlationId: req.correlationId,
+      url: req.url,
+      userId: req.user?.id,
+      role: req.user?.role
+    });
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden',
+      correlationId: req.correlationId
+    });
+  }
+  next();
+};
+
 // Input validation middleware
 const validateJsonBody = (req, res, next) => {
   if (req.method === 'POST' || req.method === 'PUT') {
@@ -183,11 +202,13 @@ const validateSession = async (req, res, next) => {
 // Apply rate limiting to all wizard routes
 router.use(wizardRateLimit);
 
-// Health check endpoint (no auth required)
-router.get('/health', ProjectWizardController.healthCheck);
+// Liveness and readiness endpoints (no auth required)
+router.get('/health', ProjectWizardController.livenessCheck);
+router.get('/health/db', ProjectWizardController.healthCheck);
 
 // Apply authentication to all other routes
 router.use(requireAuth);
+router.use(requirePMRole);
 
 // Wizard session management routes
 router.post('/init', validateJsonBody, ProjectWizardController.initializeWizard);
@@ -403,11 +424,10 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
         stepId: stepNumber,
         errors: validationErrors
       });
-      
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: validationErrors,
+
+      const formatted = formatValidationErrors(validationErrors);
+      return res.status(422).json({
+        ...formatted,
         correlationId: req.correlationId
       });
     }
@@ -420,7 +440,7 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
     res.json({
       success: true,
       message: 'Validation passed',
-      errors: [],
+      fieldErrors: {},
       correlationId: req.correlationId
     });
   } catch (error) {
@@ -430,7 +450,7 @@ router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
       error: error.message
     });
     
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: 'Validation failed',
       details: error.message,

@@ -494,7 +494,7 @@ const formatValidationErrors = (errors) => {
   return {
     success: false,
     message: 'Validation failed',
-    errors: errors.reduce((acc, error) => {
+    fieldErrors: errors.reduce((acc, error) => {
       if (!acc[error.field]) {
         acc[error.field] = [];
       }
