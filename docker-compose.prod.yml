@@ -52,7 +52,7 @@ services:
     restart: always
     environment:
       # Production API URL (adjust based on your domain)
-      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:3002/api}
+      VITE_API_BASE_URL: ${API_BASE_URL:-/api}
     logging:
       driver: "json-file"
       options:

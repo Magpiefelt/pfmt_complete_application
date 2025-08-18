@@ -1,5 +1,5 @@
 // Simple API configuration for PFMT frontend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const api = {
   baseURL: API_BASE_URL,
