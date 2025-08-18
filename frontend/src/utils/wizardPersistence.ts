@@ -59,6 +59,7 @@ export interface PersistenceOptions {
 export class WizardPersistence {
   private static readonly VERSION = '1.0.0'
   private static readonly MAX_DRAFTS = 10
+  private static readonly STATE_TTL = 2 * 60 * 60 * 1000 // 2 hours in ms
   private static sessionId = this.generateSessionId()
 
   /**
@@ -158,17 +159,26 @@ export class WizardPersistence {
     try {
       const storage = this.getStorage(options.useSessionStorage)
       const serialized = storage.getItem(STORAGE_KEYS.WIZARD_STATE)
-      
+
       if (!serialized) {
         console.log('📭 No saved wizard state found')
         return null
+      }
+
+      const metadata = this.loadMetadata(options)
+      if (metadata) {
+        const age = Date.now() - new Date(metadata.lastSavedAt).getTime()
+        if (age > this.STATE_TTL) {
+          console.log('📭 Saved wizard state expired')
+          this.clearState(options)
+          return null
+        }
       }
 
       const snapshot = this.safeJsonParse<WizardStateSnapshot | null>(serialized, null)
       if (!snapshot) return null
 
       // Update last accessed time
-      const metadata = this.loadMetadata(options)
       if (metadata) {
         metadata.lastAccessedAt = new Date().toISOString()
         const metadataSerialized = this.safeJsonStringify(metadata)
@@ -429,8 +439,9 @@ export class WizardPersistence {
 
   /**
    * Clean up old drafts and expired state
+   * @param maxAge Maximum age in ms before data is purged (defaults to STATE_TTL)
    */
-  static cleanup(maxAge: number = 7 * 24 * 60 * 60 * 1000, options: PersistenceOptions = {}): boolean {
+  static cleanup(maxAge: number = this.STATE_TTL, options: PersistenceOptions = {}): boolean {
     try {
       const storage = this.getStorage(options.useSessionStorage)
       const cutoffDate = new Date(Date.now() - maxAge)

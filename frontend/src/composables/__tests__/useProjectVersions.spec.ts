@@ -134,7 +134,7 @@ describe('useProjectVersions', () => {
       expect(versions.value[0].status).toBe('Approved')
       expect(versions.value[0].name).toBe('Test Project')
       expect(versions.value[0].projectId).toBe(1)
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3002/api/phase2/projects/1/versions', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/phase2/projects/1/versions', {
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
           'X-User-Id': '1',
@@ -192,7 +192,7 @@ describe('useProjectVersions', () => {
       const result = await createDraftVersion(1)
 
       expect(result).toEqual(mockDraft)
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3002/api/phase2/projects/1/versions', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/phase2/projects/1/versions', {
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
@@ -244,7 +244,7 @@ describe('useProjectVersions', () => {
       const result = await submitForApproval(1, 2)
 
       expect(result).toEqual(mockSubmission)
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3002/api/phase2/versions/2/submit', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/phase2/versions/2/submit', {
         method: 'PUT',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
@@ -291,7 +291,7 @@ describe('useProjectVersions', () => {
       const result = await approveVersion(1, 2)
 
       expect(result).toEqual(mockApproval)
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3002/api/phase2/versions/2/approve', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/phase2/versions/2/approve', {
         method: 'PUT',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
@@ -320,7 +320,7 @@ describe('useProjectVersions', () => {
       const result = await rejectVersion(1, 2, 'Insufficient documentation')
 
       expect(result).toEqual(mockRejection)
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3002/api/phase2/versions/2/reject', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/phase2/versions/2/reject', {
         method: 'PUT',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
@@ -351,7 +351,7 @@ describe('useProjectVersions', () => {
 
       expect(result).toEqual(mockComparison)
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:3002/api/phase2/projects/1/versions/compare?currentVersionId=1&compareVersionId=2',
+        '/api/phase2/projects/1/versions/compare?currentVersionId=1&compareVersionId=2',
         {
           headers: expect.objectContaining({
             'Content-Type': 'application/json',

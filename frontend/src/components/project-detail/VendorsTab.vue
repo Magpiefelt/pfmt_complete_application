@@ -442,7 +442,8 @@ const loadVendors = async () => {
   
   try {
     // Load vendors from API using the project ID with correct base URL
-    const response = await fetch(`http://localhost:3002/api/projects/${props.projectId}/vendors`, {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+    const response = await fetch(`${baseUrl}/projects/${props.projectId}/vendors`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
