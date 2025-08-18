@@ -2,88 +2,110 @@ import { describe, it, expect } from 'vitest'
 import { ProjectWorkflowAPI } from '@/services/projectWorkflowApi'
 
 describe('getNextStepForUser', () => {
-  const mockProject = {
-    id: 'test-project-id',
-    workflow_status: 'initiated',
-    project_name: 'Test Project',
-    created_by: 'user-1'
-  }
+  const projectId = 'test-project-id'
 
   describe('PMI user role', () => {
     it('should return wizard-initiate for PMI users', () => {
-      const result = ProjectWorkflowAPI.getNextStepForUser(mockProject, 'pmi')
-      
+      const result = ProjectWorkflowAPI.getNextStepForUser(
+        'pmi',
+        'initiated',
+        undefined,
+        undefined,
+        'user-1',
+        projectId
+      )
+
       expect(result).toEqual({
-        name: 'wizard-initiate',
+        route: 'wizard-initiate',
         message: 'Initiate new project'
       })
     })
   })
 
   describe('Director user role', () => {
-    it('should return wizard-assign for initiated projects', () => {
+    it('should return wizard-project-assign for initiated projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'initiated' }, 
-        'director'
+        'director',
+        'initiated',
+        undefined,
+        undefined,
+        'director-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'wizard-assign',
-        params: { projectId: 'test-project-id' },
+        route: 'wizard-project-assign',
+        params: { projectId },
         message: 'Assign project team'
       })
     })
 
-    it('should return project-details for finalized projects', () => {
+    it('should return project-detail for finalized projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'finalized' }, 
-        'director'
+        'director',
+        'finalized',
+        undefined,
+        undefined,
+        'director-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'project-details',
-        params: { id: 'test-project-id' },
+        route: 'project-detail',
+        params: { id: projectId },
         message: 'Project is ready for management'
       })
     })
   })
 
   describe('PM/SPM user roles', () => {
-    it('should return wizard-config for assigned projects (PM)', () => {
+    it('should return wizard-project-configure for assigned projects (PM)', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'assigned' }, 
-        'pm'
+        'pm',
+        'assigned',
+        'pm-user',
+        'spm-user',
+        'pm-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'wizard-config',
-        params: { projectId: 'test-project-id', substep: 'overview' },
+        route: 'wizard-project-configure',
+        params: { projectId, substep: 'overview' },
         message: 'Configure project details'
       })
     })
 
-    it('should return wizard-config for assigned projects (SPM)', () => {
+    it('should return wizard-project-configure for assigned projects (SPM)', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'assigned' }, 
-        'spm'
+        'spm',
+        'assigned',
+        'pm-user',
+        'spm-user',
+        'spm-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'wizard-config',
-        params: { projectId: 'test-project-id', substep: 'overview' },
+        route: 'wizard-project-configure',
+        params: { projectId, substep: 'overview' },
         message: 'Configure project details'
       })
     })
 
-    it('should return project-details for finalized projects', () => {
+    it('should return project-detail for finalized projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'finalized' }, 
-        'pm'
+        'pm',
+        'finalized',
+        'pm-user',
+        'spm-user',
+        'pm-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'project-details',
-        params: { id: 'test-project-id' },
+        route: 'project-detail',
+        params: { id: projectId },
         message: 'Project is ready for management'
       })
     })
@@ -92,26 +114,34 @@ describe('getNextStepForUser', () => {
   describe('Workflow status transitions', () => {
     it('should handle active status projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'active' }, 
-        'pm'
+        'pm',
+        'active',
+        undefined,
+        undefined,
+        'pm-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'project-details',
-        params: { id: 'test-project-id' },
+        route: 'project-detail',
+        params: { id: projectId },
         message: 'Project is ready for management'
       })
     })
 
-    it('should handle completed status projects', () => {
+    it('should handle complete status projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'completed' }, 
-        'director'
+        'director',
+        'complete',
+        undefined,
+        undefined,
+        'director-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'project-details',
-        params: { id: 'test-project-id' },
+        route: 'project-detail',
+        params: { id: projectId },
         message: 'Project is ready for management'
       })
     })
@@ -120,67 +150,83 @@ describe('getNextStepForUser', () => {
   describe('Edge cases', () => {
     it('should handle unknown workflow status', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'unknown' as any }, 
-        'pm'
+        'pm',
+        'unknown' as any,
+        undefined,
+        undefined,
+        'pm-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'project-details',
-        params: { id: 'test-project-id' },
-        message: 'Project is ready for management'
+        route: 'project-detail',
+        params: { id: projectId },
+        message: 'View project details'
       })
     })
 
     it('should handle unknown user role', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        mockProject, 
-        'unknown' as any
+        'unknown' as any,
+        'initiated',
+        undefined,
+        undefined,
+        'user-1',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'project-details',
-        params: { id: 'test-project-id' },
-        message: 'Project is ready for management'
+        route: 'project-detail',
+        params: { id: projectId },
+        message: 'View project details'
       })
     })
 
     it('should handle project without id', () => {
-      const projectWithoutId = { ...mockProject }
-      delete projectWithoutId.id
-      
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        projectWithoutId, 
-        'pm'
+        'pm',
+        'initiated',
+        undefined,
+        undefined,
+        'pm-user'
       )
-      
-      expect(result.name).toBe('project-details')
-      expect(result.message).toBe('Project is ready for management')
+
+      expect(result?.route).toBe('project-detail')
+      expect(result?.message).toBe('View project details')
     })
   })
 
   describe('Admin user role', () => {
     it('should handle admin users with initiated projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'initiated' }, 
-        'admin'
+        'admin',
+        'initiated',
+        undefined,
+        undefined,
+        'admin-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'wizard-assign',
-        params: { projectId: 'test-project-id' },
+        route: 'wizard-project-assign',
+        params: { projectId },
         message: 'Assign project team'
       })
     })
 
     it('should handle admin users with assigned projects', () => {
       const result = ProjectWorkflowAPI.getNextStepForUser(
-        { ...mockProject, workflow_status: 'assigned' }, 
-        'admin'
+        'admin',
+        'assigned',
+        'pm-user',
+        'spm-user',
+        'admin-user',
+        projectId
       )
-      
+
       expect(result).toEqual({
-        name: 'wizard-config',
-        params: { projectId: 'test-project-id', substep: 'overview' },
+        route: 'wizard-project-configure',
+        params: { projectId, substep: 'overview' },
         message: 'Configure project details'
       })
     })

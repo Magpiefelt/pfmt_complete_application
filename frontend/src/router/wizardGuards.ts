@@ -85,15 +85,16 @@ export const checkStepWorkflowAccess = async (
           workflowStatus.workflow_status,
           workflowStatus.assigned_pm,
           workflowStatus.assigned_spm,
-          userId
+          userId,
+          projectId
         )
         
         if (nextStep) {
           return {
             allowed: false,
             redirect: {
-              name: `wizard-project-${nextStep}`,
-              params: { projectId }
+              name: nextStep.route,
+              params: nextStep.params
             },
             message: `Project is in ${workflowStatus.workflow_status} status. Redirecting to appropriate step.`
           }
@@ -317,20 +318,15 @@ export const wizardGuard = async (
         wizardStore.project?.workflow_status || '',
         wizardStore.project?.assigned_pm,
         wizardStore.project?.assigned_spm,
-        userId
+        userId,
+        projectId
       )
       
       if (nextStep) {
-        next({
-          name: `wizard-project-${nextStep}`,
-          params: { projectId }
-        })
+        next({ name: nextStep.route, params: nextStep.params })
       } else {
         // No appropriate step, redirect to project details
-        next({
-          name: 'project-detail',
-          params: { id: projectId }
-        })
+        next({ name: 'project-detail', params: { id: projectId } })
       }
       return
     }

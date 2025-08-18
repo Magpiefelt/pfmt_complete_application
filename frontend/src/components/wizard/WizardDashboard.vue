@@ -273,9 +273,10 @@ const resumableProjects = computed(() => {
       project.workflow_status,
       project.assigned_pm,
       project.assigned_spm,
-      userId
+      userId,
+      project.id
     )
-    
+
     return nextStep !== null
   })
 })
@@ -358,14 +359,12 @@ const resumeProject = (project: any) => {
     project.workflow_status,
     project.assigned_pm,
     project.assigned_spm,
-    userId
+    userId,
+    project.id
   )
-  
+
   if (nextStep) {
-    router.push({
-      name: `wizard-project-${nextStep}`,
-      params: { projectId: project.id }
-    })
+    router.push({ name: nextStep.route, params: nextStep.params })
   }
 }
 
@@ -392,14 +391,21 @@ const getNextStepForProject = (project: any): string => {
     project.workflow_status,
     project.assigned_pm,
     project.assigned_spm,
-    userId
+    userId,
+    project.id
   )
-  
-  switch (nextStep) {
-    case 'initiate': return 'Project Initiation'
-    case 'assign': return 'Team Assignment'
-    case 'configure': return 'Project Configuration'
-    default: return 'Unknown'
+
+  switch (nextStep?.route) {
+    case 'wizard-initiate':
+      return 'Project Initiation'
+    case 'wizard-project-assign':
+      return 'Team Assignment'
+    case 'wizard-project-configure':
+      return 'Project Configuration'
+    case 'project-detail':
+      return 'Project Details'
+    default:
+      return 'Unknown'
   }
 }
 

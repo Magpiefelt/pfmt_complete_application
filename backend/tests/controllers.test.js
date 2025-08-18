@@ -114,16 +114,30 @@ describe('Controller Integration Tests', () => {
         });
 
         test('GET /api/phase1/contract-payments should return payments with amount alias', async () => {
+            // Insert payment fixture
+            const paymentAmount = 7500.00;
+            const paymentDescription = 'Fixture payment';
+            await query(`
+                INSERT INTO contract_payments (id, contract_id, payment_amount, payment_date, status, description)
+                VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5)
+            `, [testContractId, paymentAmount, '2025-02-15', 'paid', paymentDescription]);
+
             const response = await request(app)
                 .get('/api/phase1/contract-payments')
                 .set('x-user-id', testUserId)
                 .expect(200);
 
             expect(Array.isArray(response.body)).toBe(true);
-            if (response.body.length > 0) {
-                // Check that amount field is aliased from payment_amount
-                expect(response.body[0]).toHaveProperty('amount');
-            }
+
+            // Response should contain the inserted payment with amount alias
+            const fixture = response.body.find(p => p.description === paymentDescription);
+            expect(fixture).toBeDefined();
+            expect(fixture).toHaveProperty('amount', paymentAmount);
+
+            // Every returned payment should include the amount property
+            response.body.forEach(payment => {
+                expect(payment).toHaveProperty('amount');
+            });
         });
     });
 

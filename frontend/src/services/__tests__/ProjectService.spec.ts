@@ -13,7 +13,7 @@ describe('ProjectService', () => {
     it('should fetch all projects successfully', async () => {
       const mockProjects = [
         { id: 1, name: 'Project 1', status: 'active' },
-        { id: 2, name: 'Project 2', status: 'completed' }
+        { id: 2, name: 'Project 2', status: 'complete' }
       ]
 
       ;(global.fetch as any).mockResolvedValueOnce({
