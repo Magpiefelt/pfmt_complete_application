@@ -405,18 +405,19 @@ export class ProjectWorkflowAPI {
    * Helper method to determine what step user should see
    */
   static getNextStepForUser(
-    userRole: string, 
-    projectStatus: string, 
-    assignedPm?: string, 
+    userRole: string,
+    projectStatus: string,
+    assignedPm?: string,
     assignedSpm?: string,
-    userId?: string
+    userId?: string,
+    projectId?: string
   ): { route: string; params?: any; message?: string } | null {
     
     // If project is finalized, active, or completed, go to project details
     if (['finalized', 'active', 'completed'].includes(projectStatus)) {
       return {
         route: 'project-details',
-        params: { id: userId }, // This should be projectId, will be corrected in calling code
+        params: { id: projectId },
         message: 'Project is ready for management'
       }
     }
@@ -426,17 +427,17 @@ export class ProjectWorkflowAPI {
       if (userId && (assignedPm === userId || assignedSpm === userId || userRole === 'admin')) {
         return {
           route: 'wizard-config',
-          params: { projectId: userId, substep: 'overview' }, // projectId will be corrected in calling code
+          params: { projectId, substep: 'overview' },
           message: 'Configure project details'
         }
       }
     }
-    
+
     // If project is initiated and user is director, go to assignment
     if (projectStatus === 'initiated' && userRole === 'director') {
       return {
         route: 'wizard-assign',
-        params: { projectId: userId }, // projectId will be corrected in calling code
+        params: { projectId },
         message: 'Assign project team'
       }
     }
@@ -452,7 +453,7 @@ export class ProjectWorkflowAPI {
     // Default fallback to project details
     return {
       route: 'project-details',
-      params: { id: userId }, // This should be projectId, will be corrected in calling code
+      params: { id: projectId },
       message: 'View project details'
     }
   }
