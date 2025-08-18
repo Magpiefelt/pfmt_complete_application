@@ -1,13 +1,15 @@
 <template>
   <div class="wizard-layout">
     <WizardContainer />
-    <div class="progress-indicator" v-if="false">progress</div>
-    <router-view />
-    <nav class="wizard-navigation" v-if="false">navigation</nav>
+    <RouterView v-slot="{ Component }">
+      <component :is="Component" />
+    </RouterView>
   </div>
 </template>
 
 <script setup lang="ts">
+import { RouterView } from 'vue-router'
+import { watch } from 'vue'
 import WizardContainer from './WizardContainer.vue'
 import { useProjectWizardIntegration } from '@/composables/useProjectWizardIntegration'
 import { useWizardPersistence } from '@/composables/useWizardPersistence'
@@ -15,16 +17,18 @@ import { useWizardPersistence } from '@/composables/useWizardPersistence'
 const { wizardStore } = useProjectWizardIntegration()
 const { saveState } = useWizardPersistence()
 
-export const layoutName = 'WizardLayout'
+watch(
+  () => wizardStore.$state,
+  () => saveState(),
+  { deep: true }
+)
 
-const loading = false
-const error = null
+export const layoutName = 'WizardLayout'
 </script>
 
 <style scoped>
-/* breadcrumb navigation, unsaved changes, loading and error handling */
-.progress-indicator,
-.wizard-navigation {
-  display: none;
+.wizard-layout {
+  display: flex;
+  flex-direction: column;
 }
 </style>

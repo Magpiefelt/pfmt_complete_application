@@ -179,15 +179,15 @@ export class ProjectWorkflowAPI extends BaseService {
   static async getWorkflowStatus(projectId: string): Promise<WorkflowStatusResponse> {
     try {
       console.log('📊 Getting workflow status for project:', projectId)
-      
+
       const response = await this.get<any>(`/project-workflow/${projectId}/status`)
-      
+
       console.log('✅ Workflow status retrieved:', response)
       return response.data || response
-      
+
     } catch (error: any) {
-      console.error('❌ Failed to get workflow status:', error)
-      throw new Error(`Failed to get workflow status: ${error.message}`)
+      const handled = this.handleApiError(error, 'Failed to get workflow status', 'STATUS_FAILED')
+      throw new Error(handled.error!.message)
     }
   }
 
@@ -198,17 +198,17 @@ export class ProjectWorkflowAPI extends BaseService {
   static async getProject(projectId: string): Promise<{ project: ProjectSummary }> {
     try {
       console.log('📋 Getting full project details:', projectId)
-      
+
       const response = await this.get<any>(`/projects/${projectId}`)
-      
+
       console.log('✅ Project details retrieved:', response)
       return {
         project: response.data || response.project || response
       }
-      
+
     } catch (error: any) {
-      console.error('❌ Failed to get project details:', error)
-      throw new Error(`Failed to get project details: ${error.message}`)
+      const handled = this.handleApiError(error, 'Failed to get project details', 'PROJECT_FETCH_FAILED')
+      throw new Error(handled.error!.message)
     }
   }
 
@@ -224,23 +224,23 @@ export class ProjectWorkflowAPI extends BaseService {
   }>> {
     try {
       console.log('👤 Getting available users for dual-wizard')
-      
+
       const response = await this.get<any>('/project-workflow/users/available')
-      
+
       console.log('✅ Available users retrieved:', response)
       return response.users || response.data || []
-      
+
     } catch (error: any) {
       console.error('❌ Failed to get available users:', error)
-      
+
       // Fallback to legacy endpoint
       try {
         const roleQuery = roles.join(',')
         const fallbackResponse = await this.get<any>(`/users?role=${roleQuery}&is_active=true`)
         return fallbackResponse.data || []
       } catch (fallbackError) {
-        console.error('❌ Fallback user fetch also failed:', fallbackError)
-        return []
+        const handled = this.handleApiError(fallbackError, 'Failed to get available users', 'USERS_FETCH_FAILED')
+        throw new Error(handled.error!.message)
       }
     }
   }
@@ -258,22 +258,22 @@ export class ProjectWorkflowAPI extends BaseService {
   }>> {
     try {
       console.log('🏢 Getting available vendors for dual-wizard')
-      
+
       const response = await this.get<any>('/project-workflow/vendors/available')
-      
+
       console.log('✅ Available vendors retrieved:', response)
       return response.vendors || response.data || []
-      
+
     } catch (error: any) {
       console.error('❌ Failed to get available vendors:', error)
-      
+
       // Fallback to legacy endpoint
       try {
         const fallbackResponse = await this.get<any>('/vendors?status=active')
         return fallbackResponse.data || []
       } catch (fallbackError) {
-        console.error('❌ Fallback vendor fetch also failed:', fallbackError)
-        return []
+        const handled = this.handleApiError(fallbackError, 'Failed to get available vendors', 'VENDORS_FETCH_FAILED')
+        throw new Error(handled.error!.message)
       }
     }
   }
@@ -285,17 +285,17 @@ export class ProjectWorkflowAPI extends BaseService {
   static async getProjectWithStatus(projectId: string): Promise<{ project: ProjectSummary & { lifecycle_status?: string } }> {
     try {
       console.log('📋 Getting enhanced project details for dual-wizard:', projectId)
-      
+
       const response = await this.get<any>(`/project-workflow/${projectId}/details`)
-      
+
       console.log('✅ Enhanced project details retrieved:', response)
       return {
         project: response.project || response.data || response
       }
-      
+
     } catch (error: any) {
       console.error('❌ Failed to get enhanced project details, falling back to standard:', error)
-      
+
       // Fallback to standard project endpoint
       return await this.getProject(projectId)
     }
