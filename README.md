@@ -113,7 +113,7 @@ cd frontend
 npm install
 
 # Start the development server
-npm run serve
+npm run dev
 
 # Build for production
 npm run build
@@ -229,7 +229,7 @@ psql -h localhost -U postgres -d pfmt_enhanced
 DEBUG=* npm run dev
 
 # Frontend debug mode
-npm run serve
+npm run dev
 ```
 
 ## 🔄 Key Enhancements in v2.0
