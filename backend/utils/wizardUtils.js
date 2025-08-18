@@ -241,11 +241,14 @@ const formatUtils = {
 
   // Postal code formatting
   formatPostalCode: (postalCode) => {
-    const cleaned = postalCode.replace(/\s/g, '').toUpperCase();
+    if (postalCode === undefined || postalCode === null) {
+      return postalCode;
+    }
+    const cleaned = String(postalCode).replace(/\s/g, '').toUpperCase();
     if (cleaned.length === 6) {
       return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
     }
-    return postalCode;
+    return cleaned;
   },
 
   // Project code formatting
