@@ -48,7 +48,7 @@
 
 **Frontend (.env)**
 
-* `VITE_API_BASE_URL` (e.g., `http://localhost:3002`)
+* `VITE_API_BASE_URL` (e.g., `/api`)
 * `VITE_APP_TITLE`
 
 ### 3.2 Ports & bindings
