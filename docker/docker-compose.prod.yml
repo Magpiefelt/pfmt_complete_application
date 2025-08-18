@@ -16,13 +16,13 @@ services:
       POSTGRES_EFFECTIVE_CACHE_SIZE: 512MB
     volumes:
       - pfmt_db_prod_data:/var/lib/postgresql/data
-      # Initialize with schema and seed data
-      - ../database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ../database/seeds/001_phase1_sample_data.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
-      - ../database/approval_audit_schema.sql:/docker-entrypoint-initdb.d/03_approval_audit_schema.sql:ro
-      - ../database/financial_management_schema.sql:/docker-entrypoint-initdb.d/04_financial_management_schema.sql:ro
-      - ../database/vendor_management_schema.sql:/docker-entrypoint-initdb.d/05_vendor_management_schema.sql:ro
-      - ../database/wizard_schema.sql:/docker-entrypoint-initdb.d/06_wizard_schema.sql:ro
+      # Base schema for initial database
+      - ../database/fresh_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      # Optional migrations applied on first boot
+      - ../database/migrations/001_add_lifecycle_status.sql:/docker-entrypoint-initdb.d/02_001_lifecycle.sql:ro
+      - ../database/migrations/002_complete_docker_fix.sql:/docker-entrypoint-initdb.d/03_002_docker_fix.sql:ro
+      # Seed data after schema and migrations
+      - ../database/seed.sql:/docker-entrypoint-initdb.d/99_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pfmt} -d ${POSTGRES_DB:-pfmt}"]
       interval: 30s

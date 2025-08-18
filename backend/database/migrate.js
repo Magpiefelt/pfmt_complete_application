@@ -14,8 +14,9 @@ const pool = new Pool({
 
 class DatabaseMigrator {
     constructor() {
-        this.migrationsPath = path.join(__dirname, 'migrations');
-        this.schemaPath = path.join(__dirname);
+        // Look for SQL under the repo-root /database folder
+        this.schemaPath = path.resolve(__dirname, '..', '..', 'database');
+        this.migrationsPath = path.join(this.schemaPath, 'migrations');
     }
 
     /**
@@ -109,9 +110,9 @@ class DatabaseMigrator {
             await this.initializeMigrationTable();
             
             // Check if main schema needs to be applied
-            const schemaFile = path.join(this.schemaPath, 'schema.sql');
+            const schemaFile = path.join(this.schemaPath, 'fresh_schema.sql');
             if (fs.existsSync(schemaFile)) {
-                await this.executeSqlFile(schemaFile, 'schema.sql');
+                await this.executeSqlFile(schemaFile, 'fresh_schema.sql');
             }
             
             // Check if gate meeting enhancements need to be applied

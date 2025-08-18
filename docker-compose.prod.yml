@@ -16,7 +16,13 @@ services:
     volumes:
       # Use named volume for production data persistence
       - postgres_prod_data:/var/lib/postgresql/data
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # Base schema (single source of truth)
+      - ./database/fresh_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # Optional: apply migrations on first boot
+      - ./database/migrations/001_add_lifecycle_status.sql:/docker-entrypoint-initdb.d/02-001_lifecycle.sql:ro
+      - ./database/migrations/002_complete_docker_fix.sql:/docker-entrypoint-initdb.d/03-002_docker_fix.sql:ro
+      # Seed data after schema and migrations
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/99-seed.sql:ro
     # Don't expose database port in production
     ports: []
     logging:

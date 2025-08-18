@@ -11,9 +11,15 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/schema_complete.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
-      # REMOVED: ./database/fix_uuid_schema.sql (file does not exist)
+      # Base schema (single source of truth)
+      - ./database/fresh_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+      # Optional: follow-on migrations (if you want them applied on first boot)
+      - ./database/migrations/001_add_lifecycle_status.sql:/docker-entrypoint-initdb.d/02-001_lifecycle.sql:ro
+      - ./database/migrations/002_complete_docker_fix.sql:/docker-entrypoint-initdb.d/03-002_docker_fix.sql:ro
+
+      # Seed after schema/migrations
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/99-seed.sql:ro
     ports:
       - "5432:5432"
     networks:
