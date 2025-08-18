@@ -146,29 +146,7 @@ export class ProjectWorkflowAPI extends BaseService {
       }
       
     } catch (error: any) {
-      console.error('❌ Team assignment failed:', error)
-      
-      let errorMessage = 'Failed to assign team'
-      let errorCode = 'ASSIGNMENT_FAILED'
-      
-      if (error.message) {
-        try {
-          const errorData = JSON.parse(error.message)
-          errorMessage = errorData.error?.message || errorData.message || error.message
-          errorCode = errorData.error?.code || errorCode
-        } catch {
-          errorMessage = error.message
-        }
-      }
-      
-      return {
-        success: false,
-        error: {
-          message: errorMessage,
-          code: errorCode,
-          details: error.stack
-        }
-      }
+      return this.handleApiError(error, 'Failed to assign team', 'ASSIGNMENT_FAILED')
     }
   }
 
@@ -190,29 +168,7 @@ export class ProjectWorkflowAPI extends BaseService {
       }
       
     } catch (error: any) {
-      console.error('❌ Project finalization failed:', error)
-      
-      let errorMessage = 'Failed to finalize project'
-      let errorCode = 'FINALIZATION_FAILED'
-      
-      if (error.message) {
-        try {
-          const errorData = JSON.parse(error.message)
-          errorMessage = errorData.error?.message || errorData.message || error.message
-          errorCode = errorData.error?.code || errorCode
-        } catch {
-          errorMessage = error.message
-        }
-      }
-      
-      return {
-        success: false,
-        error: {
-          message: errorMessage,
-          code: errorCode,
-          details: error.stack
-        }
-      }
+      return this.handleApiError(error, 'Failed to finalize project', 'FINALIZATION_FAILED')
     }
   }
 
