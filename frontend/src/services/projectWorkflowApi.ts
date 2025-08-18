@@ -4,7 +4,7 @@
  * Integrates with existing API service structure
  */
 
-import { api } from './api'
+import { BaseService } from './BaseService'
 
 // Type definitions for workflow API
 export interface InitiationPayload {
@@ -91,7 +91,7 @@ export interface ApiResponse<T> {
  * Project Workflow API Client
  * Provides methods for all workflow endpoints
  */
-export class ProjectWorkflowAPI {
+export class ProjectWorkflowAPI extends BaseService {
   
   /**
    * Initiate a new project (PMI/Admin role)
@@ -114,7 +114,7 @@ export class ProjectWorkflowAPI {
         geographic_region: payload.geographic_region
       }
       
-      const response = await api.post('/project-workflow/initiate', backendPayload)
+      const response = await this.post<any>('/project-workflow/initiate', backendPayload)
       
       console.log('✅ Project initiated successfully:', response)
       return {
@@ -124,7 +124,7 @@ export class ProjectWorkflowAPI {
       }
       
     } catch (error: any) {
-      return this.handleError(error, 'Failed to initiate project', 'INITIATION_FAILED')
+      return this.handleApiError(error, 'Failed to initiate project', 'INITIATION_FAILED')
     }
   }
 
@@ -136,7 +136,7 @@ export class ProjectWorkflowAPI {
     try {
       console.log('👥 Assigning team to project:', { projectId, payload })
       
-      const response = await api.post(`/project-workflow/${projectId}/assign`, payload)
+      const response = await this.post<any>(`/project-workflow/${projectId}/assign`, payload)
       
       console.log('✅ Team assigned successfully:', response)
       return {
@@ -180,7 +180,7 @@ export class ProjectWorkflowAPI {
     try {
       console.log('🏁 Finalizing project:', { projectId, payload })
       
-      const response = await api.post(`/project-workflow/${projectId}/finalize`, payload)
+      const response = await this.post<any>(`/project-workflow/${projectId}/finalize`, payload)
       
       console.log('✅ Project finalized successfully:', response)
       return {
@@ -224,7 +224,7 @@ export class ProjectWorkflowAPI {
     try {
       console.log('📊 Getting workflow status for project:', projectId)
       
-      const response = await api.get(`/project-workflow/${projectId}/status`)
+      const response = await this.get<any>(`/project-workflow/${projectId}/status`)
       
       console.log('✅ Workflow status retrieved:', response)
       return response.data || response
@@ -243,7 +243,7 @@ export class ProjectWorkflowAPI {
     try {
       console.log('📋 Getting full project details:', projectId)
       
-      const response = await api.get(`/projects/${projectId}`)
+      const response = await this.get<any>(`/projects/${projectId}`)
       
       console.log('✅ Project details retrieved:', response)
       return {
@@ -269,7 +269,7 @@ export class ProjectWorkflowAPI {
     try {
       console.log('👤 Getting available users for dual-wizard')
       
-      const response = await api.get('/project-workflow/users/available')
+      const response = await this.get<any>('/project-workflow/users/available')
       
       console.log('✅ Available users retrieved:', response)
       return response.users || response.data || []
@@ -280,7 +280,7 @@ export class ProjectWorkflowAPI {
       // Fallback to legacy endpoint
       try {
         const roleQuery = roles.join(',')
-        const fallbackResponse = await api.get(`/users?role=${roleQuery}&is_active=true`)
+        const fallbackResponse = await this.get<any>(`/users?role=${roleQuery}&is_active=true`)
         return fallbackResponse.data || []
       } catch (fallbackError) {
         console.error('❌ Fallback user fetch also failed:', fallbackError)
@@ -303,7 +303,7 @@ export class ProjectWorkflowAPI {
     try {
       console.log('🏢 Getting available vendors for dual-wizard')
       
-      const response = await api.get('/project-workflow/vendors/available')
+      const response = await this.get<any>('/project-workflow/vendors/available')
       
       console.log('✅ Available vendors retrieved:', response)
       return response.vendors || response.data || []
@@ -313,7 +313,7 @@ export class ProjectWorkflowAPI {
       
       // Fallback to legacy endpoint
       try {
-        const fallbackResponse = await api.get('/vendors?status=active')
+        const fallbackResponse = await this.get<any>('/vendors?status=active')
         return fallbackResponse.data || []
       } catch (fallbackError) {
         console.error('❌ Fallback vendor fetch also failed:', fallbackError)
@@ -330,7 +330,7 @@ export class ProjectWorkflowAPI {
     try {
       console.log('📋 Getting enhanced project details for dual-wizard:', projectId)
       
-      const response = await api.get(`/project-workflow/${projectId}/details`)
+      const response = await this.get<any>(`/project-workflow/${projectId}/details`)
       
       console.log('✅ Enhanced project details retrieved:', response)
       return {
@@ -418,7 +418,7 @@ export class ProjectWorkflowAPI {
   /**
    * Centralized error handling for workflow API
    */
-  private static handleError(error: any, defaultMessage: string, defaultCode: string): ApiResponse<any> {
+  private static handleApiError(error: any, defaultMessage: string, defaultCode: string): ApiResponse<any> {
     console.error('API error handling:', error)
     return {
       success: false,
