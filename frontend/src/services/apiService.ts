@@ -88,6 +88,7 @@ class ApiService {
         }),
         ...options.headers
       },
+      credentials: 'include',
       ...options
     }
 
