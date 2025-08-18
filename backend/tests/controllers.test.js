@@ -79,6 +79,8 @@ describe('Controller Integration Tests', () => {
             const testProject = response.body.find(p => p.id === testProjectId);
             expect(testProject).toBeDefined();
             expect(testProject.project_name).toBe('Test Project');
+            expect(Number(testProject.budget)).toBeCloseTo(50000.00);
+            expect(testProject.created_by).toBe(testUserId);
         });
 
         test('GET /api/projects/:id should return specific project', async () => {
