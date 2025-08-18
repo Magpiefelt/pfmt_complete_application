@@ -6,8 +6,8 @@
         Back to Projects
       </Button>
       <div>
-        <AlbertaText tag="h1" size="heading-xl" mb="xs">{{ project.name }}</AlbertaText>
-        <AlbertaText color="secondary" mb="xs">{{ project.contractor }} • {{ project.phase }}</AlbertaText>
+        <AlbertaText tag="h1" size="heading-xl" mb="xs">{{ normalizedProject.name }}</AlbertaText>
+        <AlbertaText color="secondary" mb="xs">{{ contractorPhaseDisplay }}</AlbertaText>
         
         <!-- Version Status Indicator -->
         <div class="flex items-center space-x-2 mt-1">
@@ -148,15 +148,16 @@ import {
   Trash2
 } from 'lucide-vue-next'
 import { AlbertaText } from '@/components/ui'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui"
 import { useStatusBadge } from '@/composables/useStatusBadge'
+import { normalizeProject } from '@/utils/fieldNormalization'
 
 interface Project {
   id: string
@@ -201,6 +202,25 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const { getVersionStatusClass } = useStatusBadge()
+
+// Normalize project data for consistent field access
+const normalizedProject = computed(() => normalizeProject(props.project))
+
+// Computed property for contractor and phase display with conditional separator
+const contractorPhaseDisplay = computed(() => {
+  const contractorValue = normalizedProject.value.contractor
+  const phaseValue = normalizedProject.value.phase
+  
+  if (contractorValue && phaseValue) {
+    return `${contractorValue} • ${phaseValue}`
+  } else if (contractorValue) {
+    return contractorValue
+  } else if (phaseValue) {
+    return phaseValue
+  } else {
+    return ''
+  }
+})
 
 const setViewMode = (mode: 'draft' | 'approved') => {
   emit('update:viewMode', mode)

@@ -119,9 +119,9 @@
 import { ref, computed, watch } from 'vue'
 import { Search, Filter, X, Save, RotateCcw } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui'
-import Input from '@/components/ui/Input.vue'
-import Label from '@/components/ui/Label.vue'
-import Select from '@/components/ui/Select.vue'
+import { Input } from "@/components/ui"
+import { Label } from "@/components/ui"
+import { Select } from "@/components/ui"
 
 interface Props {
   data?: any[]

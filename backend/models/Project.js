@@ -46,9 +46,70 @@ class Project {
         this.updatedAt = data.updatedAt;
     }
 
+    // Map a DB row (snake_case) to a Project instance (camelCase)
+    static fromDb(row = {}) {
+        if (!row) return null;
+        const mapped = {
+            id: row.id,
+            reportStatus: row.report_status,
+            projectStatus: row.project_status,
+            projectPhase: row.project_phase,
+            workflowStatus: row.workflow_status,
+            lifecycleStatus: row.lifecycle_status,
+            modifiedBy: row.modified_by,
+            modifiedDate: row.modified_date || row.updated_at,
+            reportingAsOfDate: row.reporting_as_of_date,
+            directorReviewDate: row.director_review_date,
+            pfmtDataDate: row.pfmt_data_date,
+            archivedDate: row.archived_date,
+            projectName: row.project_name,
+            capitalPlanLineId: row.capital_plan_line_id,
+            approvalYear: row.approval_year,
+            cpdNumber: row.cpd_number,
+            projectCategory: row.project_category,
+            fundedToComplete: row.funded_to_complete,
+            clientMinistryId: row.client_ministry_id,
+            schoolJurisdictionId: row.school_jurisdiction_id,
+            pfmtFileId: row.pfmt_file_id,
+            projectType: row.project_type,
+            deliveryType: row.delivery_type,
+            specificDeliveryType: row.specific_delivery_type,
+            deliveryMethod: row.delivery_method,
+            program: row.program,
+            geographicRegion: row.geographic_region,
+            projectDescription: row.project_description,
+            numberOfBeds: row.number_of_beds,
+            totalOpeningCapacity: row.total_opening_capacity,
+            capacityAtFullBuildOut: row.capacity_at_full_build_out,
+            isCharterSchool: row.is_charter_school,
+            gradesFrom: row.grades_from,
+            gradesTo: row.grades_to,
+            squareMeters: row.square_meters,
+            numberOfJobs: row.number_of_jobs,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        };
+        return new Project(mapped);
+    }
+
     // Get all projects with related data
     static async findAll(options = {}) {
-        const { limit = 50, offset = 0, status, phase, search } = options;
+        const { 
+            limit = 50, 
+            offset = 0, 
+            status, 
+            phase, 
+            search,
+            program,
+            region,
+            ownerId,
+            userId,
+            userRole,
+            reportStatus,
+            approvedOnly,
+            includePendingDrafts,
+            includeVersions
+        } = options;
         
         let whereClause = 'WHERE 1=1';
         const params = [];
@@ -72,6 +133,52 @@ class Project {
             params.push(`%${search}%`);
         }
 
+        if (program) {
+            paramCount++;
+            whereClause += ` AND p.program = $${paramCount}`;
+            params.push(program);
+        }
+
+        if (region) {
+            paramCount++;
+            whereClause += ` AND p.geographic_region = $${paramCount}`;
+            params.push(region);
+        }
+
+        if (reportStatus) {
+            paramCount++;
+            whereClause += ` AND p.report_status = $${paramCount}`;
+            params.push(reportStatus);
+        }
+
+        // Handle approvedOnly filter
+        if (approvedOnly === true) {
+            paramCount++;
+            whereClause += ` AND p.report_status = $${paramCount}`;
+            params.push('approved');
+        }
+
+        // Handle includePendingDrafts filter
+        if (includePendingDrafts === false) {
+            whereClause += ` AND p.report_status NOT IN ('draft', 'update_required')`;
+        }
+
+        // User-based filtering for "My Projects"
+        if (ownerId || userId) {
+            paramCount++;
+            // Filter by modified_by field only (UUID comparison)
+            // Note: There's no created_by column in the schema, only modified_by
+            whereClause += ` AND p.modified_by = $${paramCount}`;
+            params.push(ownerId || userId);
+        }
+
+        // Role-based filtering
+        if (userRole === 'Project Manager' && (ownerId || userId)) {
+            // Project Managers see only their projects (already handled above)
+        } else if (userRole === 'Director' || userRole === 'Senior Project Manager') {
+            // Directors and SPMs see all projects (no additional filtering)
+        }
+
         paramCount++;
         const limitClause = `LIMIT $${paramCount}`;
         params.push(limit);
@@ -83,6 +190,8 @@ class Project {
         const queryText = `
             SELECT 
                 p.*,
+                COALESCE(p.workflow_status, 'initiated') as workflow_status,
+                COALESCE(p.lifecycle_status, 'active') as lifecycle_status,
                 cpl.name as capital_plan_line_name,
                 cm.name as client_ministry_name,
                 sj.name as school_jurisdiction_name,
@@ -105,7 +214,7 @@ class Project {
         `;
 
         const result = await query(queryText, params);
-        return result.rows.map(row => new Project(row));
+        return result.rows.map(row => Project.fromDb(row));
     }
 
     // Get project by ID with all related data
@@ -113,6 +222,8 @@ class Project {
         const queryText = `
             SELECT 
                 p.*,
+                COALESCE(p.workflow_status, 'initiated') as workflow_status,
+                COALESCE(p.lifecycle_status, 'active') as lifecycle_status,
                 cpl.name as capital_plan_line_name,
                 cm.name as client_ministry_name,
                 sj.name as school_jurisdiction_name,
@@ -132,7 +243,7 @@ class Project {
             return null;
         }
 
-        return new Project(result.rows[0]);
+        return Project.fromDb(result.rows[0]);
     }
 
     // Get project with location and team data
@@ -145,7 +256,27 @@ class Project {
             'SELECT * FROM project_locations WHERE project_id = $1',
             [id]
         );
-        project.location = locationResult.rows[0] || null;
+        const loc = locationResult.rows[0];
+        project.location = loc
+            ? {
+                location: loc.location,
+                municipality: loc.municipality,
+                urbanRural: loc.urban_rural,
+                projectAddress: loc.project_address,
+                address: loc.project_address, // alias for UI
+                constituency: loc.constituency,
+                buildingName: loc.building_name,
+                buildingType: loc.building_type,
+                buildingId: loc.building_id,
+                buildingOwner: loc.building_owner,
+                mla: loc.mla,
+                plan: loc.plan,
+                block: loc.block,
+                lot: loc.lot,
+                latitude: loc.latitude,
+                longitude: loc.longitude
+            }
+            : null;
 
         // Get team data
         const teamResult = await query(`
@@ -168,7 +299,27 @@ class Project {
             LEFT JOIN users pia ON pt.program_integration_analyst_id = pia.id
             WHERE pt.project_id = $1
         `, [id]);
-        project.team = teamResult.rows[0] || null;
+        const team = teamResult.rows[0];
+        project.team = team
+            ? {
+                executiveDirectorId: team.executive_director_id,
+                executiveDirectorName: team.executive_director_name,
+                directorId: team.director_id,
+                directorName: team.director_name,
+                srProjectManagerId: team.sr_project_manager_id,
+                srProjectManagerName: team.sr_project_manager_name,
+                projectManagerId: team.project_manager_id,
+                projectManagerName: team.project_manager_name,
+                projectCoordinatorId: team.project_coordinator_id,
+                projectCoordinatorName: team.project_coordinator_name,
+                contractServicesAnalystId: team.contract_services_analyst_id,
+                contractServicesAnalystName: team.contract_services_analyst_name,
+                programIntegrationAnalystId: team.program_integration_analyst_id,
+                programIntegrationAnalystName: team.program_integration_analyst_name,
+                additionalMembers: team.additional_members,
+                historicalMembers: team.historical_members
+            }
+            : null;
 
         return project;
     }
@@ -261,7 +412,7 @@ class Project {
                 await client.query(teamQuery, teamValues);
             }
 
-            return new Project(savedProject);
+            return Project.fromDb(savedProject);
         });
     }
 
@@ -299,7 +450,7 @@ class Project {
         `;
 
         const result = await query(queryText, values);
-        return new Project(result.rows[0]);
+        return Project.fromDb(result.rows[0]);
     }
 
     // Delete project

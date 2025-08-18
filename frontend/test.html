@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PFMT Frontend Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .error {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8d7da;
+            color: #721c24;
+            border-radius: 4px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <h1>PFMT Frontend Test Page</h1>
+    <p>This is a simple HTML test page to verify basic functionality.</p>
+    
+    <div class="test-section">
+        <h2>API Connection Test</h2>
+        <button onclick="testAPI()">Test API Health</button>
+        <button onclick="testWizardAPI()">Test Wizard API</button>
+        <div id="apiResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Project Creation Test</h2>
+        <button onclick="testProjectCreation()">Create Test Project</button>
+        <div id="projectResult"></div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = '<p>Testing API...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3004/health', {
+                    headers: {
+                        'x-user-id': '550e8400-e29b-41d4-a716-446655440002',
+                        'x-user-name': 'Test User',
+                        'x-user-role': 'Project Manager'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="result">
+                        <h3>API Health Check Success:</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>API Error:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testWizardAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = '<p>Testing Wizard API...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3004/api/project-wizard/health', {
+                    headers: {
+                        'x-user-id': '550e8400-e29b-41d4-a716-446655440002',
+                        'x-user-name': 'Test User',
+                        'x-user-role': 'Project Manager'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="result">
+                        <h3>Wizard API Health Check Success:</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>Wizard API Error:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testProjectCreation() {
+            const resultDiv = document.getElementById('projectResult');
+            resultDiv.innerHTML = '<p>Creating test project...</p>';
+            
+            try {
+                const payload = {
+                    details: {
+                        name: `Frontend Test Project ${Date.now()}`,
+                        description: 'A test project created from the HTML test page',
+                        code: `HTML-TEST-${Date.now()}`
+                    },
+                    location: {
+                        municipality: 'Edmonton',
+                        addressLine1: '456 Test Avenue',
+                        province: 'Alberta',
+                        country: 'Canada'
+                    },
+                    vendors: [
+                        {
+                            name: 'HTML Test Vendor',
+                            contactName: 'Jane Smith',
+                            contactEmail: 'jane@htmltestvendor.com'
+                        }
+                    ],
+                    budget: {
+                        total: 75000,
+                        currency: 'CAD'
+                    }
+                };
+                
+                const response = await fetch('http://localhost:3004/api/project-wizard/complete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-id': '550e8400-e29b-41d4-a716-446655440002',
+                        'x-user-name': 'Test User',
+                        'x-user-role': 'Project Manager'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <div class="result">
+                        <h3>Project Created Successfully:</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>Project Creation Error:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
+

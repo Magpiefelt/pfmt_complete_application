@@ -37,16 +37,26 @@ export function useFormat() {
   /**
    * Format date with various options
    */
-  const formatDate = (date: string | Date, options?: Intl.DateTimeFormatOptions): string => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date
+  const formatDate = (date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string => {
+    if (!date) return ''
     
-    const defaultOptions: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    }
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date
+      
+      // Check if the date is valid
+      if (isNaN(dateObj.getTime())) return ''
+      
+      const defaultOptions: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }
 
-    return dateObj.toLocaleDateString('en-CA', { ...defaultOptions, ...options })
+      return dateObj.toLocaleDateString('en-CA', { ...defaultOptions, ...options })
+    } catch (error) {
+      console.warn('Error formatting date:', error)
+      return ''
+    }
   }
 
   /**

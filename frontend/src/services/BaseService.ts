@@ -5,7 +5,7 @@ import { ApiError } from './ApiError'
  * Provides authentication, error handling, and request utilities
  */
 export abstract class BaseService {
-  protected static readonly API_BASE = 'http://localhost:3002/api'
+  protected static readonly API_BASE = '/api'
 
   /**
    * Get authentication headers
@@ -43,7 +43,7 @@ export abstract class BaseService {
   }
 
   /**
-   * Make authenticated API request
+   * Make HTTP request
    */
   protected static async request<T>(
     endpoint: string,
@@ -52,7 +52,6 @@ export abstract class BaseService {
     const url = endpoint.startsWith('http') ? endpoint : `${this.API_BASE}${endpoint}`
     
     const config: RequestInit = {
-      headers: this.getAuthHeaders(),
       ...options,
       headers: {
         ...this.getAuthHeaders(),
@@ -72,20 +71,30 @@ export abstract class BaseService {
       // Handle API response format
       if (data.success === false) {
         throw new ApiError(
-          data.message || 'API request failed',
+          data.error?.message || data.message || 'API request failed',
           response.status,
           response.statusText,
           data
         )
       }
 
-      return data.data || data
+      // Return the data directly if it exists, otherwise return the whole response
+      return data.data !== undefined ? data.data : data
     } catch (error) {
       if (error instanceof ApiError) {
         throw error
       }
 
-      // Handle network errors
+      // Handle network errors and JSON parsing errors
+      if (error instanceof Error) {
+        throw new ApiError(
+          error.message,
+          0,
+          'Network Error',
+          { originalError: error }
+        )
+      }
+
       throw new ApiError(
         'Network error occurred',
         0,
@@ -194,6 +203,12 @@ export abstract class BaseService {
 
     // Handle unexpected errors
     console.error('Unexpected error:', error)
+    
+    // Check if it's a network error
+    if (error instanceof Error) {
+      throw new ApiError(error.message || 'Unknown error')
+    }
+    
     throw new ApiError('An unexpected error occurred')
   }
 }

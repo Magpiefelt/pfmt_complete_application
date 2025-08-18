@@ -125,10 +125,7 @@
       </CardHeader>
       <CardContent>
         <div v-if="loading" class="flex items-center justify-center py-8">
-          <LoadingSpinner class="w-6 h-6" />
-          <AlbertaText variant="body-m" color="secondary" class="ml-3">
-            Loading budget categories...
-          </AlbertaText>
+          <LoadingSpinner size="md" message="Loading budget categories..." />
         </div>
 
         <div v-else-if="categories.length === 0" class="text-center py-8">

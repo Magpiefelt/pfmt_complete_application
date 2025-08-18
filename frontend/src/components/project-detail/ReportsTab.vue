@@ -337,11 +337,11 @@ import {
   Eye,
   Trash2
 } from 'lucide-vue-next'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Input } from '@/components/ui'
+import { Textarea } from "@/components/ui"
+import { Badge } from '@/components/ui'
 import {
   Dialog,
   DialogContent,
@@ -349,21 +349,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui"
 import {
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+} from '@/components/ui'
 import { useFormat } from '@/composables/useFormat'
 
 interface Document {

@@ -20,6 +20,9 @@ export interface WorkflowMetrics {
   taskCompletionRate: number
 }
 
+// Re-export types from composable
+export type { Task, Approval, Notification }
+
 export class WorkflowService extends BaseService {
   /**
    * Get tasks with optional filtering
@@ -248,7 +251,7 @@ export class WorkflowService extends BaseService {
       method: 'POST',
       body: JSON.stringify({ filters, format }),
       headers: {
-        ...this.getHeaders(),
+        ...this.getAuthHeaders(),
         'Accept': 'application/octet-stream'
       }
     })

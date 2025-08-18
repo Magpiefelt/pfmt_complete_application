@@ -339,11 +339,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { Save, DollarSign, TrendingUp, TrendingDown, Calculator } from 'lucide-vue-next'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Input } from '@/components/ui'
+import { Label } from '@/components/ui'
+import { Textarea } from "@/components/ui"
 import { useFormat } from '@/composables/useFormat'
 
 interface BudgetData {

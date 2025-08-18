@@ -14,7 +14,7 @@ class ApprovalController {
 
       // Verify budget exists and user has permission
       const budgetQuery = `
-        SELECT pb.*, p.name as project_name 
+        SELECT pb.*, p.project_name as project_name 
         FROM project_budgets pb
         JOIN projects p ON pb.project_id = p.id
         WHERE pb.id = $1
@@ -130,7 +130,7 @@ class ApprovalController {
 
       // Get approval details
       const approvalQuery = `
-        SELECT ba.*, pb.project_id, pb.total_budget, p.name as project_name
+        SELECT ba.*, pb.project_id, pb.total_budget, p.project_name as project_name
         FROM budget_approvals ba
         JOIN project_budgets pb ON ba.budget_id = pb.id
         JOIN projects p ON pb.project_id = p.id
@@ -264,8 +264,8 @@ class ApprovalController {
           pb.total_budget,
           pb.fiscal_year,
           p.id as project_id,
-          p.name as project_name,
-          u.name as requested_by_name,
+          p.project_name as project_name,
+          (u.first_name || ' ' || u.last_name) as requested_by_name,
           EXTRACT(DAYS FROM (NOW() - ba.requested_at)) as days_pending
         FROM budget_approvals ba
         JOIN project_budgets pb ON ba.budget_id = pb.id
@@ -360,9 +360,9 @@ class ApprovalController {
           pb.total_budget,
           pb.fiscal_year,
           p.id as project_id,
-          p.name as project_name,
-          u1.name as requested_by_name,
-          u2.name as approver_name,
+          p.project_name as project_name,
+          (u1.first_name || ' ' || u1.last_name) as requested_by_name,
+          (u2.first_name || ' ' || u2.last_name) as approver_name,
           EXTRACT(DAYS FROM (COALESCE(ba.responded_at, NOW()) - ba.requested_at)) as processing_days
         FROM budget_approvals ba
         JOIN project_budgets pb ON ba.budget_id = pb.id
@@ -468,9 +468,9 @@ class ApprovalController {
       const auditQuery = `
         SELECT 
           bat.*,
-          u.name as performed_by_name,
+          (u.first_name || ' ' || u.last_name) as performed_by_name,
           pb.project_id,
-          p.name as project_name
+          p.project_name as project_name
         FROM budget_audit_trail bat
         JOIN users u ON bat.performed_by = u.id
         LEFT JOIN project_budgets pb ON bat.budget_id = pb.id

@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
 export interface GateMeeting {
   id: string
@@ -34,6 +35,9 @@ export function useGateMeetings() {
   const meetings: Ref<GateMeeting[]> = ref([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  
+  // Get auth store for role-based access control
+  const authStore = useAuthStore()
 
   // Role mapping for filtering
   const roleMap: Record<string, string> = {
@@ -43,6 +47,42 @@ export function useGateMeetings() {
     'Admin': 'admin',
     'Vendor': 'vendor'
   }
+  
+  // Role-based access control computed properties
+  const canCreateMeeting = computed(() => {
+    const user = authStore.currentUser
+    return user && ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+  })
+  
+  const canEditMeeting = computed(() => {
+    const user = authStore.currentUser
+    return user && ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+  })
+  
+  const canDeleteMeeting = computed(() => {
+    const user = authStore.currentUser
+    return user && ['Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+  })
+  
+  const canRescheduleMeeting = computed(() => {
+    const user = authStore.currentUser
+    return user && ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+  })
+  
+  const canCancelMeeting = computed(() => {
+    const user = authStore.currentUser
+    return user && ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+  })
+  
+  const canCompleteMeeting = computed(() => {
+    const user = authStore.currentUser
+    return user && ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+  })
+  
+  const canViewAllMeetings = computed(() => {
+    const user = authStore.currentUser
+    return user && ['Director', 'Admin'].includes(user.role)
+  })
 
   /**
    * Fetch upcoming gate meetings with role-based filtering
@@ -253,6 +293,154 @@ export function useGateMeetings() {
     }
   }
 
+  /**
+   * Reschedule a gate meeting
+   */
+  const rescheduleMeeting = async (id: string, newDate: string): Promise<boolean> => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await fetch(`/api/gate-meetings/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          planned_date: newDate,
+          status: 'scheduled' // Ensure status is set to scheduled when rescheduling
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Refresh meetings list
+        await fetchUpcomingMeetings()
+        return true
+      } else {
+        error.value = data.message || 'Failed to reschedule meeting'
+        return false
+      }
+    } catch (err) {
+      error.value = 'Error rescheduling meeting'
+      console.error('Error rescheduling meeting:', err)
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * Cancel a gate meeting
+   */
+  const cancelMeeting = async (id: string, reason?: string): Promise<boolean> => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await fetch(`/api/gate-meetings/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: 'cancelled',
+          notes: reason ? `Cancelled: ${reason}` : 'Meeting cancelled'
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Refresh meetings list
+        await fetchUpcomingMeetings()
+        return true
+      } else {
+        error.value = data.message || 'Failed to cancel meeting'
+        return false
+      }
+    } catch (err) {
+      error.value = 'Error cancelling meeting'
+      console.error('Error cancelling meeting:', err)
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * Complete a gate meeting
+   */
+  const completeMeeting = async (id: string, completionData: {
+    actual_date?: string
+    decision?: string
+    notes?: string
+    attendees?: Array<{ name: string; email: string }>
+  }): Promise<boolean> => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await fetch(`/api/gate-meetings/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: 'completed',
+          actual_date: completionData.actual_date || new Date().toISOString(),
+          decision: completionData.decision,
+          notes: completionData.notes,
+          attendees: completionData.attendees
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Refresh meetings list
+        await fetchUpcomingMeetings()
+        return true
+      } else {
+        error.value = data.message || 'Failed to complete meeting'
+        return false
+      }
+    } catch (err) {
+      error.value = 'Error completing meeting'
+      console.error('Error completing meeting:', err)
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * Fetch project-specific gate meetings
+   */
+  const fetchProjectMeetings = async (projectId: string): Promise<GateMeeting[]> => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await fetch(`/api/gate-meetings?project_id=${projectId}`)
+      const data = await response.json()
+
+      if (data.success) {
+        return data.data
+      } else {
+        error.value = data.message || 'Failed to fetch project meetings'
+        return []
+      }
+    } catch (err) {
+      error.value = 'Error loading project meetings'
+      console.error('Error loading project meetings:', err)
+      return []
+    } finally {
+      loading.value = false
+    }
+  }
+
   // Computed properties
   const upcomingMeetings = computed(() => 
     meetings.value.filter(meeting => meeting.status === 'scheduled')
@@ -276,7 +464,16 @@ export function useGateMeetings() {
     loading,
     error,
 
-    // Computed
+    // Computed - Role-based permissions
+    canCreateMeeting,
+    canEditMeeting,
+    canDeleteMeeting,
+    canRescheduleMeeting,
+    canCancelMeeting,
+    canCompleteMeeting,
+    canViewAllMeetings,
+
+    // Computed - Meeting filters
     upcomingMeetings,
     overdueMeetings,
     todayMeetings,
@@ -284,9 +481,13 @@ export function useGateMeetings() {
 
     // Methods
     fetchUpcomingMeetings,
+    fetchProjectMeetings,
     createMeeting,
     updateMeeting,
     deleteMeeting,
+    rescheduleMeeting,
+    cancelMeeting,
+    completeMeeting,
     formatMeetingDate,
     getMeetingStatus,
     getMeetingStatusClass

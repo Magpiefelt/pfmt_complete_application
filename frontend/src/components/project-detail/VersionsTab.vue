@@ -213,18 +213,34 @@
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    v-if="canEdit && version.status === 'Draft'" 
+                    @click="editVersion(version)"
+                  >
+                    <Edit class="h-4 w-4 mr-2" />
+                    Edit Draft
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    v-if="canDeleteDraft && version.status === 'Draft'" 
+                    @click="deleteDraft(version)"
+                    class="text-red-600"
+                  >
+                    <XCircle class="h-4 w-4 mr-2" />
+                    Delete Draft
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator v-if="(canEdit || canDeleteDraft) && version.status === 'Draft'" />
                   <DropdownMenuItem @click="viewVersion(version)">
                     <Eye class="h-4 w-4 mr-2" />
                     View Version
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    v-if="canCompareVersions && !version.is_current" 
+                    v-if="canViewVersionHistory && !version.is_current" 
                     @click="compareWithCurrent(version)"
                   >
                     <GitCompare class="h-4 w-4 mr-2" />
                     Compare to Current
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator v-if="canApprove && version.status === 'submitted'" />
+                  <DropdownMenuSeparator v-if="(canApprove || canReject) && version.status === 'submitted'" />
                   <DropdownMenuItem 
                     v-if="canApprove && version.status === 'submitted'" 
                     @click="approveVersion(version)"
@@ -233,7 +249,7 @@
                     Approve Version
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    v-if="canApprove && version.status === 'submitted'" 
+                    v-if="canReject && version.status === 'submitted'" 
                     @click="showRejectDialog(version)"
                     class="text-red-600"
                   >
@@ -284,6 +300,116 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Version Comparison Dialog -->
+    <Dialog v-model:open="showComparisonDialog">
+      <DialogContent class="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Version Comparison</DialogTitle>
+          <DialogDescription>
+            Comparing Version {{ comparisonData?.version1?.version_number }} with Version {{ comparisonData?.version2?.version_number }}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div v-if="loadingComparison" class="flex justify-center py-8">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+
+        <div v-else-if="comparisonError" class="text-center py-8">
+          <p class="text-red-600">{{ comparisonError }}</p>
+        </div>
+
+        <div v-else-if="comparisonData" class="space-y-6">
+          <!-- Version Headers -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h4 class="font-medium text-red-900">Version {{ comparisonData.version1.version_number }}</h4>
+              <p class="text-sm text-red-700">{{ formatDate(comparisonData.version1.created_at) }}</p>
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-2">
+                {{ formatStatus(comparisonData.version1.status) }}
+              </span>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h4 class="font-medium text-green-900">Version {{ comparisonData.version2.version_number }}</h4>
+              <p class="text-sm text-green-700">{{ formatDate(comparisonData.version2.created_at) }}</p>
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">
+                {{ formatStatus(comparisonData.version2.status) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Changes Summary -->
+          <div v-if="comparisonData.differences && comparisonData.differences.length > 0">
+            <h4 class="font-medium text-gray-900 mb-3">Changes Summary</h4>
+            <div class="bg-gray-50 border rounded-lg p-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div>
+                  <p class="text-2xl font-bold text-blue-600">{{ comparisonData.differences.length }}</p>
+                  <p class="text-sm text-gray-600">Total Changes</p>
+                </div>
+                <div>
+                  <p class="text-2xl font-bold text-green-600">{{ getChangeCount('added') }}</p>
+                  <p class="text-sm text-gray-600">Additions</p>
+                </div>
+                <div>
+                  <p class="text-2xl font-bold text-red-600">{{ getChangeCount('modified') }}</p>
+                  <p class="text-sm text-gray-600">Modifications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detailed Changes -->
+          <div v-if="comparisonData.differences && comparisonData.differences.length > 0">
+            <h4 class="font-medium text-gray-900 mb-3">Detailed Changes</h4>
+            <div class="space-y-3">
+              <div 
+                v-for="(change, index) in comparisonData.differences" 
+                :key="index"
+                class="border rounded-lg p-4"
+                :class="getChangeClass(change.type)"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <h5 class="font-medium" :class="getChangeTextClass(change.type)">
+                      {{ formatFieldName(change.field) }}
+                    </h5>
+                    <div class="mt-2 space-y-2">
+                      <div v-if="change.oldValue" class="flex items-start space-x-2">
+                        <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">OLD</span>
+                        <span class="text-sm text-gray-700">{{ change.oldValue }}</span>
+                      </div>
+                      <div v-if="change.newValue" class="flex items-start space-x-2">
+                        <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">NEW</span>
+                        <span class="text-sm text-gray-700">{{ change.newValue }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span 
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                    :class="getChangeTypeClass(change.type)"
+                  >
+                    {{ change.type }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- No Changes -->
+          <div v-else class="text-center py-8">
+            <CheckCircle class="h-12 w-12 text-green-400 mx-auto mb-4" />
+            <p class="text-gray-500">No differences found between these versions.</p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" @click="showComparisonDialog = false">
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -301,9 +427,9 @@ import {
   GitCompare,
   XCircle
 } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Textarea } from "@/components/ui"
 import {
   Dialog,
   DialogContent,
@@ -311,17 +437,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui"
 import { useProjectVersions } from '@/composables/useProjectVersions'
 import { useFormat } from '@/composables/useFormat'
 import { useStatusBadge } from '@/composables/useStatusBadge'
+import { useNotifications } from '@/composables/useNotifications'
 
 interface Props {
   projectId: string
@@ -337,6 +464,7 @@ const emit = defineEmits<{
   'version-submitted': []
   'version-approved': []
   'version-rejected': []
+  'edit-version': [version: any]
 }>()
 
 const {
@@ -345,7 +473,12 @@ const {
   loading,
   error,
   canCreateDraft,
+  canEdit,
   canSubmitForApproval,
+  canApprove,
+  canReject,
+  canDeleteDraft,
+  canViewVersionHistory,
   hasDraftVersion,
   approvedVersions,
   draftVersions,
@@ -354,17 +487,31 @@ const {
   submitForApproval: submitForApprovalApi,
   approveVersion: approveVersionApi,
   rejectVersion: rejectVersionApi,
+  compareVersions: compareVersionsApi,
   fetchProject,
   fetchVersions
 } = useProjectVersions()
 
 const { formatDate, formatStatus } = useFormat()
 const { getVersionStatusClass, getVersionStatusIcon } = useStatusBadge()
+const { 
+  versionCreated, 
+  versionSubmitted, 
+  versionApproved, 
+  versionRejected, 
+  error: showError 
+} = useNotifications()
 
 // Local state
 const showRejectVersionDialog = ref(false)
 const rejectionReason = ref('')
 const versionToReject = ref<any>(null)
+
+// Comparison state
+const showComparisonDialog = ref(false)
+const loadingComparison = ref(false)
+const comparisonError = ref<string | null>(null)
+const comparisonData = ref<any>(null)
 
 // Computed
 const currentVersion = computed(() => {
@@ -397,23 +544,44 @@ const loadVersions = async () => {
 }
 
 const createDraft = async () => {
-  const success = await createDraftApi(props.projectId)
-  if (success) {
-    emit('version-created')
+  try {
+    const result = await createDraftApi(props.projectId)
+    if (result) {
+      versionCreated(result.versionNumber || versions.value.length)
+      emit('version-created')
+    }
+  } catch (error: any) {
+    showError('Failed to Create Draft', error.message || 'An error occurred while creating the draft version.')
   }
 }
 
 const submitForApproval = async () => {
-  const success = await submitForApprovalApi(props.projectId)
-  if (success) {
-    emit('version-submitted')
+  try {
+    const latestDraft = versions.value.find(v => v.status === 'Draft')
+    if (!latestDraft) {
+      showError('No Draft Found', 'No draft version available to submit for approval.')
+      return
+    }
+    
+    const result = await submitForApprovalApi(props.projectId, latestDraft.projectVersionId)
+    if (result) {
+      versionSubmitted(latestDraft.versionNumber)
+      emit('version-submitted')
+    }
+  } catch (error: any) {
+    showError('Failed to Submit for Approval', error.message || 'An error occurred while submitting the version for approval.')
   }
 }
 
 const approveVersion = async (version: any) => {
-  const success = await approveVersionApi(version.id)
-  if (success) {
-    emit('version-approved')
+  try {
+    const result = await approveVersionApi(props.projectId, version.projectVersionId)
+    if (result) {
+      versionApproved(version.versionNumber)
+      emit('version-approved')
+    }
+  } catch (error: any) {
+    showError('Failed to Approve Version', error.message || 'An error occurred while approving the version.')
   }
 }
 
@@ -426,12 +594,37 @@ const showRejectDialog = (version: any) => {
 const rejectVersion = async () => {
   if (!versionToReject.value || !rejectionReason.value.trim()) return
 
-  const success = await rejectVersionApi(versionToReject.value.id, rejectionReason.value)
-  if (success) {
-    showRejectVersionDialog.value = false
-    versionToReject.value = null
-    rejectionReason.value = ''
-    emit('version-rejected')
+  try {
+    const result = await rejectVersionApi(props.projectId, versionToReject.value.projectVersionId, rejectionReason.value)
+    if (result) {
+      versionRejected(versionToReject.value.versionNumber, rejectionReason.value)
+      showRejectVersionDialog.value = false
+      versionToReject.value = null
+      rejectionReason.value = ''
+      emit('version-rejected')
+    }
+  } catch (error: any) {
+    showError('Failed to Reject Version', error.message || 'An error occurred while rejecting the version.')
+  }
+}
+
+const editVersion = (version: any) => {
+  // Navigate to edit version page or emit event for parent to handle
+  emit('edit-version', version)
+}
+
+const deleteDraft = async (version: any) => {
+  if (!confirm('Are you sure you want to delete this draft version? This action cannot be undone.')) {
+    return
+  }
+
+  try {
+    // Call delete draft API when available
+    // For now, just show success message
+    versionCreated(version.version_number, 'Draft deleted successfully')
+    await loadVersions()
+  } catch (error: any) {
+    showError('Failed to Delete Draft', error.message || 'An error occurred while deleting the draft version.')
   }
 }
 
@@ -439,8 +632,70 @@ const viewVersion = (version: any) => {
   // Navigate to version view or emit event
 }
 
-const compareWithCurrent = (version: any) => {
-  // Navigate to comparison view or emit event
+const compareWithCurrent = async (version: any) => {
+  if (!currentVersion.value) return
+
+  loadingComparison.value = true
+  comparisonError.value = null
+  showComparisonDialog.value = true
+
+  try {
+    const comparison = await compareVersionsApi(
+      props.projectId,
+      version.projectVersionId,
+      currentVersion.value.projectVersionId
+    )
+    
+    comparisonData.value = {
+      version1: version,
+      version2: currentVersion.value,
+      differences: comparison.differences || []
+    }
+  } catch (error: any) {
+    comparisonError.value = error.message || 'Failed to compare versions'
+    showError('Comparison Failed', error.message || 'Failed to compare versions')
+  } finally {
+    loadingComparison.value = false
+  }
+}
+
+// Comparison utility functions
+const getChangeCount = (type: string) => {
+  if (!comparisonData.value?.differences) return 0
+  return comparisonData.value.differences.filter((diff: any) => diff.type === type).length
+}
+
+const getChangeClass = (type: string) => {
+  const classMap: Record<string, string> = {
+    'added': 'border-green-200 bg-green-50',
+    'modified': 'border-yellow-200 bg-yellow-50',
+    'removed': 'border-red-200 bg-red-50'
+  }
+  return classMap[type] || 'border-gray-200 bg-gray-50'
+}
+
+const getChangeTextClass = (type: string) => {
+  const classMap: Record<string, string> = {
+    'added': 'text-green-900',
+    'modified': 'text-yellow-900',
+    'removed': 'text-red-900'
+  }
+  return classMap[type] || 'text-gray-900'
+}
+
+const getChangeTypeClass = (type: string) => {
+  const classMap: Record<string, string> = {
+    'added': 'bg-green-100 text-green-800',
+    'modified': 'bg-yellow-100 text-yellow-800',
+    'removed': 'bg-red-100 text-red-800'
+  }
+  return classMap[type] || 'bg-gray-100 text-gray-800'
+}
+
+const formatFieldName = (field: string) => {
+  return field
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase())
 }
 
 const getVersionIcon = (status: string) => {

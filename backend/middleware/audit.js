@@ -1,7 +1,47 @@
 const { query } = require('../config/database');
 
-// Audit logging middleware
-const auditLog = (action, tableName) => {
+// Enhanced audit logging middleware for workflow actions
+const auditLog = (action, entity = 'unknown') => {
+    return async (req, res, next) => {
+        // Store original response methods
+        const originalSend = res.send;
+        const originalJson = res.json;
+
+        // Capture request details
+        const auditData = {
+            user_id: req.user?.id,
+            entity,
+            entity_id: req.params.id || null,
+            action,
+            details: {
+                method: req.method,
+                path: req.path,
+                body: sanitizeBody(req.body),
+                query: req.query,
+                params: req.params,
+                timestamp: new Date().toISOString()
+            },
+            ip_address: getClientIP(req),
+            user_agent: req.get('User-Agent')
+        };
+
+        // Override response methods to capture success/failure
+        res.send = function(data) {
+            logWorkflowAuditEntry(auditData, res.statusCode, data);
+            originalSend.call(this, data);
+        };
+
+        res.json = function(data) {
+            logWorkflowAuditEntry(auditData, res.statusCode, data);
+            originalJson.call(this, data);
+        };
+
+        next();
+    };
+};
+
+// Legacy audit logging middleware (preserved for backward compatibility)
+const legacyAuditLog = (action, tableName) => {
     return async (req, res, next) => {
         // Store original res.json to intercept response
         const originalJson = res.json;
@@ -177,13 +217,177 @@ const getAuditStatistics = async (days = 30) => {
     }
 };
 
+// Enhanced workflow audit logging function
+const logWorkflowAuditEntry = async (auditData, statusCode, responseData) => {
+    try {
+        // Only log successful operations and errors (skip redirects, etc.)
+        if (statusCode >= 200 && statusCode < 300) {
+            auditData.details.status = 'success';
+            auditData.details.status_code = statusCode;
+            
+            // Extract relevant response data (avoid logging sensitive info)
+            if (responseData && typeof responseData === 'object') {
+                auditData.details.response_summary = extractResponseSummary(responseData);
+            }
+        } else if (statusCode >= 400) {
+            auditData.details.status = 'error';
+            auditData.details.status_code = statusCode;
+            auditData.details.error = sanitizeError(responseData);
+        } else {
+            return; // Skip other status codes (redirects, etc.)
+        }
+
+        // Insert audit log entry into new audit_log table
+        await query(
+            `INSERT INTO audit_log (user_id, entity, entity_id, action, details, ip_address, user_agent)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+                auditData.user_id,
+                auditData.entity,
+                auditData.entity_id,
+                auditData.action,
+                JSON.stringify(auditData.details),
+                auditData.ip_address,
+                auditData.user_agent
+            ]
+        );
+
+    } catch (error) {
+        console.error('Workflow audit logging failed:', error);
+        // Don't fail the request if audit logging fails
+    }
+};
+
+// Helper functions for audit logging
+const sanitizeBody = (body) => {
+    if (!body || typeof body !== 'object') {
+        return body;
+    }
+
+    const sanitized = { ...body };
+    
+    // Remove sensitive fields
+    const sensitiveFields = ['password', 'token', 'secret', 'key', 'auth'];
+    sensitiveFields.forEach(field => {
+        if (sanitized[field]) {
+            sanitized[field] = '[REDACTED]';
+        }
+    });
+
+    return sanitized;
+};
+
+const extractResponseSummary = (responseData) => {
+    if (!responseData || typeof responseData !== 'object') {
+        return null;
+    }
+
+    const summary = {};
+    
+    // Extract key fields that are useful for audit
+    if (responseData.success !== undefined) {
+        summary.success = responseData.success;
+    }
+    
+    if (responseData.message) {
+        summary.message = responseData.message;
+    }
+    
+    if (responseData.project && responseData.project.id) {
+        summary.project_id = responseData.project.id;
+        summary.project_status = responseData.project.workflow_status || responseData.project.status;
+    }
+    
+    if (responseData.count !== undefined) {
+        summary.count = responseData.count;
+    }
+
+    return Object.keys(summary).length > 0 ? summary : null;
+};
+
+const sanitizeError = (errorData) => {
+    if (!errorData) {
+        return null;
+    }
+
+    if (typeof errorData === 'string') {
+        return { message: errorData };
+    }
+
+    if (typeof errorData === 'object' && errorData.error) {
+        return {
+            message: errorData.error.message,
+            code: errorData.error.code
+        };
+    }
+
+    return { message: 'Unknown error' };
+};
+
+const getClientIP = (req) => {
+    return req.ip || 
+           req.connection.remoteAddress || 
+           req.socket.remoteAddress ||
+           (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+           '127.0.0.1';
+};
+
+// Create audit log entry directly (for use outside middleware)
+const createWorkflowAuditLog = async ({ userId, entity, entityId, action, details, ipAddress, userAgent }) => {
+    try {
+        await query(
+            `INSERT INTO audit_log (user_id, entity, entity_id, action, details, ip_address, user_agent)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+                userId,
+                entity,
+                entityId,
+                action,
+                JSON.stringify(details),
+                ipAddress,
+                userAgent
+            ]
+        );
+    } catch (error) {
+        console.error('Direct workflow audit logging failed:', error);
+    }
+};
+
+// Get workflow audit logs for a specific entity
+const getWorkflowAuditLogs = async (entity, entityId, options = {}) => {
+    try {
+        const { limit = 50, offset = 0 } = options;
+        
+        const result = await query(
+            `SELECT al.*, u.first_name, u.last_name, u.email
+             FROM audit_log al
+             LEFT JOIN users u ON al.user_id = u.id
+             WHERE al.entity = $1 AND al.entity_id = $2
+             ORDER BY al.created_at DESC
+             LIMIT $3 OFFSET $4`,
+            [entity, entityId, limit, offset]
+        );
+
+        return result.rows;
+    } catch (error) {
+        console.error('Error fetching workflow audit logs:', error);
+        return [];
+    }
+};
+
 module.exports = {
     auditLog,
+    legacyAuditLog,
     captureOriginalData,
     logAuditEntry,
+    logWorkflowAuditEntry,
+    createWorkflowAuditLog,
     getAuditLogs,
+    getWorkflowAuditLogs,
     getUserAuditLogs,
     getRecentActivity,
-    getAuditStatistics
+    getAuditStatistics,
+    sanitizeBody,
+    extractResponseSummary
 };
 

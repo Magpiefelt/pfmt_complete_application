@@ -9,7 +9,7 @@
         <CardContent>
           <div class="flex items-center space-x-2">
             <component :is="statusIcon" class="h-5 w-5" :class="statusIconClass" />
-            <span class="text-lg font-semibold">{{ formatStatus(project.status) }}</span>
+            <span class="text-lg font-semibold">{{ formatStatus(normalizedProject?.status || 'Unknown') }}</span>
           </div>
         </CardContent>
       </Card>
@@ -19,7 +19,7 @@
           <CardTitle class="text-sm font-medium text-muted-foreground">Total Budget</CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ formatCurrency(project.total_approved_funding || 0) }}</div>
+          <div class="text-2xl font-bold">{{ formatCurrency(normalizedProject?.totalBudget || 0) }}</div>
           <p class="text-xs text-muted-foreground">Approved funding</p>
         </CardContent>
       </Card>
@@ -29,7 +29,7 @@
           <CardTitle class="text-sm font-medium text-muted-foreground">Amount Spent</CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ formatCurrency(project.amount_spent || 0) }}</div>
+          <div class="text-2xl font-bold">{{ formatCurrency(normalizedProject?.amountSpent || 0) }}</div>
           <div class="flex items-center space-x-1 mt-1">
             <div class="w-full bg-gray-200 rounded-full h-2">
               <div 
@@ -47,7 +47,7 @@
           <CardTitle class="text-sm font-medium text-muted-foreground">Project Phase</CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="text-lg font-semibold">{{ formatProjectPhase(project.project_phase) }}</div>
+          <div class="text-lg font-semibold">{{ formatProjectPhase(normalizedProject?.phase || 'Unknown') }}</div>
           <p class="text-xs text-muted-foreground">Current phase</p>
         </CardContent>
       </Card>
@@ -163,9 +163,10 @@ import {
   Clock,
   AlertTriangle
 } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 import { useFormat } from '@/composables/useFormat'
 import { useStatusBadge } from '@/composables/useStatusBadge'
+import { normalizeProject } from '@/utils/fieldNormalization'
 
 interface Project {
   id: string
@@ -205,13 +206,17 @@ const props = withDefaults(defineProps<Props>(), {
 const { formatCurrency, formatDate, formatRelativeTime, formatStatus, formatProjectPhase } = useFormat()
 const { getProjectStatusIcon } = useStatusBadge()
 
+// Normalize project data for consistent field access
+const normalizedProject = computed(() => props.project ? normalizeProject(props.project) : null)
+
 const spentPercentage = computed(() => {
-  if (!props.project.total_approved_funding || !props.project.amount_spent) return 0
-  return Math.round((props.project.amount_spent / props.project.total_approved_funding) * 100)
+  if (!normalizedProject.value?.totalBudget || !normalizedProject.value?.amountSpent) return 0
+  return Math.round((normalizedProject.value.amountSpent / normalizedProject.value.totalBudget) * 100)
 })
 
 const statusIcon = computed(() => {
-  return getProjectStatusIcon(props.project.status)
+  if (!normalizedProject.value?.status) return CheckCircle
+  return getProjectStatusIcon(normalizedProject.value.status)
 })
 
 const statusIconClass = computed(() => {
@@ -225,7 +230,8 @@ const statusIconClass = computed(() => {
     'cancelled': 'text-red-600',
     'completed': 'text-gray-600'
   }
-  return statusClasses[props.project.status.toLowerCase()] || 'text-gray-600'
+  if (!normalizedProject.value?.status) return 'text-gray-600'
+  return statusClasses[normalizedProject.value.status.toLowerCase()] || 'text-gray-600'
 })
 
 const getActivityIcon = (type: string) => {

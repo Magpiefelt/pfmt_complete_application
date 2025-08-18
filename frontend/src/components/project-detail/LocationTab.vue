@@ -163,6 +163,138 @@
       </CardContent>
     </Card>
 
+    <!-- Geographical Classification -->
+    <Card>
+      <CardHeader>
+        <CardTitle>Geographical Classification</CardTitle>
+        <CardDescription>
+          Geographic and administrative classification details.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <Label for="urban-rural">Urban/Rural Classification</Label>
+            <Select v-model="formData.urban_rural" :disabled="!canEdit">
+              <SelectTrigger class="mt-1">
+                <SelectValue placeholder="Select classification" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="urban">Urban</SelectItem>
+                <SelectItem value="rural">Rural</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label for="mla">Member of Legislative Assembly (MLA)</Label>
+            <Input
+              id="mla"
+              v-model="formData.mla"
+              :disabled="!canEdit"
+              placeholder="Enter MLA name or constituency"
+              class="mt-1"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <Label for="location">Location Description</Label>
+            <Input
+              id="location"
+              v-model="formData.location"
+              :disabled="!canEdit"
+              placeholder="General location description"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="project-address">Project Address</Label>
+            <Textarea
+              id="project-address"
+              v-model="formData.project_address"
+              :disabled="!canEdit"
+              placeholder="Detailed project address (if different from street address)"
+              rows="2"
+              class="mt-1"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- Legal Land Description -->
+    <Card>
+      <CardHeader>
+        <CardTitle>Legal Land Description</CardTitle>
+        <CardDescription>
+          Legal land description and ownership information.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <Label for="plan">Plan</Label>
+            <Input
+              id="plan"
+              v-model="formData.plan"
+              :disabled="!canEdit"
+              placeholder="Enter plan number"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="block">Block</Label>
+            <Input
+              id="block"
+              v-model="formData.block"
+              :disabled="!canEdit"
+              placeholder="Enter block number"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="lot">Lot</Label>
+            <Input
+              id="lot"
+              v-model="formData.lot"
+              :disabled="!canEdit"
+              placeholder="Enter lot number"
+              class="mt-1"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <Label for="building-id">Building ID</Label>
+            <Input
+              id="building-id"
+              v-model="formData.building_id"
+              :disabled="!canEdit"
+              placeholder="Enter building identifier"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label for="building-owner">Building Owner</Label>
+            <Input
+              id="building-owner"
+              v-model="formData.building_owner"
+              :disabled="!canEdit"
+              placeholder="Enter building owner name"
+              class="mt-1"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
     <!-- Coordinates -->
     <Card>
       <CardHeader>
@@ -200,108 +332,39 @@
           </div>
         </div>
 
-        <div class="flex items-center space-x-2">
+        <!-- Map Preview -->
+        <div v-if="hasValidCoordinates" class="mt-4">
+          <Label>Location Preview</Label>
+          <div class="mt-2 h-64 bg-gray-100 rounded-lg flex items-center justify-center border">
+            <div class="text-center text-gray-500">
+              <MapPin class="h-8 w-8 mx-auto mb-2" />
+              <p class="text-sm">Map preview would appear here</p>
+              <p class="text-xs">Lat: {{ formData.latitude }}, Lng: {{ formData.longitude }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coordinate Actions -->
+        <div class="flex items-center space-x-2 mt-4">
           <Button 
-            v-if="canEdit" 
             variant="outline" 
             size="sm" 
             @click="getCurrentLocation"
-            :disabled="gettingLocation"
+            :disabled="!canEdit || gettingLocation"
           >
             <MapPin class="h-4 w-4 mr-2" />
             {{ gettingLocation ? 'Getting Location...' : 'Use Current Location' }}
           </Button>
           
           <Button 
-            v-if="hasCoordinates" 
             variant="outline" 
             size="sm" 
-            @click="openInMaps"
+            @click="clearCoordinates"
+            :disabled="!canEdit || !hasValidCoordinates"
           >
-            <ExternalLink class="h-4 w-4 mr-2" />
-            View on Maps
+            <X class="h-4 w-4 mr-2" />
+            Clear Coordinates
           </Button>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Map Preview -->
-    <Card v-if="hasCoordinates">
-      <CardHeader>
-        <CardTitle>Location Preview</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div class="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-          <div class="text-center">
-            <MapPin class="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p class="text-sm text-gray-500">Map preview would appear here</p>
-            <p class="text-xs text-gray-400">
-              {{ formData.latitude }}, {{ formData.longitude }}
-            </p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <!-- Site Details -->
-    <Card>
-      <CardHeader>
-        <CardTitle>Site Information</CardTitle>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <div>
-          <Label for="site-description">Site Description</Label>
-          <Textarea
-            id="site-description"
-            v-model="formData.site_description"
-            :disabled="!canEdit"
-            placeholder="Describe the site conditions, surroundings, and any relevant details..."
-            rows="3"
-            class="mt-1"
-          />
-        </div>
-
-        <div>
-          <Label for="access-notes">Access & Transportation</Label>
-          <Textarea
-            id="access-notes"
-            v-model="formData.access_notes"
-            :disabled="!canEdit"
-            placeholder="Describe site access, transportation links, and logistics..."
-            rows="3"
-            class="mt-1"
-          />
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label for="zoning">Zoning Classification</Label>
-            <Input
-              id="zoning"
-              v-model="formData.zoning"
-              :disabled="!canEdit"
-              placeholder="e.g., C-1, R-2, I-1"
-              class="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label for="land-use">Land Use Designation</Label>
-            <Select v-model="formData.land_use" :disabled="!canEdit">
-              <SelectTrigger class="mt-1">
-                <SelectValue placeholder="Select land use" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="commercial">Commercial</SelectItem>
-                <SelectItem value="residential">Residential</SelectItem>
-                <SelectItem value="industrial">Industrial</SelectItem>
-                <SelectItem value="institutional">Institutional</SelectItem>
-                <SelectItem value="mixed">Mixed Use</SelectItem>
-                <SelectItem value="agricultural">Agricultural</SelectItem>
-                <SelectItem value="recreational">Recreational</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </CardContent>
     </Card>
@@ -313,7 +376,7 @@
       </Button>
       <Button @click="saveChanges" :disabled="!hasChanges">
         <Save class="h-4 w-4 mr-2" />
-        Save Location
+        Save Changes
       </Button>
     </div>
   </div>
@@ -321,22 +384,23 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { Save, MapPin, ExternalLink } from 'lucide-vue-next'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Save, MapPin, X } from 'lucide-vue-next'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Input } from '@/components/ui'
+import { Label } from '@/components/ui'
+import { Textarea } from "@/components/ui"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { useFormat } from '@/composables/useFormat'
+} from '@/components/ui'
 
-interface LocationData {
+interface ProjectLocation {
+  id?: string
+  project_id?: string
   address?: string
   municipality?: string
   constituency?: string
@@ -349,15 +413,23 @@ interface LocationData {
   parking_spaces?: number
   latitude?: number
   longitude?: number
-  site_description?: string
-  access_notes?: string
-  zoning?: string
-  land_use?: string
+  
+  // New fields
+  location?: string
+  urban_rural?: string
+  project_address?: string
+  mla?: string
+  plan?: string
+  block?: string
+  lot?: string
+  building_id?: string
+  building_owner?: string
+  
   [key: string]: any
 }
 
 interface Props {
-  project: LocationData
+  location?: ProjectLocation
   viewMode: 'draft' | 'approved'
   canEdit: boolean
 }
@@ -365,15 +437,13 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  'update:project': [project: LocationData]
-  'save-changes': [changes: Partial<LocationData>]
+  'update:location': [location: ProjectLocation]
+  'save-changes': [changes: Partial<ProjectLocation>]
 }>()
 
-const { formatPostalCode: formatPostalCodeUtil } = useFormat()
-
 // Form data
-const formData = ref<LocationData>({ ...props.project })
-const originalData = ref<LocationData>({ ...props.project })
+const formData = ref<ProjectLocation>({ ...props.location || {} })
+const originalData = ref<ProjectLocation>({ ...props.location || {} })
 const gettingLocation = ref(false)
 
 // Computed
@@ -381,8 +451,9 @@ const hasChanges = computed(() => {
   return JSON.stringify(formData.value) !== JSON.stringify(originalData.value)
 })
 
-const hasCoordinates = computed(() => {
-  return formData.value.latitude && formData.value.longitude
+const hasValidCoordinates = computed(() => {
+  return formData.value.latitude && formData.value.longitude &&
+         !isNaN(Number(formData.value.latitude)) && !isNaN(Number(formData.value.longitude))
 })
 
 // Methods
@@ -391,7 +462,7 @@ const resetForm = () => {
 }
 
 const saveChanges = () => {
-  const changes: Partial<LocationData> = {}
+  const changes: Partial<ProjectLocation> = {}
   
   // Only include changed fields
   Object.keys(formData.value).forEach(key => {
@@ -406,9 +477,13 @@ const saveChanges = () => {
 
 const formatPostalCode = (event: Event) => {
   const target = event.target as HTMLInputElement
-  const formatted = formatPostalCodeUtil(target.value)
-  formData.value.postal_code = formatted
-  target.value = formatted
+  let value = target.value.replace(/\s/g, '').toUpperCase()
+  
+  if (value.length > 3) {
+    value = value.slice(0, 3) + ' ' + value.slice(3, 6)
+  }
+  
+  formData.value.postal_code = value
 }
 
 const getCurrentLocation = () => {
@@ -418,16 +493,16 @@ const getCurrentLocation = () => {
   }
 
   gettingLocation.value = true
-
+  
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      formData.value.latitude = position.coords.latitude
-      formData.value.longitude = position.coords.longitude
+      formData.value.latitude = Number(position.coords.latitude.toFixed(8))
+      formData.value.longitude = Number(position.coords.longitude.toFixed(8))
       gettingLocation.value = false
     },
     (error) => {
       console.error('Error getting location:', error)
-      alert('Unable to get current location. Please enter coordinates manually.')
+      alert('Unable to get current location. Please check your browser permissions.')
       gettingLocation.value = false
     },
     {
@@ -438,27 +513,25 @@ const getCurrentLocation = () => {
   )
 }
 
-const openInMaps = () => {
-  if (hasCoordinates.value) {
-    const url = `https://www.google.com/maps?q=${formData.value.latitude},${formData.value.longitude}`
-    window.open(url, '_blank')
-  }
+const clearCoordinates = () => {
+  formData.value.latitude = undefined
+  formData.value.longitude = undefined
 }
 
-// Watch for external project changes
-watch(() => props.project, (newProject) => {
-  formData.value = { ...newProject }
-  originalData.value = { ...newProject }
+// Watch for external location changes
+watch(() => props.location, (newLocation) => {
+  formData.value = { ...newLocation }
+  originalData.value = { ...newLocation }
 }, { deep: true })
 
 // Watch for form changes and emit updates
 watch(formData, (newData) => {
-  emit('update:project', { ...newData })
+  emit('update:location', { ...newData })
 }, { deep: true })
 
 onMounted(() => {
-  formData.value = { ...props.project }
-  originalData.value = { ...props.project }
+  formData.value = { ...props.location }
+  originalData.value = { ...props.location }
 })
 </script>
 

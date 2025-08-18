@@ -1,0 +1,123 @@
+services:
+  # PostgreSQL Database with automatic pfmt_user creation
+  pfmt_db_dev:
+    image: postgres:16
+    container_name: pfmt_db_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pfmt_integrated}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init-user.sql:/docker-entrypoint-initdb.d/01-init-user.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - pfmt-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-pfmt_integrated}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Backend API Service
+  pfmt_backend_dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pfmt_backend_dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DB_HOST: pfmt_db_dev
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-pfmt_integrated}
+      DB_USER: ${DB_USER:-pfmt_user}
+      DB_PASSWORD: ${DB_PASSWORD:-pfmt_password}
+      JWT_SECRET: ${JWT_SECRET:-pfmt_integrated_jwt_secret_key_2025}
+      SESSION_SECRET: ${SESSION_SECRET:-pfmt_integrated_session_secret_2025}
+      BYPASS_AUTH: ${BYPASS_AUTH:-true}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://pfmt_frontend_dev:5173}
+      PORT: 3002
+      UPLOAD_DIR: /app/uploads
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-10485760}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-10}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - uploads_data:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-3002}:3002"
+    depends_on:
+      pfmt_db_dev:
+        condition: service_healthy
+    networks:
+      - pfmt-network
+    command: ["npm", "run", "dev"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend Web Application
+  pfmt_frontend_dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pfmt_frontend_dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3002}
+      VITE_APP_TITLE: ${VITE_APP_TITLE:-PFMT Integrated}
+      VITE_APP_VERSION: ${VITE_APP_VERSION:-1.0.0}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      pfmt_backend_dev:
+        condition: service_healthy
+    networks:
+      - pfmt-network
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+
+  # pgAdmin for Database Management
+  pfmt_pgadmin_dev:
+    image: dpage/pgadmin4:latest
+    container_name: pfmt_pgadmin_dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@pfmt.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "${PGADMIN_PORT:-8080}:80"
+    depends_on:
+      pfmt_db_dev:
+        condition: service_healthy
+    networks:
+      - pfmt-network
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  pfmt-network:
+    driver: bridge
+

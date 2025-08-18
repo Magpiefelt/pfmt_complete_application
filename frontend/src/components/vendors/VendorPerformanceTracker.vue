@@ -398,8 +398,8 @@
                     <td class="px-4 py-2 text-sm text-gray-900">${{ formatCurrency(project.current_value) }}</td>
                     <td class="px-4 py-2 text-sm">
                       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                            :class="getContractStatusClass(project.status)">
-                        {{ project.status }}
+                            :class="getContractStatusClass(project.workflow_status)">
+                        {{ project.workflow_status }}
                       </span>
                     </td>
                   </tr>
@@ -441,10 +441,10 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlbertaText } from '@/components/ui/alberta-text'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui"
+import { AlbertaText } from "@/components/ui"
 import { 
   Download, 
   Plus, 

@@ -1,0 +1,545 @@
+<template>
+  <div class="space-y-6">
+    <!-- Header with Actions -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-semibold">Project Vendors</h3>
+        <p class="text-sm text-gray-600">Manage vendors and contractors assigned to this project</p>
+      </div>
+      <Button 
+        v-if="canEdit" 
+        @click="showVendorSelectionModal = true"
+        class="flex items-center space-x-2"
+      >
+        <Plus class="h-4 w-4" />
+        <span>Add Vendor</span>
+      </Button>
+    </div>
+
+    <!-- Vendor Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <Card>
+        <CardContent class="p-4">
+          <div class="flex items-center space-x-2">
+            <Users class="h-5 w-5 text-blue-600" />
+            <div>
+              <p class="text-sm font-medium">Total Vendors</p>
+              <p class="text-2xl font-bold">{{ vendors.length }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent class="p-4">
+          <div class="flex items-center space-x-2">
+            <CheckCircle class="h-5 w-5 text-green-600" />
+            <div>
+              <p class="text-sm font-medium">Active</p>
+              <p class="text-2xl font-bold">{{ activeVendors.length }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent class="p-4">
+          <div class="flex items-center space-x-2">
+            <Clock class="h-5 w-5 text-orange-600" />
+            <div>
+              <p class="text-sm font-medium">Pending</p>
+              <p class="text-2xl font-bold">{{ pendingVendors.length }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent class="p-4">
+          <div class="flex items-center space-x-2">
+            <DollarSign class="h-5 w-5 text-purple-600" />
+            <div>
+              <p class="text-sm font-medium">Total Value</p>
+              <p class="text-2xl font-bold">{{ formatCurrency(totalContractValue) }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="flex justify-center py-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="text-center py-8">
+      <p class="text-red-600">{{ error }}</p>
+      <Button variant="outline" @click="loadVendors" class="mt-2">
+        Try Again
+      </Button>
+    </div>
+
+    <!-- Vendors List -->
+    <Card v-else>
+      <CardHeader>
+        <CardTitle>Assigned Vendors</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div v-if="vendors.length === 0" class="text-center py-8">
+          <Users class="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p class="text-gray-500">No vendors assigned to this project yet.</p>
+          <Button 
+            v-if="canEdit" 
+            variant="outline" 
+            @click="showVendorSelectionModal = true"
+            class="mt-4"
+          >
+            Add First Vendor
+          </Button>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div 
+            v-for="vendor in vendors" 
+            :key="vendor.assignment_id"
+            class="flex items-start space-x-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <!-- Vendor Avatar -->
+            <div class="flex-shrink-0">
+              <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Building class="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+
+            <!-- Vendor Details -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <h4 class="text-lg font-medium text-gray-900">{{ vendor.company_name }}</h4>
+                <span 
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  :class="getVendorStatusClass(vendor.status)"
+                >
+                  {{ formatStatus(vendor.status) }}
+                </span>
+              </div>
+              
+              <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                <span v-if="vendor.contact_email" class="flex items-center">
+                  <Mail class="h-4 w-4 mr-1" />
+                  {{ vendor.contact_email }}
+                </span>
+                <span v-if="vendor.contact_phone" class="flex items-center">
+                  <Phone class="h-4 w-4 mr-1" />
+                  {{ vendor.contact_phone }}
+                </span>
+                <span v-if="vendor.certification_level" class="flex items-center">
+                  <Award class="h-4 w-4 mr-1" />
+                  {{ vendor.certification_level }}
+                </span>
+              </div>
+
+              <div class="mt-2 flex items-center space-x-6 text-sm">
+                <div>
+                  <span class="text-gray-500">Role:</span>
+                  <span class="ml-1 font-medium">{{ vendor.role }}</span>
+                </div>
+                <div v-if="vendor.contract_value">
+                  <span class="text-gray-500">Contract Value:</span>
+                  <span class="ml-1 font-medium">{{ formatCurrency(vendor.contract_value) }}</span>
+                </div>
+                <div v-if="vendor.start_date">
+                  <span class="text-gray-500">Start Date:</span>
+                  <span class="ml-1 font-medium">{{ formatDate(vendor.start_date) }}</span>
+                </div>
+                <div v-if="vendor.performance_rating">
+                  <span class="text-gray-500">Rating:</span>
+                  <span class="ml-1 font-medium">{{ vendor.performance_rating }}/5.0</span>
+                </div>
+              </div>
+
+              <p v-if="vendor.description" class="mt-2 text-sm text-gray-700">
+                {{ truncateText(vendor.description, 150) }}
+              </p>
+
+              <div v-if="vendor.capabilities" class="mt-2">
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    v-for="capability in getCapabilities(vendor.capabilities)"
+                    :key="capability"
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                  >
+                    {{ capability }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex-shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal class="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @click="viewVendor(vendor)">
+                    <Eye class="h-4 w-4 mr-2" />
+                    View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    v-if="canEdit" 
+                    @click="editVendorAssignment(vendor)"
+                  >
+                    <Edit class="h-4 w-4 mr-2" />
+                    Edit Assignment
+                  </DropdownMenuItem>
+                  <DropdownMenuItem @click="contactVendor(vendor)">
+                    <Mail class="h-4 w-4 mr-2" />
+                    Send Email
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    v-if="canEdit" 
+                    @click="removeVendor(vendor)"
+                    class="text-red-600"
+                  >
+                    <UserMinus class="h-4 w-4 mr-2" />
+                    Remove Vendor
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- Vendor Selection Modal -->
+    <VendorSelectionModal
+      v-model:open="showVendorSelectionModal"
+      :project-id="projectId"
+      @vendor-assigned="handleVendorAssigned"
+    />
+
+    <!-- Edit Assignment Modal -->
+    <Dialog v-model:open="showEditAssignmentModal">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Vendor Assignment</DialogTitle>
+          <DialogDescription>
+            Update assignment details for {{ editingVendor?.company_name }}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <form @submit.prevent="updateVendorAssignment" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Role/Specialization</label>
+            <Select v-model="editAssignmentData.role" required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="General Contractor">General Contractor</SelectItem>
+                <SelectItem value="Architect">Architect</SelectItem>
+                <SelectItem value="Engineer">Engineer</SelectItem>
+                <SelectItem value="Electrical Contractor">Electrical Contractor</SelectItem>
+                <SelectItem value="Plumbing Contractor">Plumbing Contractor</SelectItem>
+                <SelectItem value="HVAC Contractor">HVAC Contractor</SelectItem>
+                <SelectItem value="Consultant">Consultant</SelectItem>
+                <SelectItem value="Supplier">Supplier</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Contract Value</label>
+              <Input 
+                v-model="editAssignmentData.contract_value" 
+                type="number"
+                min="0"
+                step="1000"
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <Select v-model="editAssignmentData.status">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <Input 
+                v-model="editAssignmentData.start_date" 
+                type="date"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <Input 
+                v-model="editAssignmentData.end_date" 
+                type="date"
+              />
+            </div>
+          </div>
+        </form>
+
+        <DialogFooter>
+          <Button variant="outline" @click="showEditAssignmentModal = false">
+            Cancel
+          </Button>
+          <Button @click="updateVendorAssignment" :disabled="updating">
+            {{ updating ? 'Updating...' : 'Update Assignment' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { 
+  Plus, 
+  Users, 
+  CheckCircle, 
+  Clock, 
+  DollarSign,
+  Building,
+  Mail,
+  Phone,
+  Award,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  UserMinus
+} from 'lucide-vue-next'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useFormat } from '@/composables/useFormat'
+import { useStatusBadge } from '@/composables/useStatusBadge'
+import { apiService } from '@/services/apiService'
+import VendorSelectionModal from '@/components/vendors/VendorSelectionModal.vue'
+
+interface ProjectVendor {
+  assignment_id: string
+  role: string
+  contract_value?: number
+  start_date?: string
+  end_date?: string
+  status: 'active' | 'pending' | 'inactive'
+  vendor_id: string
+  company_name: string
+  contact_email?: string
+  contact_phone?: string
+  description?: string
+  capabilities?: string
+  certification_level?: string
+  performance_rating?: number
+}
+
+interface Props {
+  projectId: string
+  canEdit: boolean
+  userRole: string
+}
+
+const props = defineProps<Props>()
+const router = useRouter()
+
+const emit = defineEmits<{
+  'vendor-added': [vendor: ProjectVendor]
+  'vendor-updated': [vendor: ProjectVendor]
+  'vendor-removed': [vendorId: string]
+}>()
+
+const { formatCurrency, formatDate, truncateText, formatStatus } = useFormat()
+const { getWorkflowStatusClass } = useStatusBadge()
+
+// Local state
+const vendors = ref<ProjectVendor[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
+const updating = ref(false)
+const showVendorSelectionModal = ref(false)
+const showEditAssignmentModal = ref(false)
+const editingVendor = ref<ProjectVendor | null>(null)
+const editAssignmentData = ref({
+  role: '',
+  contract_value: 0,
+  status: 'active',
+  start_date: '',
+  end_date: ''
+})
+
+// Computed properties
+const activeVendors = computed(() => 
+  vendors.value.filter(v => v.status === 'active')
+)
+
+const pendingVendors = computed(() => 
+  vendors.value.filter(v => v.status === 'pending')
+)
+
+const totalContractValue = computed(() => 
+  vendors.value.reduce((sum, vendor) => sum + (vendor.contract_value || 0), 0)
+)
+
+// Methods
+const loadVendors = async () => {
+  try {
+    loading.value = true
+    error.value = null
+
+    const response = await apiService.get(`/projects/${props.projectId}/vendors`)
+    
+    if (response.success) {
+      vendors.value = response.data || []
+    } else {
+      throw new Error(response.error?.message || 'Failed to load vendors')
+    }
+  } catch (err) {
+    console.error('Error loading vendors:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to load vendors'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleVendorAssigned = (vendor: any, assignmentData: any) => {
+  // Refresh the vendor list to show the newly assigned vendor
+  loadVendors()
+  emit('vendor-added', { ...vendor, ...assignmentData })
+}
+
+const viewVendor = (vendor: ProjectVendor) => {
+  // Navigate to vendor profile page
+  router.push(`/vendors/${vendor.vendor_id}`)
+}
+
+const editVendorAssignment = (vendor: ProjectVendor) => {
+  editingVendor.value = vendor
+  editAssignmentData.value = {
+    role: vendor.role,
+    contract_value: vendor.contract_value || 0,
+    status: vendor.status,
+    start_date: vendor.start_date || '',
+    end_date: vendor.end_date || ''
+  }
+  showEditAssignmentModal.value = true
+}
+
+const updateVendorAssignment = async () => {
+  if (!editingVendor.value) return
+
+  try {
+    updating.value = true
+
+    const response = await apiService.put(
+      `/projects/${props.projectId}/vendors/${editingVendor.value.vendor_id}`,
+      editAssignmentData.value
+    )
+
+    if (response.success) {
+      showEditAssignmentModal.value = false
+      loadVendors() // Refresh the list
+      emit('vendor-updated', response.data.assignment)
+    } else {
+      throw new Error(response.error?.message || 'Failed to update vendor assignment')
+    }
+  } catch (err) {
+    console.error('Error updating vendor assignment:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to update vendor assignment'
+  } finally {
+    updating.value = false
+  }
+}
+
+const contactVendor = (vendor: ProjectVendor) => {
+  if (vendor.contact_email) {
+    window.location.href = `mailto:${vendor.contact_email}?subject=Regarding ${vendor.company_name} - Project Assignment`
+  }
+}
+
+const removeVendor = async (vendor: ProjectVendor) => {
+  if (!confirm(`Are you sure you want to remove ${vendor.company_name} from this project?`)) {
+    return
+  }
+
+  try {
+    const response = await apiService.delete(`/projects/${props.projectId}/vendors/${vendor.vendor_id}`)
+    
+    if (response.success) {
+      loadVendors() // Refresh the list
+      emit('vendor-removed', vendor.vendor_id)
+    } else {
+      throw new Error(response.error?.message || 'Failed to remove vendor')
+    }
+  } catch (err) {
+    console.error('Error removing vendor:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to remove vendor'
+  }
+}
+
+const getVendorStatusClass = (status: string) => {
+  switch (status) {
+    case 'active':
+      return 'bg-green-100 text-green-800'
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'inactive':
+      return 'bg-gray-100 text-gray-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
+
+const getCapabilities = (capabilities: string): string[] => {
+  if (!capabilities) return []
+  return capabilities.split(',').map(cap => cap.trim()).filter(Boolean)
+}
+
+// Lifecycle
+onMounted(() => {
+  loadVendors()
+})
+</script>
+

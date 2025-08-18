@@ -23,6 +23,14 @@ export default defineConfig({
     cors: true,
     hmr: {
       host: 'localhost'
-    }
+    },
+    // Proxy API calls to backend service - Fixed for local development
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3002', // Fixed: Use localhost and correct port 3002
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   }
 })

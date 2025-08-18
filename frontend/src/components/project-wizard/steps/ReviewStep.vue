@@ -167,9 +167,7 @@
             </div>
             <div class="text-center p-4 bg-green-50 rounded-lg">
               <AlbertaText variant="body-xs" color="secondary" class="uppercase tracking-wide">
-                Initial
-
-
+                Initial Budget
               </AlbertaText>
               <AlbertaText variant="heading-s" color="primary" class="font-bold">
                 ${{ formatCurrency(wizardData.budgetInfo.initialBudget) }}
@@ -313,6 +311,28 @@
               </AlbertaText>
             </div>
 
+            <!-- Error Message -->
+            <div v-if="errorMessage" class="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <AlbertaText variant="body-s" color="primary" class="text-red-700">
+                  {{ errorMessage }}
+                </AlbertaText>
+              </div>
+            </div>
+
+            <!-- Success Message -->
+            <div v-if="successMessage" class="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div class="flex items-center">
+                <CheckCircle class="w-5 h-5 text-green-600 mr-2" />
+                <AlbertaText variant="body-s" color="primary" class="text-green-700">
+                  {{ successMessage }}
+                </AlbertaText>
+              </div>
+            </div>
+
             <!-- Create Project Button -->
             <Button 
               size="lg" 
@@ -373,6 +393,8 @@ const { completeWizard, getAvailableTeamMembers } = useProjectWizard()
 const isCreating = ref(false)
 const termsAccepted = ref(false)
 const availableTeamMembers = ref([])
+const errorMessage = ref('')
+const successMessage = ref('')
 
 // Computed
 const selectedProjectManager = computed(() => {
@@ -415,13 +437,48 @@ const getMemberName = (userId: string) => {
 const createProject = async () => {
   if (!canCreate.value) return
 
+  // Clear previous messages
+  errorMessage.value = ''
+  successMessage.value = ''
+
   try {
     isCreating.value = true
+    
+    console.log('Starting project creation...')
+    
     const project = await completeWizard()
-    emit('projectCreated', project)
+    
+    console.log('Project created successfully:', project)
+    
+    // Show success message briefly
+    successMessage.value = 'Project created successfully! Redirecting...'
+    
+    // Emit the project created event after a short delay to show success message
+    setTimeout(() => {
+      emit('projectCreated', project)
+    }, 1000)
+    
   } catch (error) {
     console.error('Error creating project:', error)
-    alert('Failed to create project. Please try again.')
+    
+    // Provide specific error messages based on error type
+    if (error instanceof Error) {
+      if (error.message.includes('session not found') || error.message.includes('session expired')) {
+        errorMessage.value = 'Your session has expired. Please start the wizard again.'
+      } else if (error.message.includes('Authentication')) {
+        errorMessage.value = 'Authentication error. Please refresh the page and try again.'
+      } else if (error.message.includes('validation')) {
+        errorMessage.value = 'Please check all required fields and try again.'
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage.value = 'Network error. Please check your connection and try again.'
+      } else if (error.message.includes('Missing data')) {
+        errorMessage.value = 'Some required information is missing. Please review all steps.'
+      } else {
+        errorMessage.value = error.message || 'Failed to create project. Please try again.'
+      }
+    } else {
+      errorMessage.value = 'An unexpected error occurred. Please try again.'
+    }
   } finally {
     isCreating.value = false
   }

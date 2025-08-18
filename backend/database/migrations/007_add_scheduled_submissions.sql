@@ -9,14 +9,11 @@ ADD COLUMN IF NOT EXISTS auto_submission_enabled BOOLEAN DEFAULT true;
 -- Create scheduled_submissions table to track auto-submission attempts
 CREATE TABLE IF NOT EXISTS scheduled_submissions (
     id SERIAL PRIMARY KEY,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     version_id INTEGER NOT NULL REFERENCES project_versions(id) ON DELETE CASCADE,
     status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'error', 'skipped')),
     error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Indexes for performance
-    CONSTRAINT unique_monthly_submission UNIQUE (project_id, version_id, DATE_TRUNC('month', created_at))
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for scheduled_submissions
@@ -36,12 +33,12 @@ ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP WITH TIME ZONE;
 -- Create approval_workflows table if it doesn't exist
 CREATE TABLE IF NOT EXISTS approval_workflows (
     id SERIAL PRIMARY KEY,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     version_id INTEGER NOT NULL REFERENCES project_versions(id) ON DELETE CASCADE,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     submitted_by VARCHAR(100) NOT NULL,
     submitted_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    reviewed_by INTEGER REFERENCES users(id),
+    reviewed_by UUID REFERENCES users(id),
     reviewed_at TIMESTAMP WITH TIME ZONE,
     review_comments TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -57,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_approval_workflows_submitted_at ON approval_workf
 -- Create notifications table if it doesn't exist
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type VARCHAR(50) NOT NULL,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
@@ -82,14 +79,6 @@ COMMENT ON TABLE scheduled_submissions IS 'Tracks automatic submission attempts 
 COMMENT ON TABLE approval_workflows IS 'Manages the approval workflow for project versions';
 COMMENT ON TABLE notifications IS 'Stores user notifications for various system events';
 
--- Insert initial configuration data
-INSERT INTO system_config (key, value, description, created_at, updated_at) 
-VALUES 
-    ('auto_submission_enabled', 'true', 'Global toggle for automatic submission feature', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('auto_submission_cron', '0 9 1 * *', 'Cron expression for auto-submission schedule (9 AM on 1st of each month)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('auto_submission_min_age_days', '7', 'Minimum age in days for a version to be eligible for auto-submission', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (key) DO NOTHING;
-
 -- Create system_config table if it doesn't exist
 CREATE TABLE IF NOT EXISTS system_config (
     id SERIAL PRIMARY KEY,
@@ -100,7 +89,7 @@ CREATE TABLE IF NOT EXISTS system_config (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Re-insert configuration after creating table
+-- Insert initial configuration data
 INSERT INTO system_config (key, value, description, created_at, updated_at) 
 VALUES 
     ('auto_submission_enabled', 'true', 'Global toggle for automatic submission feature', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),

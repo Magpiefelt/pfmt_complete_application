@@ -257,10 +257,10 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlbertaText } from '@/components/ui/alberta-text'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Button } from '@/components/ui'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui"
+import { AlbertaText } from "@/components/ui"
 import { 
   Plus, 
   Download, 

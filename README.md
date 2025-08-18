@@ -1,307 +1,277 @@
-# PFMT Enhanced - Complete Integrated Application
+# PFMT Enhanced Application
 
-## 🎯 Complete Repository Replacement Package
+**Professional Financial Management Tool - Enhanced Edition with Dual-Wizard System**
 
-This package contains the **complete integrated PFMT Enhanced application** that combines:
-- **PFMT Enhanced** (Vue.js frontend with Alberta Government design)
-- **AIM-PFMT** (Node.js/PostgreSQL backend)
-- **New Vendor Management System**
-- **New Workflow Management System**
+A comprehensive project management application with dual-wizard workflow system, role-based access control, and advanced project lifecycle management.
 
-**This package is designed to completely replace your existing PFMT repository.**
+## 🚀 Features
 
-## 📦 What's Included
+### Core Functionality
+- **Dual-Wizard System**: Role-based wizard steps for different user types
+- **Project Lifecycle Management**: Comprehensive project status tracking with dual status system
+- **Role-Based Access Control**: 8 canonical roles with hierarchical permissions
+- **Advanced Workflow Management**: Sophisticated project workflow with status transitions
+- **Data Persistence**: Robust data storage with PostgreSQL backend
+- **Real-time Updates**: Live project status updates and notifications
 
-### ✅ Complete Application Structure
-```
-pfmt_complete_application/
-├── backend/                     # Complete Node.js/Express backend
-│   ├── node_modules/           # All backend dependencies (included)
-│   ├── config/                 # Database and app configuration
-│   ├── controllers/            # API controllers
-│   ├── middleware/             # Authentication and audit middleware
-│   ├── models/                 # Database models (PostgreSQL)
-│   ├── routes/                 # Complete API routes
-│   ├── utils/                  # Utility functions
-│   ├── package.json            # Backend dependencies
-│   ├── server.js               # Main server file
-│   └── .env                    # Environment configuration
-├── frontend/                   # Complete Vue.js frontend
-│   ├── node_modules/           # All frontend dependencies (included)
-│   ├── src/
-│   │   ├── components/         # All Vue components
-│   │   ├── pages/              # All page components
-│   │   ├── services/           # API services
-│   │   ├── stores/             # Pinia state management
-│   │   ├── router/             # Vue router configuration
-│   │   ├── composables/        # Vue composables
-│   │   ├── utils/              # Utility functions
-│   │   └── assets/             # Static assets
-│   ├── public/                 # Public assets
-│   ├── package.json            # Frontend dependencies
-│   ├── vite.config.ts          # Vite configuration
-│   ├── tailwind.config.js      # Tailwind CSS configuration
-│   └── .env                    # Environment configuration
-├── database/                   # Database setup
-│   ├── schema.sql              # Complete PostgreSQL schema
-│   └── sample_data.sql         # Sample data for testing
-├── docs/                       # Complete documentation
-│   ├── INTEGRATION_IMPLEMENTATION_GUIDE.md
-│   ├── DEPLOYMENT_CHECKLIST.md
-│   └── SETUP_VALIDATION_RESULTS.md
-├── README.md                   # This file
-├── INSTALLATION_GUIDE.md       # Step-by-step setup
-└── CHANGELOG.md                # Complete change history
-```
+### Wizard System
+- **PMI Users**: Project initiation workflow
+- **Directors**: Team assignment and project oversight
+- **PM/SPM**: Project configuration and finalization
+- **Legacy Support**: Backward compatibility for existing workflows
 
-## 🚀 Quick Start (2 Minutes)
+### Technical Features
+- **Modern Tech Stack**: Node.js/Express backend, Vue.js 3 frontend with TypeScript
+- **Database**: PostgreSQL with comprehensive schema and migrations
+- **Security**: JWT authentication, role-based authorization, audit logging
+- **Performance**: Optimized queries, caching, and efficient data loading
+- **Responsive Design**: Mobile-friendly UI with modern styling
 
-### Prerequisites
-- PostgreSQL 12+ installed and running
-- Node.js 18+ (dependencies already included)
+## 📋 Requirements
+
+### System Requirements
+- Node.js 16.x or higher
+- PostgreSQL 12.x or higher
+- npm or yarn package manager
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+
+### Development Requirements
+- Git for version control
+- Code editor (VS Code recommended)
+- PostgreSQL client (pgAdmin or similar)
+
+## 🛠 Installation
 
 ### 1. Database Setup
-```bash
-# Create database and user
-sudo -u postgres psql << EOF
-CREATE DATABASE pfmt_integrated;
-CREATE USER pfmt_user WITH PASSWORD 'pfmt_password';
-GRANT ALL PRIVILEGES ON DATABASE pfmt_integrated TO pfmt_user;
-\q
-EOF
 
-# Apply schema
-PGPASSWORD=pfmt_password psql -h localhost -U pfmt_user -d pfmt_integrated -f database/schema.sql
+```bash
+# Create database
+createdb pfmt_enhanced
+
+# Connect to database
+psql -d pfmt_enhanced
+
+# Run schema setup
+\i database/schema-COMPLETE.sql
+
+# Run lifecycle status migration
+\i database/add_lifecycle_status_migration.sql
 ```
 
-### 2. Start Backend
+### 2. Backend Setup
+
 ```bash
+# Navigate to backend directory
 cd backend
-npm run dev
-```
-✅ Backend running on http://localhost:3002
 
-### 3. Start Frontend (New Terminal)
+# Install dependencies
+npm install
+
+# Create environment file
+cp .env.example .env
+
+# Edit environment variables
+nano .env
+```
+
+**Environment Variables:**
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=pfmt_enhanced
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key
+JWT_EXPIRES_IN=24h
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# CORS Configuration
+CORS_ORIGIN=http://localhost:8080
+```
+
 ```bash
-cd frontend
+# Start the backend server
+npm start
+
+# For development with auto-reload
 npm run dev
 ```
-✅ Frontend running on http://localhost:5173
 
-### 4. Access Application
-- **URL**: http://localhost:5173
-- **Login**: admin / password
+### 3. Frontend Setup
 
-## 🎯 Complete Feature Set
+```bash
+# Navigate to frontend directory
+cd frontend
 
-### ✅ Core PFMT Enhanced Features (Preserved)
-- **Project Profile Management** - Complete project lifecycle
-- **Financial Tracking** - Budget and cost management
-- **Team Management** - User roles and assignments
-- **Reporting** - Project reports and analytics
-- **Alberta Government Design** - Professional UI/UX
+# Install dependencies
+npm install
 
-### ✅ New Enterprise Features
-- **Vendor Management** - Complete vendor CRUD, search, filtering, project assignment
-- **Workflow Management** - Tasks, gate meetings, approvals, timeline
-- **PostgreSQL Database** - Enterprise-grade data storage
-- **Audit Logging** - Complete change tracking
-- **Role-Based Access** - PM, SPM, Director, Admin, Vendor roles
+# Start the development server
+npm run serve
 
-### ✅ Technical Enhancements
-- **Vue.js 3 + TypeScript** - Modern frontend framework
-- **Node.js + Express** - Robust backend API
-- **PostgreSQL Integration** - Normalized database schema
-- **JWT Authentication** - Secure token-based auth
-- **Responsive Design** - Works on desktop and mobile
+# Build for production
+npm run build
+```
 
-## 🔧 Technology Stack
+## 🏗 Architecture
 
-### Frontend
-- **Vue.js 3** with Composition API
-- **TypeScript** for type safety
-- **Tailwind CSS** for styling
-- **Vite** for build tooling
-- **Pinia** for state management
-- **Vue Router** for navigation
+### Dual Status System
+- **workflow_status**: Tracks wizard progress (initiated → assigned → finalized)
+- **lifecycle_status**: Tracks project lifecycle (active → completed → archived)
 
-### Backend
-- **Node.js** with Express.js
-- **PostgreSQL** database
-- **JWT** authentication
-- **bcrypt** for password hashing
-- **CORS** for cross-origin requests
-- **Audit logging** middleware
+### Role Hierarchy
+1. **VENDOR** - External vendor access
+2. **ANALYST** - Data analysis and reporting
+3. **PMI** - Project initiation and management
+4. **PM** - Project management
+5. **SPM** - Senior project management
+6. **DIRECTOR** - Department oversight
+7. **ADMIN** - System administration
+8. **SUPER_ADMIN** - Full system access
 
-## 📊 Database Schema
+### Workflow Steps
+1. **Initiation** (PMI) → Status: initiated
+2. **Assignment** (Director) → Status: assigned  
+3. **Configuration** (PM/SPM) → Status: finalized, lifecycle: active
+4. **Management** → Various lifecycle statuses
 
-### Core Tables
-- **projects** - Main project data with comprehensive fields
-- **project_locations** - Geographic information
-- **project_teams** - Team member assignments
-- **users** - User accounts with role-based permissions
-- **companies** - Client and contractor management
-- **vendors** - Vendor profiles with capabilities and ratings
-- **audit_logs** - Comprehensive audit trail
-
-## 🌐 API Endpoints
+## 🔐 Security
 
 ### Authentication
+- JWT-based authentication with secure token handling
+- Password hashing using bcrypt
+- Session management with token refresh
+
+### Authorization
+- Role-based access control (RBAC) with 8 canonical roles
+- Route-level permission checking
+- API endpoint authorization middleware
+
+## 📊 API Documentation
+
+### Authentication Endpoints
 - `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Current user info
+- `POST /api/auth/logout` - User logout
+- `POST /api/auth/refresh` - Token refresh
 
-### Projects
-- `GET /api/projects` - List projects
-- `GET /api/projects/:id` - Get project details
-- `POST /api/projects` - Create project
-- `PUT /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
+### Project Workflow Endpoints
+- `POST /api/project-workflow/initiate` - Create project (PMI)
+- `POST /api/project-workflow/:id/assign` - Assign team (Director)
+- `POST /api/project-workflow/:id/finalize` - Finalize project (PM/SPM)
+- `GET /api/project-workflow/:id/status` - Get project status
+- `GET /api/project-workflow/:id/details` - Get enhanced project details
 
-### Vendors (NEW)
-- `GET /api/vendors` - List vendors
-- `POST /api/vendors` - Create vendor
-- `PUT /api/vendors/:id` - Update vendor
-- `DELETE /api/vendors/:id` - Delete vendor
+### Dual-Wizard Support Endpoints
+- `GET /api/project-workflow/users/available` - Get available users
+- `GET /api/project-workflow/vendors/available` - Get available vendors
 
-### Users
-- `GET /api/users` - List users
-- `POST /api/users` - Create user
-- `PUT /api/users/:id` - Update user
+## 🧪 Testing
 
-### Companies
-- `GET /api/companies` - List companies
-- `POST /api/companies` - Create company
-
-## 🔐 Security Features
-
-- **JWT Authentication** with secure token management
-- **Role-Based Access Control** (PM, SPM, Director, Admin, Vendor)
-- **Password Hashing** with bcrypt
-- **SQL Injection Prevention** with parameterized queries
-- **Input Validation** on all endpoints
-- **CORS Configuration** for secure cross-origin requests
-- **Audit Logging** for all data changes
-
-## 🎨 User Interface
-
-### Navigation
-- **Homepage** with role-based navigation tiles
-- **Project Management** - List, create, edit, view projects
-- **Vendor Management** - Complete vendor lifecycle management
-- **Workflow Management** - Tasks, meetings, approvals, timeline
-- **Reporting** - Project reports and analytics
-- **Settings** - User preferences and configuration
-
-### Design System
-- **Alberta Government Branding** maintained throughout
-- **Responsive Design** for all screen sizes
-- **Professional Card Layouts** for data display
-- **Modal Forms** for data entry
-- **Advanced Filtering** for data discovery
-- **Status Indicators** and progress tracking
-
-## 📱 Mobile Support
-
-- **Responsive Design** adapts to all screen sizes
-- **Touch-Friendly Interface** for mobile devices
-- **Optimized Layouts** for tablet and phone viewing
-- **Fast Loading** with optimized assets
-
-## 🚀 Production Deployment
-
-### Environment Configuration
-Update `.env` files for production:
-
-**Backend (.env)**
-```
-NODE_ENV=production
-PORT=3002
-DB_HOST=your-production-db-host
-DB_NAME=pfmt_production
-DB_USER=pfmt_prod_user
-DB_PASSWORD=secure-production-password
-JWT_SECRET=very-secure-production-secret
-```
-
-**Frontend (.env)**
-```
-VITE_API_BASE_URL=https://your-api-domain.com/api
-```
-
-### Build and Deploy
+### Backend Testing
 ```bash
-# Build frontend for production
-cd frontend
-npm run build
-
-# Start backend with PM2
 cd backend
-npm install -g pm2
-pm2 start npm --name "pfmt-backend" -- run start
+npm test                # Run all tests
+npm run test:coverage  # Coverage report
 ```
 
-## 📋 System Requirements
+### Frontend Testing
+```bash
+cd frontend
+npm run test:unit      # Unit tests
+npm run test:e2e       # End-to-end tests
+```
 
-### Minimum
-- **Node.js**: 18.0+
-- **PostgreSQL**: 12.0+
-- **RAM**: 4GB
-- **Storage**: 2GB
+### Manual Testing Checklist
+1. **Database Migration**: Verify lifecycle_status column creation
+2. **API Endpoints**: Test all new dual-wizard endpoints
+3. **Wizard Flow**: Test complete workflow from initiation to finalization
+4. **Role Access**: Verify role-based access controls
+5. **Data Persistence**: Confirm form data saves correctly to store
 
-### Recommended
-- **Node.js**: 20.0+
-- **PostgreSQL**: 14.0+
-- **RAM**: 8GB
-- **Storage**: 5GB (SSD recommended)
+## 🚀 Deployment
 
-## 🔄 Migration from Existing PFMT
+### Production Deployment
+1. **Database**: Set up production PostgreSQL instance
+2. **Backend**: Deploy to production server (PM2 recommended)
+3. **Frontend**: Build and deploy to web server (Nginx recommended)
+4. **Environment**: Configure production environment variables
+5. **SSL**: Set up HTTPS certificates
 
-This package includes migration utilities to import data from existing PFMT installations:
-
-1. **Export existing data** from your current system
-2. **Use migration endpoints** at `/api/migration`
-3. **Validate imported data** through the UI
-4. **Update user accounts** and permissions
-
-## 📞 Support & Documentation
-
-### Included Documentation
-- **INSTALLATION_GUIDE.md** - Detailed setup instructions
-- **CHANGELOG.md** - Complete feature history
-- **API Documentation** - Embedded in code
-- **Component Documentation** - In source files
-
-### Health Monitoring
-- **Health Endpoints**: `/health` and `/health/db`
-- **Application Logs**: Console output during development
-- **Database Logs**: PostgreSQL system logs
-- **Audit Logs**: Complete change tracking in database
-
-## 🎉 Ready for Production
-
-This complete package:
-- ✅ **Replaces your entire existing repository**
-- ✅ **Includes all dependencies** (node_modules included)
-- ✅ **Preserves all original functionality**
-- ✅ **Adds comprehensive new features**
-- ✅ **Provides enterprise-grade database**
-- ✅ **Maintains professional design**
-- ✅ **Includes complete documentation**
-
-## 🔧 Troubleshooting
+## 🐛 Troubleshooting
 
 ### Common Issues
-1. **Database connection errors**: Check PostgreSQL service and credentials
-2. **Port conflicts**: Ensure ports 3002 and 5173 are available
-3. **Permission errors**: Check file permissions and database access
 
-### Getting Help
-1. Check the INSTALLATION_GUIDE.md for detailed setup
-2. Review the CHANGELOG.md for feature information
-3. Check application logs for error details
-4. Verify database connectivity and schema
+**Database Connection Errors**
+```bash
+# Check PostgreSQL service
+sudo systemctl status postgresql
+
+# Verify connection settings
+psql -h localhost -U postgres -d pfmt_enhanced
+```
+
+**Wizard Store Issues**
+```bash
+# Clear browser cache and localStorage
+# Check Vue DevTools for store state
+# Verify API responses in Network tab
+```
+
+### Debug Mode
+```bash
+# Backend debug mode
+DEBUG=* npm run dev
+
+# Frontend debug mode
+npm run serve
+```
+
+## 🔄 Key Enhancements in v2.0
+
+### Critical Fixes
+- **P0 Fix**: Configuration Step now properly binds to wizard store fields
+- **Store Contract**: Fixed data persistence issues in project finalization
+- **Status System**: Implemented dual status tracking (workflow + lifecycle)
+
+### New Features
+- **Dual-Wizard System**: Role-based wizard steps
+- **Legacy Support**: Backward compatibility for Directors/SPMs/Admins
+- **Enhanced APIs**: New endpoints for users and vendors
+- **Improved UX**: Better form validation and error handling
+
+### Performance Improvements
+- **Database Indexing**: Added indexes for lifecycle_status queries
+- **API Optimization**: Fallback mechanisms for data availability
+- **Frontend Optimization**: Computed properties for efficient reactivity
+
+## 📚 Documentation
+
+- **User Guide**: Complete workflow documentation
+- **Developer Guide**: Technical implementation details
+- **API Reference**: Comprehensive endpoint documentation
+- **Deployment Guide**: Production deployment instructions
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License.
 
 ---
 
-**This package contains everything needed to completely replace your existing PFMT repository and deploy a production-ready application immediately.**
+**PFMT Enhanced Application v2.0** - Professional Financial Management Tool with Dual-Wizard System
 
+**Release Date:** August 18, 2025  
+**Author:** Manus AI Development Team

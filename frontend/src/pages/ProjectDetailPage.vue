@@ -19,9 +19,9 @@
         :project="project"
         :view-mode="viewMode"
         :current-version="currentVersionNumber"
-        :version-status="versionStatus"
+        :version-status="versionStatusComputed"
         :has-draft-version="hasDraftVersion"
-        :has-submitted-version="hasSubmittedVersion"
+        :has-submitted-version="hasSubmittedVersionComputed"
         :has-pending-changes="hasPendingChanges"
         :can-edit="canEdit"
         :can-view-draft="canViewDraft"
@@ -75,6 +75,7 @@
         <div class="mt-6">
           <TabsContent value="overview">
             <OverviewTab
+              v-if="currentProjectData"
               :project="currentProjectData"
               :recent-activity="recentActivity"
             />
@@ -82,6 +83,7 @@
 
           <TabsContent value="details">
             <DetailsTab
+              v-if="currentProjectData"
               :project="currentProjectData"
               :view-mode="viewMode"
               :can-edit="canEdit"
@@ -92,6 +94,7 @@
 
           <TabsContent value="location">
             <LocationTab
+              v-if="currentProjectData"
               :project="currentProjectData"
               :view-mode="viewMode"
               :can-edit="canEdit"
@@ -105,6 +108,7 @@
               :project-id="projectId"
               :can-edit="canEdit"
               :user-role="currentUser?.role || ''"
+              :view-mode="viewMode"
               @vendor-added="handleVendorAdded"
               @vendor-updated="handleVendorUpdated"
               @vendor-removed="handleVendorRemoved"
@@ -116,6 +120,7 @@
               :project-id="projectId"
               :can-edit="canEdit"
               :user-role="currentUser?.role || ''"
+              :view-mode="viewMode"
               @meeting-completed="handleMeetingCompleted"
               @meeting-created="handleMeetingCreated"
               @meeting-updated="handleMeetingUpdated"
@@ -125,7 +130,8 @@
 
           <TabsContent value="budget">
             <BudgetTab
-              :project="currentProjectData"
+              v-if="currentProjectData"
+              :project="budgetData"
               :view-mode="viewMode"
               :can-edit="canEdit"
               :budget-history="budgetHistory"
@@ -172,9 +178,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import ErrorMessage from '@/components/ui/ErrorMessage.vue'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
+import LoadingSpinner from '@/components/shared/LoadingSpinner.vue'
+import ErrorMessage from '@/components/shared/ErrorMessage.vue'
 
 // Import modular components
 import ProjectHeader from '@/components/project-detail/ProjectHeader.vue'
@@ -189,8 +195,14 @@ import VersionsTab from '@/components/project-detail/VersionsTab.vue'
 
 // Import composables and services
 import { useProjectVersions } from '@/composables/useProjectVersions'
+import { useProjectPermissions } from '@/composables/useProjectPermissions'
 import { useAuthStore } from '@/stores/auth'
 import { ProjectService } from '@/services/ProjectService'
+import { ProjectAPI } from '@/services/apiService'
+import { normalizeProject } from '@/utils/fieldNormalization'
+import { useLoading } from '@/composables/useLoading'
+import { useErrorHandling } from '@/utils/errorHandling'
+import { ROLES, hasRoleOrHigher, isInRoleGroup } from '@/constants/roles'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -198,7 +210,10 @@ const authStore = useAuthStore()
 // Project data
 const projectId = computed(() => route.params.id as string)
 const project = ref<any>(null)
-const loading = ref(false)
+
+// Use standardized loading and error handling
+const { isLoading: loading, withLoading } = useLoading('Loading project...')
+const { handleAsyncOperation } = useErrorHandling()
 const error = ref<string | null>(null)
 
 // UI state
@@ -208,17 +223,21 @@ const viewMode = ref<'draft' | 'approved'>('approved')
 // Activity and history data
 const recentActivity = ref<any[]>([])
 const budgetHistory = ref<any[]>([])
+const budgetData = ref<any>({
+  total_approved_funding: 0,
+  current_budget: 0,
+  amount_spent: 0,
+  eac: 0
+})
 
 // Use project versions composable
 const {
   currentProject,
   versions,
-  canCreateDraft,
-  canApprove,
+  canCreateDraft: canCreateDraftVersion,
+  canApprove: canApproveVersion,
   hasDraftVersion,
-  hasSubmittedVersion,
-  canSubmitForApproval,
-  versionStatus,
+  canSubmitForApproval: canSubmitVersion,
   getProject,
   createDraftVersion,
   submitForApproval,
@@ -226,36 +245,51 @@ const {
   rejectVersion
 } = useProjectVersions()
 
+// Use project permissions composable
+const {
+  permissions,
+  canView,
+  canEdit,
+  canDelete,
+  canViewDraft,
+  canCreateDraft,
+  canSubmitForApproval,
+  canApprove,
+  canViewBudget,
+  canEditBudget,
+  canViewReports,
+  canManageVendors,
+  canViewWorkflow,
+  canEditWorkflow,
+  getRestrictedMessage
+} = useProjectPermissions(computed(() => project.value))
+
 // Computed properties
 const currentUser = computed(() => authStore.currentUser)
 
+// Normalize project data for consistent field access
+const normalizedProject = computed(() => project.value ? normalizeProject(project.value) : null)
+
 const currentProjectData = computed(() => {
-  if (viewMode.value === 'draft' && hasDraftVersion.value) {
-    return currentProject.value?.draftVersion || project.value
-  }
-  return project.value
+  const baseProject = viewMode.value === 'draft' && hasDraftVersion.value
+    ? currentProject.value?.draftVersion || project.value
+    : project.value
+  return baseProject ? normalizeProject(baseProject) : null
 })
 
 const currentVersionNumber = computed(() => {
   return currentProject.value?.currentVersion?.version_number || 'v1.0'
 })
 
-const canEdit = computed(() => {
-  const user = currentUser.value
-  if (!user) return false
-  
-  // Can edit if viewing draft mode and user has appropriate role
-  return viewMode.value === 'draft' && 
-         ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+// Create proper computed properties for version status
+const versionStatusComputed = computed(() => {
+  if (hasDraftVersion.value) return 'draft'
+  return 'approved'
 })
 
-const canViewDraft = computed(() => {
-  return hasDraftVersion.value && canEdit.value
-})
-
-const canDelete = computed(() => {
-  const user = currentUser.value
-  return user && ['Director', 'Admin'].includes(user.role)
+// Create proper computed property for submitted version
+const hasSubmittedVersionComputed = computed(() => {
+  return versions.value.some(v => v.status === 'PendingApproval')
 })
 
 const hasPendingChanges = computed(() => {
@@ -273,30 +307,52 @@ const workflowHasUpdates = computed(() => {
 })
 
 const hasPendingVersions = computed(() => {
-  return hasSubmittedVersion.value
+  return hasSubmittedVersionComputed.value
 })
 
 // Methods
 const loadProject = async () => {
-  loading.value = true
-  error.value = null
+  const { data, error: loadError } = await handleAsyncOperation(
+    () => withLoading(async () => {
+      console.log('Loading project with ID:', projectId.value)
+      
+      // Load project data using ProjectAPI (with X-User headers) instead of ProjectService (requires token)
+      const response = await ProjectAPI.getProject(projectId.value)
+      
+      console.log('Raw project data received:', response.data)
+      
+      // Normalize the project data to handle different field name formats
+      const projectData = response.data
+      const normalizedProjectData = normalizeProject(projectData)
+      
+      console.log('Normalized project data:', normalizedProjectData)
+      
+      // Ensure required fields are present
+      if (!normalizedProjectData.name && !normalizedProjectData.projectName) {
+        console.warn('Project name missing, using fallback')
+        normalizedProjectData.name = normalizedProjectData.project_name || 'Unnamed Project'
+      }
+      
+      project.value = normalizedProjectData
 
-  try {
-    // Load project data
-    const projectData = await ProjectService.getById(projectId.value)
-    project.value = projectData
+      // Load project with versions (use string ID, not parsed integer)
+      await getProject(projectId.value)
 
-    // Load project with versions
-    await getProject(parseInt(projectId.value))
+      // Load additional data
+      await loadRecentActivity()
+      await loadBudgetHistory()
 
-    // Load additional data
-    await loadRecentActivity()
-    await loadBudgetHistory()
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load project'
-    console.error('Error loading project:', err)
-  } finally {
-    loading.value = false
+      return normalizedProjectData
+    }, 'Loading project details...'),
+    { 
+      context: 'Loading project details',
+      fallbackMessage: 'Failed to load project details'
+    }
+  )
+
+  if (loadError) {
+    error.value = loadError.message
+    console.error('Error loading project:', loadError)
   }
 }
 
@@ -319,6 +375,35 @@ const loadRecentActivity = async () => {
 }
 
 const loadBudgetHistory = async () => {
+  try {
+    // Load budget data from the new API endpoint
+    const response = await fetch(`/api/projects/${projectId.value}/budget`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success) {
+        budgetData.value = {
+          total_approved_funding: data.data.totalBudget || 0,
+          current_budget: data.data.totalBudget || 0,
+          amount_spent: data.data.amountSpent || 0,
+          eac: data.data.totalBudget || 0,
+          remaining_budget: data.data.remainingBudget || 0,
+          utilization: data.data.utilization || 0,
+          currency: data.data.currency || 'CAD',
+          funded_to_complete: data.data.fundedToComplete || false,
+          breakdown: data.data.breakdown || []
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error loading budget data:', err)
+  }
+  
   // Mock budget history data
   budgetHistory.value = [
     {
@@ -326,7 +411,7 @@ const loadBudgetHistory = async () => {
       description: 'Initial budget approved',
       date: '2024-01-15',
       user: 'Director Smith',
-      amount: 15000000
+      amount: budgetData.value.total_approved_funding
     }
   ]
 }
@@ -349,8 +434,8 @@ const handleSaveChanges = async (changes: any) => {
     if (viewMode.value === 'draft') {
       // Save to draft version
     } else {
-      // Save to current version
-      await ProjectService.update(projectId.value, changes)
+      // Save to current version using ProjectAPI instead of ProjectService
+      await ProjectAPI.updateProject(projectId.value, changes)
       Object.assign(project.value, changes)
     }
   } catch (err) {
@@ -419,7 +504,7 @@ const handleDuplicateProject = () => {
 const handleDeleteProject = async () => {
   if (confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
     try {
-      await ProjectService.delete(projectId.value)
+      await ProjectAPI.deleteProject(projectId.value)
       // Navigate back to projects list
       window.history.back()
     } catch (err) {

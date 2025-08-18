@@ -1,4 +1,5 @@
 import { BaseService } from './BaseService'
+import { withErrorHandling, validateApiResponse, AppError } from '@/utils/errorHandling'
 
 export interface Project {
   id: string
@@ -75,7 +76,7 @@ export interface ProjectResponse {
 export class ProjectService extends BaseService {
 
   /**
-   * Get all projects with optional filtering and pagination
+   * Get all projects with optional filters
    */
   static async getAll(filters?: ProjectFilters): Promise<{
     projects: Project[]
@@ -86,106 +87,104 @@ export class ProjectService extends BaseService {
       hasMore: boolean
     }
   }> {
-    try {
-      const params: Record<string, any> = {}
-      
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            params[key] = value
-          }
-        })
-      }
+    const params: Record<string, any> = {}
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params[key] = value
+        }
+      })
+    }
 
-      const response = await this.get<ProjectResponse>('/projects', params)
-      
-      return {
-        projects: Array.isArray(response.data) ? response.data : [response.data],
-        pagination: response.pagination
-      }
-    } catch (error) {
-      this.handleError(error)
+    const response = await this.get<ProjectResponse>('/projects', params)
+    
+    return {
+      projects: Array.isArray(response.data) ? response.data : response.data ? [response.data] : [],
+      pagination: response.pagination
     }
   }
 
   /**
-   * Get project by ID
+   * Get a project by ID
    */
   static async getById(id: string): Promise<Project> {
-    try {
-      const response = await this.get<ProjectResponse>(`/projects/${id}`)
-      return response.data as Project
-    } catch (error) {
-      this.handleError(error)
+    const { data, error } = await withErrorHandling(
+      async () => {
+        const response = await this.get<ProjectResponse>(`/projects/${id}`)
+        return validateApiResponse(response, 'ProjectService.getById')
+      },
+      { context: 'Getting project by ID', fallbackMessage: 'Failed to load project' }
+    )
+
+    if (error) {
+      throw new AppError(error.message, {
+        context: 'ProjectService.getById',
+        details: { projectId: id }
+      })
     }
+
+    return data as Project
   }
 
   /**
    * Get projects assigned to current user
    */
   static async getMyProjects(): Promise<Project[]> {
-    try {
-      const response = await this.get<ProjectResponse>('/projects/my')
-      return Array.isArray(response.data) ? response.data : [response.data]
-    } catch (error) {
-      this.handleError(error)
-    }
+    const response = await this.get<ProjectResponse>('/projects/my')
+    return Array.isArray(response.data) ? response.data : response.data ? [response.data] : []
   }
 
   /**
    * Create a new project
    */
   static async create(projectData: CreateProjectRequest): Promise<Project> {
-    try {
-      const response = await this.post<ProjectResponse>('/projects', projectData)
-      return response.data as Project
-    } catch (error) {
-      this.handleError(error)
-    }
+    const response = await this.post<ProjectResponse>('/projects', projectData)
+    return response.data as Project
   }
 
   /**
    * Update an existing project
    */
   static async update(id: string, projectData: UpdateProjectRequest): Promise<Project> {
-    try {
-      const response = await this.patch<ProjectResponse>(`/projects/${id}`, projectData)
-      return response.data as Project
-    } catch (error) {
-      this.handleError(error)
-    }
+    const response = await this.put<ProjectResponse>(`/projects/${id}`, projectData)
+    return response.data as Project
   }
 
   /**
    * Delete a project
    */
   static async delete(id: string): Promise<void> {
-    try {
-      await this.delete<{ success: boolean }>(`/projects/${id}`)
-    } catch (error) {
-      this.handleError(error)
-    }
+    await this.delete<void>(`/projects/${id}`)
   }
 
   /**
    * Search projects
    */
-  static async search(query: string, filters?: Omit<ProjectFilters, 'search'>): Promise<Project[]> {
-    try {
-      const params: Record<string, any> = { search: query }
-      
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            params[key] = value
-          }
-        })
-      }
+  static async search(query: string, filters?: ProjectFilters): Promise<{
+    projects: Project[]
+    pagination?: {
+      total: number
+      limit: number
+      offset: number
+      hasMore: boolean
+    }
+  }> {
+    const params: Record<string, any> = { q: query }
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params[key] = value
+        }
+      })
+    }
 
-      const response = await this.get<ProjectResponse>('/projects/search', params)
-      return Array.isArray(response.data) ? response.data : [response.data]
-    } catch (error) {
-      this.handleError(error)
+    const response = await this.get<ProjectResponse>('/projects/search', params)
+    
+    return {
+      projects: Array.isArray(response.data) ? response.data : response.data ? [response.data] : [],
+      pagination: response.pagination
     }
   }
 
@@ -202,24 +201,20 @@ export class ProjectService extends BaseService {
     total_budget: number
     total_spent: number
   }> {
-    try {
-      const response = await this.get<{
-        data: {
-          total: number
-          active: number
-          completed: number
-          on_hold: number
-          by_phase: Record<string, number>
-          by_ministry: Record<string, number>
-          total_budget: number
-          total_spent: number
-        }
-      }>('/projects/statistics')
-      
-      return response.data
-    } catch (error) {
-      this.handleError(error)
-    }
+    const response = await this.get<{
+      data: {
+        total: number
+        active: number
+        completed: number
+        on_hold: number
+        by_phase: Record<string, number>
+        by_ministry: Record<string, number>
+        total_budget: number
+        total_spent: number
+      }
+    }>('/projects/statistics')
+    
+    return response.data
   }
 
   /**
@@ -233,47 +228,35 @@ export class ProjectService extends BaseService {
     first_name: string
     last_name: string
   }>> {
-    try {
-      const response = await this.get<{
-        data: Array<{
-          user_id: string
-          username: string
-          email: string
-          role: string
-          first_name: string
-          last_name: string
-        }>
-      }>(`/projects/${projectId}/team`)
-      
-      return response.data
-    } catch (error) {
-      this.handleError(error)
-    }
+    const response = await this.get<{
+      data: Array<{
+        user_id: string
+        username: string
+        email: string
+        role: string
+        first_name: string
+        last_name: string
+      }>
+    }>(`/projects/${projectId}/team`)
+    
+    return response.data
   }
 
   /**
    * Add team member to project
    */
   static async addTeamMember(projectId: string, userId: string, role?: string): Promise<void> {
-    try {
-      await this.post<{ success: boolean }>(`/projects/${projectId}/team`, {
-        user_id: userId,
-        role
-      })
-    } catch (error) {
-      this.handleError(error)
-    }
+    await this.post<{ success: boolean }>(`/projects/${projectId}/team`, {
+      user_id: userId,
+      role
+    })
   }
 
   /**
    * Remove team member from project
    */
   static async removeTeamMember(projectId: string, userId: string): Promise<void> {
-    try {
-      await this.delete<{ success: boolean }>(`/projects/${projectId}/team/${userId}`)
-    } catch (error) {
-      this.handleError(error)
-    }
+    await this.delete<{ success: boolean }>(`/projects/${projectId}/team/${userId}`)
   }
 
   /**
@@ -286,26 +269,22 @@ export class ProjectService extends BaseService {
     type: string
     size: number
   }> {
-    try {
-      const additionalData: Record<string, any> = {}
-      if (documentType) {
-        additionalData.document_type = documentType
-      }
-
-      const response = await this.upload<{
-        data: {
-          id: string
-          filename: string
-          url: string
-          type: string
-          size: number
-        }
-      }>(`/projects/${projectId}/documents`, file, additionalData)
-      
-      return response.data
-    } catch (error) {
-      this.handleError(error)
+    const additionalData: Record<string, any> = {}
+    if (documentType) {
+      additionalData.document_type = documentType
     }
+
+    const response = await this.upload<{
+      data: {
+        id: string
+        filename: string
+        url: string
+        type: string
+        size: number
+      }
+    }>(`/projects/${projectId}/documents`, file, additionalData)
+    
+    return response.data
   }
 
   /**
@@ -320,67 +299,55 @@ export class ProjectService extends BaseService {
     uploaded_at: string
     uploaded_by: string
   }>> {
-    try {
-      const response = await this.get<{
-        data: Array<{
-          id: string
-          filename: string
-          url: string
-          type: string
-          size: number
-          uploaded_at: string
-          uploaded_by: string
-        }>
-      }>(`/projects/${projectId}/documents`)
-      
-      return response.data
-    } catch (error) {
-      this.handleError(error)
-    }
+    const response = await this.get<{
+      data: Array<{
+        id: string
+        filename: string
+        url: string
+        type: string
+        size: number
+        uploaded_at: string
+        uploaded_by: string
+      }>
+    }>(`/projects/${projectId}/documents`)
+    
+    return response.data
   }
 
   /**
    * Delete project document
    */
   static async deleteDocument(projectId: string, documentId: string): Promise<void> {
-    try {
-      await this.delete<{ success: boolean }>(`/projects/${projectId}/documents/${documentId}`)
-    } catch (error) {
-      this.handleError(error)
-    }
+    await this.delete<{ success: boolean }>(`/projects/${projectId}/documents/${documentId}`)
   }
 
   /**
    * Export projects to CSV
    */
   static async exportToCsv(filters?: ProjectFilters): Promise<Blob> {
-    try {
-      const params: Record<string, any> = { format: 'csv' }
-      
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            params[key] = value
-          }
-        })
-      }
-
-      const response = await fetch(`${this.API_BASE}/projects/export`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        ...params && { 
-          body: new URLSearchParams(params).toString() 
+    const params: Record<string, any> = { format: 'csv' }
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params[key] = value
         }
       })
-
-      if (!response.ok) {
-        throw await ApiError.fromResponse(response)
-      }
-
-      return await response.blob()
-    } catch (error) {
-      this.handleError(error)
     }
+
+    const response = await fetch(`${this.API_BASE}/projects/export`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+      ...params && { 
+        body: new URLSearchParams(params).toString() 
+      }
+    })
+
+    if (!response.ok) {
+      throw await ApiError.fromResponse(response)
+    }
+
+    return await response.blob()
   }
 }
 

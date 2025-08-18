@@ -205,6 +205,110 @@
         </div>
       </div>
 
+      <!-- Team A Budget Fields Section -->
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
+        <div class="flex items-center mb-4">
+          <div class="w-5 h-5 text-blue-500 mr-3 flex-shrink-0">
+            <svg fill="currentColor" viewBox="0 0 20 20">
+              <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zM14 6a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h8zM6 8a2 2 0 000 4h8a2 2 0 000-4H6z"/>
+            </svg>
+          </div>
+          <AlbertaText tag="h4" variant="heading-s" color="primary">
+            Budget Information
+          </AlbertaText>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Budget Estimate -->
+          <div>
+            <Label for="budgetEstimate" class="text-sm font-medium text-gray-700 mb-2 block">
+              Budget Estimate
+            </Label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span class="text-gray-500 sm:text-sm">$</span>
+              </div>
+              <input
+                id="budgetEstimate"
+                v-model.number="formData.budgetEstimate"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          <!-- Contingency -->
+          <div>
+            <Label for="contingency" class="text-sm font-medium text-gray-700 mb-2 block">
+              Contingency
+            </Label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span class="text-gray-500 sm:text-sm">$</span>
+              </div>
+              <input
+                id="contingency"
+                v-model.number="formData.contingency"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          <!-- Management Reserve -->
+          <div>
+            <Label for="managementReserve" class="text-sm font-medium text-gray-700 mb-2 block">
+              Management Reserve
+            </Label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span class="text-gray-500 sm:text-sm">$</span>
+              </div>
+              <input
+                id="managementReserve"
+                v-model.number="formData.managementReserve"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          <!-- Assigned PM -->
+          <div>
+            <Label for="assignedPm" class="text-sm font-medium text-gray-700 mb-2 block">
+              Assigned Project Manager
+            </Label>
+            <select
+              id="assignedPm"
+              v-model="formData.assignedPm"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select Project Manager</option>
+              <option v-for="pm in projectManagers" :key="pm.id" :value="pm.id">
+                {{ pm.first_name }} {{ pm.last_name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Total Budget Display -->
+        <div v-if="totalBudget > 0" class="mt-4 p-3 bg-white border border-blue-300 rounded-md">
+          <div class="flex justify-between items-center">
+            <span class="text-sm font-medium text-gray-700">Total Project Budget:</span>
+            <span class="text-lg font-bold text-blue-600">${{ formatCurrency(totalBudget) }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Priority Level -->
       <div>
         <Label class="text-sm font-medium text-gray-700 mb-3 block">
@@ -312,6 +416,11 @@ const formData = reactive({
   startDate: null,
   expectedCompletion: null,
   priority: 'Medium',
+  // Team A budget fields
+  budgetEstimate: 0,
+  contingency: 0,
+  managementReserve: 0,
+  assignedPm: '',
   ...props.data
 })
 
@@ -320,6 +429,15 @@ const errors = reactive({})
 
 // PFMT data
 const pfmtData = ref(null)
+
+// Project managers data (this would typically come from an API)
+const projectManagers = ref([
+  { id: 1, first_name: 'John', last_name: 'Smith' },
+  { id: 2, first_name: 'Sarah', last_name: 'Johnson' },
+  { id: 3, first_name: 'Michael', last_name: 'Brown' },
+  { id: 4, first_name: 'Emily', last_name: 'Davis' },
+  { id: 5, first_name: 'David', last_name: 'Wilson' }
+])
 
 // PFMT handling methods
 const handlePFMTData = (data: any) => {
@@ -335,6 +453,12 @@ const handlePFMTData = (data: any) => {
   if (data.startDate) formData.startDate = data.startDate
   if (data.expectedCompletion) formData.expectedCompletion = data.expectedCompletion
   if (data.priority) formData.priority = data.priority
+  
+  // Team A budget fields from PFMT
+  if (data.budgetEstimate) formData.budgetEstimate = data.budgetEstimate
+  if (data.contingency) formData.contingency = data.contingency
+  if (data.managementReserve) formData.managementReserve = data.managementReserve
+  if (data.assignedPm) formData.assignedPm = data.assignedPm
   
   // Emit updated data
   emit('dataUpdated', { ...formData, pfmtData: data })
@@ -363,6 +487,12 @@ const isValid = computed(() => {
          formData.projectName.trim().length >= 3 &&
          formData.description.trim().length >= 10 &&
          formData.category
+})
+
+// Team A computed properties
+const totalBudget = computed(() => {
+  const budget = (formData.budgetEstimate || 0) + (formData.contingency || 0) + (formData.managementReserve || 0)
+  return budget
 })
 
 // Methods
@@ -402,6 +532,15 @@ const validateAllFields = () => {
   validateField('projectName')
   validateField('description')
   validateField('category')
+}
+
+// Team A utility methods
+const formatCurrency = (value: number) => {
+  if (!value) return '0.00'
+  return new Intl.NumberFormat('en-CA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value)
 }
 
 // Watch for changes and emit updates

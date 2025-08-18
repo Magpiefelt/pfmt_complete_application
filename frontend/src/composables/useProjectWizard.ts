@@ -1,5 +1,6 @@
 import { ref, reactive } from 'vue'
-import axios from 'axios'
+import { ProjectWizardService } from '@/services/projectWizardService'
+import { useProjectStore } from '@/stores/project'
 
 export function useProjectWizard() {
   // State
@@ -7,16 +8,25 @@ export function useProjectWizard() {
   const currentStep = ref(1)
   const isProcessing = ref(false)
   const autoSaveStatus = ref<'saving' | 'saved' | null>(null)
+  const isDemoMode = ref(false) // Track if we're in demo mode
 
-  // Wizard data structure
+  // Get project store for integration
+  const projectStore = useProjectStore()
+
+  // Wizard data structure - matches backend expectations
   const wizardData = reactive({
     basicInfo: {
       projectName: '',
       description: '',
-      category: '',
-      projectType: 'Standard',
-      region: 'Alberta',
-      ministry: 'Infrastructure',
+      category: 'construction',
+      projectType: 'new_construction',
+      deliveryType: 'design_bid_build',
+      program: 'government_facilities',
+      region: 'central',
+      municipality: '',
+      location: '',
+      buildingName: '',
+      fundedToComplete: false,
       startDate: null,
       expectedCompletion: null
     },
@@ -24,37 +34,52 @@ export function useProjectWizard() {
       totalBudget: 0,
       initialBudget: 0,
       estimatedDuration: 365,
-      budgetBreakdown: []
+      budgetBreakdown: [],
+      fundingSource: 'Provincial Budget',
+      requiresApproval: false
     },
     teamInfo: {
       projectManager: null,
+      director: null,
       teamMembers: [],
       requiredRoles: []
     }
-  })
-
-  // API helpers
-  const getAuthHeaders = () => ({
-    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-    'Content-Type': 'application/json'
   })
 
   // Initialize wizard session
   const initializeWizard = async () => {
     try {
       isProcessing.value = true
-      const response = await axios.post('/api/project-wizard/init', {}, {
-        headers: getAuthHeaders()
-      })
-
-      if (response.data.success) {
-        sessionId.value = response.data.sessionId
-        currentStep.value = response.data.currentStep || 1
-      } else {
-        throw new Error('Failed to initialize wizard')
+      isDemoMode.value = false // Reset demo mode flag
+      
+      console.log('Initializing wizard session...')
+      const result = await ProjectWizardService.initializeWizard()
+      
+      if (!result.sessionId) {
+        throw new Error('No session ID returned from server')
       }
-    } catch (error) {
+      
+      sessionId.value = result.sessionId
+      currentStep.value = result.currentStep || 1
+      
+      console.log('Wizard initialized successfully:', { 
+        sessionId: sessionId.value, 
+        currentStep: currentStep.value,
+        isDemoMode: isDemoMode.value 
+      })
+    } catch (error: any) {
       console.error('Error initializing wizard:', error)
+      
+      // Only enter demo mode for specific errors, otherwise throw the error
+      if (error.response?.status === 401 || error.message?.includes('Authentication required')) {
+        throw new Error('Authentication required. Please log in and try again.')
+      } else if (error.response?.status === 500 || error.message?.includes('database') || error.message?.includes('server')) {
+        throw new Error('Server error occurred. Please try again later or contact support.')
+      } else if (!navigator.onLine) {
+        throw new Error('No internet connection. Please check your connection and try again.')
+      }
+      
+      // For any other errors, throw them to be handled by the component
       throw error
     } finally {
       isProcessing.value = false
@@ -63,39 +88,58 @@ export function useProjectWizard() {
 
   // Save step data
   const saveStepData = async (stepId: number, stepData: any) => {
-    if (!sessionId.value) return
-
     try {
+      isProcessing.value = true
       autoSaveStatus.value = 'saving'
       
-      const response = await axios.post(
-        `/api/project-wizard/session/${sessionId.value}/step/${stepId}`,
-        stepData,
-        { headers: getAuthHeaders() }
-      )
-
-      if (response.data.success) {
+      // Validate session exists
+      if (!sessionId.value) {
+        throw new Error('No active wizard session. Please restart the wizard.')
+      }
+      
+      // Skip API call in demo mode
+      if (isDemoMode.value) {
+        console.log(`Demo mode: Simulating save for step ${stepId}`)
         autoSaveStatus.value = 'saved'
         setTimeout(() => {
           autoSaveStatus.value = null
-        }, 2000)
+        }, 1000)
+        return { success: true, demo: true }
       }
-    } catch (error) {
+      
+      console.log(`Saving step ${stepId} data:`, stepData)
+      const result = await ProjectWizardService.saveStepData(sessionId.value, stepId, stepData)
+      
+      autoSaveStatus.value = 'saved'
+      setTimeout(() => {
+        autoSaveStatus.value = null
+      }, 2000)
+      
+      console.log(`Step ${stepId} data saved successfully`)
+      return result
+    } catch (error: any) {
       console.error('Error saving step data:', error)
       autoSaveStatus.value = null
+      
+      // Handle specific error cases
+      if (error.message?.includes('session not found') || error.message?.includes('404')) {
+        throw new Error('Wizard session expired. Please restart the wizard.')
+      } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
+        throw new Error('Authentication expired. Please refresh the page and try again.')
+      }
+      
+      throw error
+    } finally {
+      isProcessing.value = false
     }
   }
 
   // Validate step
   const validateStep = async (stepId: number, stepData: any) => {
     try {
-      const response = await axios.post(
-        `/api/project-wizard/validate/step/${stepId}`,
-        stepData,
-        { headers: getAuthHeaders() }
-      )
-
-      return response.data.validation || { isValid: false, errors: ['Validation failed'] }
+      const validation = await ProjectWizardService.validateStep(stepId, stepData)
+      console.log(`Step ${stepId} validation result:`, validation)
+      return validation
     } catch (error) {
       console.error('Error validating step:', error)
       return { isValid: false, errors: ['Validation error occurred'] }
@@ -124,25 +168,59 @@ export function useProjectWizard() {
 
   // Complete wizard and create project
   const completeWizard = async () => {
-    if (!sessionId.value) throw new Error('No active wizard session')
+    if (!sessionId.value) {
+      throw new Error('No active wizard session')
+    }
 
     try {
       isProcessing.value = true
       
-      const response = await axios.post(
-        `/api/project-wizard/session/${sessionId.value}/complete`,
-        {},
-        { headers: getAuthHeaders() }
-      )
-
-      if (response.data.success) {
-        return response.data.project
-      } else {
-        throw new Error(response.data.message || 'Failed to create project')
+      // Handle demo mode
+      if (isDemoMode.value) {
+        throw new Error('Cannot complete wizard in demo mode. Please refresh the page and try again with a proper connection.')
       }
-    } catch (error) {
+      
+      // Validate required fields before submission
+      if (!wizardData.basicInfo.projectName?.trim()) {
+        throw new Error('Project name is required')
+      }
+      if (!wizardData.basicInfo.description?.trim()) {
+        throw new Error('Project description is required')
+      }
+      
+      console.log('Completing wizard with session:', sessionId.value)
+      console.log('Wizard data:', wizardData)
+      
+      // Complete the wizard via API
+      const project = await ProjectWizardService.completeWizard(sessionId.value)
+      
+      if (!project || !project.id) {
+        throw new Error('Project creation failed - no project ID returned')
+      }
+      
+      console.log('Project created successfully:', project)
+      
+      return project
+    } catch (error: any) {
       console.error('Error completing wizard:', error)
-      throw error
+      
+      // Provide more specific error messages
+      if (error.message?.includes('demo mode')) {
+        throw error // Re-throw demo mode errors as-is
+      } else if (error.message?.includes('session not found') || error.message?.includes('session expired')) {
+        throw new Error('Your wizard session has expired. Please start over by refreshing the page.')
+      } else if (error.message?.includes('required')) {
+        throw error // Re-throw validation errors as-is
+      } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
+        throw new Error('Your session has expired. Please refresh the page and try again.')
+      } else if (error.message?.includes('500') || error.message?.includes('server') || error.message?.includes('database')) {
+        throw new Error('Server error occurred while creating your project. Please try again.')
+      } else if (error.message?.includes('fetch') || error.message?.includes('network')) {
+        throw new Error('Network error occurred. Please check your connection and try again.')
+      }
+      
+      // Generic error fallback
+      throw new Error('An unexpected error occurred while creating your project. Please try again.')
     } finally {
       isProcessing.value = false
     }
@@ -151,11 +229,9 @@ export function useProjectWizard() {
   // Get project templates
   const getProjectTemplates = async () => {
     try {
-      const response = await axios.get('/api/project-wizard/templates', {
-        headers: getAuthHeaders()
-      })
-
-      return response.data.templates || []
+      const templates = await ProjectWizardService.getProjectTemplates()
+      console.log('Templates loaded:', templates.length)
+      return templates
     } catch (error) {
       console.error('Error fetching templates:', error)
       return []
@@ -165,11 +241,9 @@ export function useProjectWizard() {
   // Get available team members
   const getAvailableTeamMembers = async () => {
     try {
-      const response = await axios.get('/api/project-wizard/team-members', {
-        headers: getAuthHeaders()
-      })
-
-      return response.data.teamMembers || []
+      const members = await ProjectWizardService.getAvailableTeamMembers()
+      console.log('Team members loaded:', members.length)
+      return members
     } catch (error) {
       console.error('Error fetching team members:', error)
       return []
@@ -179,32 +253,28 @@ export function useProjectWizard() {
   // Load wizard session (for resuming)
   const loadWizardSession = async (sessionId: string) => {
     try {
-      const response = await axios.get(
-        `/api/project-wizard/session/${sessionId}`,
-        { headers: getAuthHeaders() }
-      )
-
-      if (response.data.success) {
-        const { session, stepData } = response.data
-        
-        // Restore session state
-        currentStep.value = session.current_step
-        
-        // Restore step data
-        if (stepData[1]) {
-          // Template selection
-          // Handle template restoration if needed
-        }
-        if (stepData[2]) {
-          Object.assign(wizardData.basicInfo, stepData[2])
-        }
-        if (stepData[3]) {
-          Object.assign(wizardData.budgetInfo, stepData[3])
-        }
-        if (stepData[4]) {
-          Object.assign(wizardData.teamInfo, stepData[4])
-        }
+      const result = await ProjectWizardService.loadWizardSession(sessionId)
+      const { session, stepData } = result
+      
+      // Restore session state
+      currentStep.value = session.current_step
+      
+      // Restore step data
+      if (stepData[1]) {
+        // Template selection
+        // Handle template restoration if needed
       }
+      if (stepData[2]) {
+        Object.assign(wizardData.basicInfo, stepData[2])
+      }
+      if (stepData[3]) {
+        Object.assign(wizardData.budgetInfo, stepData[3])
+      }
+      if (stepData[4]) {
+        Object.assign(wizardData.teamInfo, stepData[4])
+      }
+      
+      console.log('Wizard session loaded successfully')
     } catch (error) {
       console.error('Error loading wizard session:', error)
     }
@@ -233,14 +303,19 @@ export function useProjectWizard() {
     sessionId.value = null
     currentStep.value = 1
     
-    // Reset wizard data
+    // Reset wizard data to match backend expectations
     Object.assign(wizardData.basicInfo, {
       projectName: '',
       description: '',
-      category: '',
-      projectType: 'Standard',
-      region: 'Alberta',
-      ministry: 'Infrastructure',
+      category: 'construction',
+      projectType: 'new_construction',
+      deliveryType: 'design_bid_build',
+      program: 'government_facilities',
+      region: 'central',
+      municipality: '',
+      location: '',
+      buildingName: '',
+      fundedToComplete: false,
       startDate: null,
       expectedCompletion: null
     })
@@ -249,14 +324,19 @@ export function useProjectWizard() {
       totalBudget: 0,
       initialBudget: 0,
       estimatedDuration: 365,
-      budgetBreakdown: []
+      budgetBreakdown: [],
+      fundingSource: 'Provincial Budget',
+      requiresApproval: false
     })
     
     Object.assign(wizardData.teamInfo, {
       projectManager: null,
+      director: null,
       teamMembers: [],
       requiredRoles: []
     })
+    
+    console.log('Wizard reset successfully')
   }
 
   return {
@@ -266,6 +346,7 @@ export function useProjectWizard() {
     wizardData,
     isProcessing,
     autoSaveStatus,
+    isDemoMode,
     
     // Methods
     initializeWizard,

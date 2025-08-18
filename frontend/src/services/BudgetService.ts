@@ -17,6 +17,9 @@ export interface BudgetReport {
   format: 'pdf' | 'excel' | 'csv'
 }
 
+// Re-export types from composable
+export type { Budget, BudgetTransfer }
+
 export class BudgetService extends BaseService {
   /**
    * Get all budgets for a project
@@ -127,7 +130,7 @@ export class BudgetService extends BaseService {
       method: 'POST',
       body: JSON.stringify({ format }),
       headers: {
-        ...this.getHeaders(),
+        ...this.getAuthHeaders(),
         'Accept': 'application/octet-stream'
       }
     })

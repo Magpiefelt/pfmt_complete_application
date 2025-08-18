@@ -6,13 +6,13 @@
     <CardHeader>
       <div class="flex items-start justify-between">
         <div class="flex-1">
-          <AlbertaText tag="h3" size="heading-s" mb="xs">{{ project.name }}</AlbertaText>
+          <AlbertaText tag="h3" size="heading-s" mb="xs">{{ normalizedProject.name || 'Unnamed Project' }}</AlbertaText>
           <AlbertaText size="body-s" color="secondary">
-            {{ contractor }} • {{ phase }}
+            {{ contractorPhaseDisplay }}
           </AlbertaText>
         </div>
         <div class="flex items-center space-x-2">
-          <Badge variant="outline">{{ project.projectStatus || project.status }}</Badge>
+          <Badge variant="outline">{{ normalizedProject.status || 'Unknown' }}</Badge>
           <Badge 
             :variant="reportStatus === 'Current' ? 'default' : 'destructive'"
           >
@@ -39,11 +39,15 @@
           </div>
           <div class="flex items-center">
             <Calendar class="h-4 w-4 mr-2 text-gray-600" />
-            <AlbertaText size="body-s" color="secondary">Started {{ formatDate(startDate) }}</AlbertaText>
+            <AlbertaText size="body-s" color="secondary">
+              {{ startDate ? `Started ${formatDate(startDate)}` : 'Start date TBD' }}
+            </AlbertaText>
           </div>
           <div class="flex items-center">
             <Users class="h-4 w-4 mr-2 text-gray-600" />
-            <AlbertaText size="body-s" color="secondary">PM: {{ projectManager }}</AlbertaText>
+            <AlbertaText size="body-s" color="secondary">
+              {{ projectManager ? `PM: ${projectManager}` : 'PM: TBD' }}
+            </AlbertaText>
           </div>
         </div>
         
@@ -87,8 +91,9 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { MapPin, Calendar, Users, DollarSign } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle, AlbertaText } from '@/components/ui'
-import Badge from '@/components/ui/Badge.vue'
+import { Badge } from "@/components/ui"
 import { formatCurrency, formatDate, getStatusColor } from '@/utils'
+import { normalizeProject } from '@/utils/fieldNormalization'
 
 interface Project {
   id: number
@@ -119,61 +124,70 @@ const props = defineProps<{
   project: Project
 }>()
 
+const emit = defineEmits<{
+  select: [Project]
+}>()
+
 const router = useRouter()
 
-// Computed properties to handle both new and legacy data structures
+// Use field normalization for consistent data access
+const normalizedProject = computed(() => normalizeProject(props.project))
+
+// Computed properties using normalized data
 const contractor = computed(() => {
-  return props.project.contractor || 'ABC Construction Ltd.' // Default for demo
+  return normalizedProject.value.contractor || ''
 })
 
 const phase = computed(() => {
-  return props.project.currentVersion?.projectPhase || 
-         props.project.phase || 
-         props.project.projectPhase || 
-         'Construction'
+  return normalizedProject.value.phase || ''
 })
 
 const region = computed(() => {
-  return props.project.region || 'Central'
+  return normalizedProject.value.region || ''
 })
 
 const startDate = computed(() => {
-  return props.project.startDate || 
-         props.project.createdAt || 
-         '2024-01-15'
+  return normalizedProject.value.startDate || ''
 })
 
 const projectManager = computed(() => {
-  return props.project.projectManager || 
-         props.project.currentVersion?.team?.projectManager ||
-         'Sarah Johnson'
+  return normalizedProject.value.projectManager || ''
+})
+
+// Computed property for contractor and phase display with conditional separator
+const contractorPhaseDisplay = computed(() => {
+  const contractorValue = contractor.value
+  const phaseValue = phase.value
+  
+  if (contractorValue && phaseValue) {
+    return `${contractorValue} • ${phaseValue}`
+  } else if (contractorValue) {
+    return contractorValue
+  } else if (phaseValue) {
+    return phaseValue
+  } else {
+    return ''
+  }
 })
 
 const reportStatus = computed(() => {
-  return props.project.reportStatus || 
-         props.project.currentVersion?.reportStatus ||
-         'Update Required'
+  return normalizedProject.value.reportStatus || 'Update Required'
 })
 
 const totalBudget = computed(() => {
-  return props.project.currentVersion?.totalApprovedFunding || 
-         props.project.totalBudget || 
-         props.project.totalApprovedFunding ||
-         0
+  return normalizedProject.value.totalBudget || 0
 })
 
 const amountSpent = computed(() => {
-  return props.project.currentVersion?.amountSpent || 
-         props.project.amountSpent || 
-         0
+  return normalizedProject.value.amountSpent || 0
 })
 
 const scheduleStatus = computed(() => {
-  return props.project.scheduleStatus || 'On Track'
+  return normalizedProject.value.scheduleStatus || 'On Track'
 })
 
 const budgetStatus = computed(() => {
-  return props.project.budgetStatus || 'On Track'
+  return normalizedProject.value.budgetStatus || 'On Track'
 })
 
 const budgetUtilization = computed(() => {
@@ -189,6 +203,9 @@ const hasPendingDraft = computed(() => {
 })
 
 const navigateToProject = () => {
+  // Emit select event first
+  emit('select', props.project)
+  // Then navigate
   router.push(`/projects/${props.project.id}`)
 }
 </script>

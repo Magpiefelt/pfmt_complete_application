@@ -43,14 +43,16 @@ class Phase1Enhancements {
       const contractSummary = contractSummaryResult.rows[0];
 
       // Get payment summary
+      // Join contract_payments to contracts so we can filter by project_id.  Use payment_amount and status columns from the unified schema.
       const paymentSummaryQuery = `
         SELECT 
           COUNT(*) as total_payments,
-          SUM(amount) as total_paid,
-          SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) as total_paid_confirmed,
-          SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) as total_pending
-        FROM contract_payments
-        WHERE project_id = $1
+          SUM(cp.payment_amount) as total_paid,
+          SUM(CASE WHEN cp.status = 'paid' THEN cp.payment_amount ELSE 0 END) as total_paid_confirmed,
+          SUM(CASE WHEN cp.status = 'pending' THEN cp.payment_amount ELSE 0 END) as total_pending
+        FROM contract_payments cp
+        JOIN contracts c ON cp.contract_id = c.id
+        WHERE c.project_id = $1
       `;
       const paymentSummaryResult = await pool.query(paymentSummaryQuery, [projectId]);
       const paymentSummary = paymentSummaryResult.rows[0];
@@ -78,14 +80,15 @@ class Phase1Enhancements {
       // Get spending trend (last 12 months)
       const spendingTrendQuery = `
         SELECT 
-          DATE_TRUNC('month', payment_date) as month,
-          SUM(amount) as monthly_spending,
+          DATE_TRUNC('month', cp.payment_date) as month,
+          SUM(cp.payment_amount) as monthly_spending,
           COUNT(*) as payment_count
-        FROM contract_payments
-        WHERE project_id = $1 
-          AND status = 'paid'
-          AND payment_date >= CURRENT_DATE - INTERVAL '12 months'
-        GROUP BY DATE_TRUNC('month', payment_date)
+        FROM contract_payments cp
+        JOIN contracts c ON cp.contract_id = c.id
+        WHERE c.project_id = $1 
+          AND cp.status = 'paid'
+          AND cp.payment_date >= CURRENT_DATE - INTERVAL '12 months'
+        GROUP BY DATE_TRUNC('month', cp.payment_date)
         ORDER BY month
       `;
       const spendingTrendResult = await pool.query(spendingTrendQuery, [projectId]);
@@ -171,7 +174,21 @@ class Phase1Enhancements {
 
       const paymentsQuery = `
         SELECT 
-          cp.*,
+          cp.id,
+          cp.contract_id,
+          cp.project_id,
+          cp.payment_amount AS amount,
+          cp.payment_date,
+          cp.status,
+          cp.source_ref,
+          cp.payment_type,
+          cp.description,
+          cp.created_by,
+          cp.approved_by,
+          cp.approved_at,
+          cp.notes,
+          cp.created_at,
+          cp.updated_at,
           c.contract_name,
           c.contract_number,
           v.name as vendor_name,
@@ -238,7 +255,7 @@ class Phase1Enhancements {
 
       const insertQuery = `
         INSERT INTO contract_payments (
-          id, contract_id, project_id, amount, payment_date, status,
+          id, contract_id, project_id, payment_amount, payment_date, status,
           source_ref, payment_type, description, created_by
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
@@ -364,8 +381,11 @@ class Phase1Enhancements {
         ))`);
         queryParams.push(projectId);
       } else if (entityType === 'contract_payments') {
+        // Filter contract payment audit logs by project by joining through contracts
         whereConditions.push(`(al.table_name = 'contract_payments' AND al.record_id IN (
-          SELECT id FROM contract_payments WHERE project_id = $${++paramCount}
+          SELECT cp.id FROM contract_payments cp
+          JOIN contracts c ON cp.contract_id = c.id
+          WHERE c.project_id = $${++paramCount}
         ))`);
         queryParams.push(projectId);
       } else {
@@ -376,7 +396,9 @@ class Phase1Enhancements {
             SELECT id FROM budget_transfers WHERE project_id = $${paramCount}
           )) OR
           (al.table_name = 'contract_payments' AND al.record_id IN (
-            SELECT id FROM contract_payments WHERE project_id = $${paramCount}
+            SELECT cp.id FROM contract_payments cp
+            JOIN contracts c ON cp.contract_id = c.id
+            WHERE c.project_id = $${paramCount}
           )) OR
           (al.table_name = 'contracts' AND al.record_id IN (
             SELECT id FROM contracts WHERE project_id = $${paramCount}
@@ -390,14 +412,14 @@ class Phase1Enhancements {
 
       const historyQuery = `
         SELECT 
-          al.*,
+          al.*, 
           u.first_name || ' ' || u.last_name as user_name,
           u.email as user_email
-        FROM audit_log al
-        LEFT JOIN users u ON al.user_id = u.id
+        FROM audit_logs al
+        LEFT JOIN users u ON COALESCE(al.user_id, al.changed_by) = u.id
         WHERE ${whereClause}
           AND al.action IN ('INSERT', 'UPDATE')
-        ORDER BY al.timestamp DESC
+        ORDER BY COALESCE(al.changed_at, al.timestamp) DESC
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
 
@@ -407,7 +429,7 @@ class Phase1Enhancements {
       // Get total count for pagination
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM audit_log al
+        FROM audit_logs al
         WHERE ${whereClause}
           AND al.action IN ('INSERT', 'UPDATE')
       `;

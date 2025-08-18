@@ -50,7 +50,7 @@ export function useStatusBadge() {
       'completion': 'bg-green-100 text-green-800 border-green-200',
       'on_hold': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'cancelled': 'bg-red-100 text-red-800 border-red-200',
-      'completed': 'bg-gray-100 text-gray-800 border-gray-200'
+      'completed': 'bg-blue-100 text-blue-800 border-blue-200'
     }
     
     return statusClasses[status.toLowerCase()] || 'bg-gray-100 text-gray-800 border-gray-200'
@@ -202,6 +202,165 @@ export function useStatusBadge() {
     return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border'
   }
 
+  /**
+   * Generic status class getter (for backward compatibility)
+   */
+  const getStatusClass = (status: string | null | undefined, type: string = 'project'): string => {
+    if (!status) return 'bg-gray-100 text-gray-800'
+    
+    // Handle meeting status mapping
+    if (type === 'meeting') {
+      const meetingStatusMap: Record<string, string> = {
+        'scheduled': 'bg-blue-100 text-blue-800',
+        'overdue': 'bg-red-100 text-red-800',
+        'today': 'bg-orange-100 text-orange-800',
+        'soon': 'bg-yellow-100 text-yellow-800',
+        'upcoming': 'bg-blue-100 text-blue-800',
+        'completed': 'bg-green-100 text-green-800',
+        'cancelled': 'bg-red-100 text-red-800',
+        'rescheduled': 'bg-yellow-100 text-yellow-800'
+      }
+      return meetingStatusMap[status.toLowerCase()] || 'bg-gray-100 text-gray-800'
+    }
+    
+    // Handle version status mapping
+    if (type === 'version') {
+      const versionStatusMap: Record<string, string> = {
+        'draft': 'bg-yellow-100 text-yellow-800',
+        'submitted': 'bg-blue-100 text-blue-800',
+        'pending_approval': 'bg-orange-100 text-orange-800',
+        'approved': 'bg-green-100 text-green-800',
+        'rejected': 'bg-red-100 text-red-800'
+      }
+      return versionStatusMap[status.toLowerCase()] || 'bg-gray-100 text-gray-800'
+    }
+    
+    // Handle task status mapping
+    if (type === 'task') {
+      const taskStatusMap: Record<string, string> = {
+        'pending': 'bg-yellow-100 text-yellow-800',
+        'in_progress': 'bg-blue-100 text-blue-800',
+        'completed': 'bg-green-100 text-green-800',
+        'blocked': 'bg-red-100 text-red-800'
+      }
+      return taskStatusMap[status.toLowerCase()] || 'bg-gray-100 text-gray-800'
+    }
+    
+    // For unknown types, return default gray
+    if (type !== 'project' && type !== 'meeting' && type !== 'priority' && 
+        type !== 'version' && type !== 'task' && type !== 'workflow') {
+      return 'bg-gray-100 text-gray-800'
+    }
+    
+    let baseClass = ''
+    switch (type) {
+      case 'workflow':
+        baseClass = getWorkflowStatusClass(status)
+        break
+      case 'priority':
+        baseClass = getPriorityClass(status)
+        break
+      default:
+        baseClass = getProjectStatusClass(status)
+    }
+    
+    // Remove border classes for backward compatibility
+    return baseClass.replace(/\s*border-\w+-\d+/g, '')
+  }
+
+  /**
+   * Generic status icon getter (for backward compatibility)
+   */
+  const getStatusIcon = (status: string | null | undefined, type: string = 'project'): string => {
+    if (!status) return '●'
+    
+    // Map to emoji icons for backward compatibility
+    const iconMap: Record<string, string> = {
+      // Project status icons
+      'active': '▶',
+      'planning': '📋',
+      'design': '🎨',
+      'construction': '🔨',
+      'completion': '✅',
+      'on_hold': '⏸',
+      'cancelled': '✕',
+      'completed': '✓',
+      
+      // Meeting status icons
+      'overdue': '🔴',
+      'today': '🟠',
+      'soon': '🟡',
+      'upcoming': '🔵',
+      'scheduled': '📅',
+      'rescheduled': '🔄',
+      
+      // Priority icons
+      'high': '🔴',
+      'medium': '🟡',
+      'low': '🟢',
+      'critical': '🔴',
+      
+      // Version status icons
+      'draft': '📝',
+      'submitted': '📤',
+      'pending_approval': '⏳',
+      'approved': '✅',
+      'rejected': '❌',
+      
+      // Task status icons
+      'pending': '⏳',
+      'in_progress': '🔄',
+      'blocked': '🚫'
+    }
+    
+    const statusKey = status.toLowerCase()
+    
+    // Special handling for meeting and task completed status
+    if ((type === 'meeting' || type === 'task') && statusKey === 'completed') {
+      return '✅'
+    }
+    
+    // Special handling for meeting cancelled status
+    if (type === 'meeting' && statusKey === 'cancelled') {
+      return '❌'
+    }
+    
+    // For unknown types, return bullet for unknown status or default to project behavior
+    if (type !== 'project' && type !== 'meeting' && type !== 'priority' && 
+        type !== 'version' && type !== 'task' && type !== 'workflow') {
+      return '●'
+    }
+    
+    return iconMap[statusKey] || '●'
+  }
+
+  /**
+   * Generic status text formatter (for backward compatibility)
+   */
+  const getStatusText = (status: string | null | undefined): string => {
+    if (!status) return ''
+    
+    // Handle underscores and capitalize first letter of each word
+    // But preserve dashes and spaces as-is (only capitalize first letter)
+    if (status.includes('_')) {
+      return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+    
+    // For dashes and spaces, only capitalize the first letter
+    return status.charAt(0).toUpperCase() + status.slice(1)
+  }
+
+  /**
+   * Format complete status badge (for backward compatibility)
+   */
+  const formatStatusBadge = (status: string, type: string = 'project') => {
+    return {
+      text: getStatusText(status),
+      class: getStatusClass(status, type),
+      icon: getStatusIcon(status, type)
+    }
+  }
+
   return {
     // Individual class getters
     getMeetingStatusClass,
@@ -223,7 +382,13 @@ export function useStatusBadge() {
     getPriorityBadge,
 
     // Utility
-    getBaseBadgeClass
+    getBaseBadgeClass,
+
+    // Backward compatibility functions
+    getStatusClass,
+    getStatusIcon,
+    getStatusText,
+    formatStatusBadge
   }
 }
 

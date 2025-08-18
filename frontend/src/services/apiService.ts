@@ -1,5 +1,6 @@
 // Enhanced API service with comprehensive error handling and PostgreSQL backend support
-const API_BASE_URL = 'http://localhost:3002/api'
+// Always use relative URLs in the browser to work with Vite proxy
+const API_BASE_URL = '/api'
 
 export interface ApiResponse<T> {
   success: boolean
@@ -22,7 +23,10 @@ export interface ApiResponse<T> {
 }
 
 class ApiService {
-  // Helper method for making HTTP requests with user context
+  private static retryAttempts = 3
+  private static retryDelay = 1000
+
+  // Helper method for making HTTP requests with user context and retry logic
   static async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${endpoint}`
     
@@ -58,14 +62,27 @@ class ApiService {
       }
     }
     
+    // Convert integer user ID to UUID format for backend compatibility
+    const convertUserIdToUuid = (userId: number): string => {
+      const uuidMap: Record<number, string> = {
+        1: '550e8400-e29b-41d4-a716-446655440001',
+        2: '550e8400-e29b-41d4-a716-446655440002',
+        3: '550e8400-e29b-41d4-a716-446655440003',
+        4: '550e8400-e29b-41d4-a716-446655440004',
+        5: '550e8400-e29b-41d4-a716-446655440005'
+      }
+      
+      return uuidMap[userId] || '550e8400-e29b-41d4-a716-446655440002'
+    }
+    
     const currentUser = getCurrentUser()
     
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
-        // Add user context to headers
+        // Add user context to headers with UUID format
         ...(currentUser && {
-          'X-User-Id': currentUser.id.toString(),
+          'X-User-Id': convertUserIdToUuid(currentUser.id),
           'X-User-Role': currentUser.role,
           'X-User-Name': currentUser.name
         }),
@@ -74,54 +91,94 @@ class ApiService {
       ...options
     }
 
-
-    try {
-      const response = await fetch(url, config)
-      
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+    // Retry logic for failed requests
+    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+      try {
+        const response = await fetch(url, config)
         
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.message || errorData.error || errorMessage
-        } catch (e) {
-          // If response is not JSON, use the status text
-          const errorText = await response.text()
-          if (errorText) {
-            errorMessage = errorText
+        if (!response.ok) {
+          let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+          
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.message || errorData.error || errorMessage
+          } catch (parseError) {
+            // If we can't parse the error response, use the status text
           }
+          
+          // Don't retry on client errors (4xx), only on server errors (5xx) or network issues
+          if (response.status >= 400 && response.status < 500) {
+            throw new Error(errorMessage)
+          }
+          
+          // Retry on server errors if we have attempts left
+          if (attempt < this.retryAttempts) {
+            console.warn(`Request failed (attempt ${attempt}/${this.retryAttempts}), retrying in ${this.retryDelay}ms...`)
+            await new Promise(resolve => setTimeout(resolve, this.retryDelay))
+            continue
+          }
+          
+          throw new Error(errorMessage)
+        }
+
+        const data = await response.json()
+        return data
+      } catch (error: any) {
+        // Network errors or other exceptions
+        if (attempt < this.retryAttempts && (error.name === 'TypeError' || error.message.includes('fetch'))) {
+          console.warn(`Network error (attempt ${attempt}/${this.retryAttempts}), retrying in ${this.retryDelay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, this.retryDelay))
+          continue
         }
         
-        // Provide more specific error messages
-        if (response.status === 404) {
-          errorMessage = `API endpoint not found: ${endpoint}`
-        } else if (response.status === 500) {
-          errorMessage = `Server error occurred. Please check the backend service.`
-        } else if (response.status === 401) {
-          errorMessage = `Authentication required. Please check user context.`
-        } else if (response.status === 403) {
-          errorMessage = `Access denied. User may not have permission for this operation.`
-        }
-        
-        throw new Error(errorMessage)
+        throw error
       }
-      
-      const data = await response.json()
-        success: data.success, 
-        dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
-        userContext: data.userContext 
-      })
-      return data
-    } catch (error: any) {
-      console.error('❌ API request failed:', { endpoint, error: error.message })
-      
-      // Provide fallback data for development/demo purposes
-      if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-        console.warn('🔄 Backend not available, providing fallback data for demo')
-        return this.getFallbackData(endpoint, options.method || 'GET')
+    }
+
+    // This should never be reached, but TypeScript requires it
+    throw new Error('Maximum retry attempts exceeded')
+  }
+  // MINIMAL FIX: Specific fallback only for project creation
+  static getProjectCreationFallback<T>(): ApiResponse<T> {
+    const timestamp = new Date().toISOString()
+    const projectId = 'demo-' + Date.now()
+    
+    return {
+      success: true,
+      data: {
+        id: projectId,
+        project_name: 'New Demo Project',
+        project_description: 'Created in demo mode',
+        project_status: 'planning',
+        report_status: 'new',
+        project_phase: 'planning',
+        project_type: 'New Construction',
+        delivery_type: 'Traditional',
+        program: 'Infrastructure',
+        geographic_region: 'Central',
+        approval_year: new Date().getFullYear(),
+        cpd_number: `CPD-${new Date().getFullYear()}-DEMO`,
+        created_at: timestamp,
+        updated_at: timestamp,
+        // Add computed fields for frontend compatibility
+        name: 'New Demo Project',
+        status: 'planning',
+        reportStatus: 'new',
+        phase: 'planning',
+        region: 'Central',
+        projectManager: 'Sarah Johnson',
+        startDate: timestamp,
+        totalBudget: 5000000,
+        amountSpent: 0,
+        scheduleStatus: 'On Track',
+        budgetStatus: 'On Track'
+      } as T,
+      message: 'Project created successfully (demo mode)',
+      userContext: {
+        id: 1,
+        role: 'Project Manager',
+        name: 'Sarah Johnson'
       }
-      
-      throw error
     }
   }
 
@@ -155,7 +212,7 @@ class ApiService {
             phase: 'construction',
             region: 'Central',
             projectManager: 'Sarah Johnson',
-            contractor: 'ABC Construction Ltd.',
+            contractor: 'Red Deer Construction Ltd.',
             startDate: '2024-01-15T00:00:00Z',
             totalBudget: 15000000,
             amountSpent: 8500000,
@@ -210,20 +267,7 @@ class ApiService {
     
     // Fallback for project creation
     if (endpoint.includes('/projects') && method === 'POST') {
-      return {
-        success: true,
-        data: {
-          id: 'demo-' + Date.now(),
-          project_name: 'New Demo Project',
-          project_description: 'Created in demo mode',
-          project_status: 'planning',
-          report_status: 'new',
-          project_phase: 'planning',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } as T,
-        message: 'Project created successfully (demo mode)'
-      }
+      return this.getProjectCreationFallback()
     }
     
     // Fallback for users
@@ -245,7 +289,7 @@ class ApiService {
       return {
         success: true,
         data: [
-          { id: 1, name: 'ABC Construction Ltd.', industry: 'Construction', status: 'active' },
+          { id: 1, name: 'Red Deer Construction Ltd.', industry: 'Construction', status: 'active' },
           { id: 2, name: 'XYZ Engineering Inc.', industry: 'Engineering', status: 'active' },
           { id: 3, name: 'DEF Consulting Group', industry: 'Consulting', status: 'active' }
         ] as T
@@ -365,6 +409,29 @@ class ApiService {
       throw error
     }
   }
+
+  // Convenience HTTP methods for backward compatibility
+  static async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'GET' })
+  }
+
+  static async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined
+    })
+  }
+
+  static async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined
+    })
+  }
+
+  static async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'DELETE' })
+  }
 }
 
 // Project API methods
@@ -376,7 +443,16 @@ export class ProjectAPI {
       limit = 10,
       status,
       phase,
-      search
+      search,
+      program,
+      region,
+      ownerId,
+      userId,
+      userRole,
+      reportStatus,
+      approvedOnly,
+      includePendingDrafts,
+      includeVersions
     } = options
 
     const params = new URLSearchParams({
@@ -384,15 +460,34 @@ export class ProjectAPI {
       limit: limit.toString()
     })
 
+    // Add all filter parameters to the query string
     if (status) params.append('status', status)
     if (phase) params.append('phase', phase)
     if (search) params.append('search', search)
+    if (program) params.append('program', program)
+    if (region) params.append('region', region)
+    if (ownerId) params.append('ownerId', ownerId)
+    if (userId) params.append('userId', userId)
+    if (userRole) params.append('userRole', userRole)
+    if (reportStatus) params.append('reportStatus', reportStatus)
+    if (approvedOnly !== undefined) params.append('approvedOnly', approvedOnly.toString())
+    if (includePendingDrafts !== undefined) params.append('includePendingDrafts', includePendingDrafts.toString())
+    if (includeVersions !== undefined) params.append('includeVersions', includeVersions.toString())
+
+    // Handle array parameters (e.g., multiple status values)
+    Object.entries(options).forEach(([key, value]) => {
+      if (Array.isArray(value) && !params.has(key)) {
+        value.forEach(item => params.append(key, item.toString()))
+      }
+    })
 
     
     try {
       const result = await ApiService.request<any[]>(`/projects?${params}`)
+      console.log('✅ ProjectAPI.getProjects successful:', { 
         projectCount: result.data?.length, 
-        userContext: result.userContext 
+        userContext: result.userContext,
+        filters: { status, phase, search, program, region, ownerId, userId, userRole, reportStatus, approvedOnly, includePendingDrafts, includeVersions }
       })
       return result
     } catch (error: any) {
@@ -726,4 +821,8 @@ export class MigrationAPI {
 }
 
 export default ApiService
+
+
+// Export the main ApiService class as both default and named export
+export { ApiService as apiService };
 

@@ -83,9 +83,55 @@ export function useProjectVersions() {
     return user && ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
   })
   
+  const canEdit = computed(() => {
+    const user = authStore.currentUser
+    if (!user) return false
+    
+    // Only allow editing if user has permission and there's a draft version
+    const hasEditPermission = ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+    return hasEditPermission && hasDraftVersion.value
+  })
+  
+  const canSubmitForApproval = computed(() => {
+    const user = authStore.currentUser
+    if (!user) return false
+    
+    // Can submit if user has permission and there's a draft version
+    const hasSubmitPermission = ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+    return hasSubmitPermission && hasDraftVersion.value
+  })
+  
   const canApprove = computed(() => {
     const user = authStore.currentUser
-    return user && ['Director', 'Senior Project Manager', 'Admin'].includes(user.role)
+    if (!user) return false
+    
+    // Only SPM, Directors, and Admins can approve, and only if there's a pending version
+    const hasApprovalPermission = ['Director', 'Senior Project Manager', 'Admin'].includes(user.role)
+    return hasApprovalPermission && hasPendingVersion.value
+  })
+  
+  const canReject = computed(() => {
+    const user = authStore.currentUser
+    if (!user) return false
+    
+    // Same permissions as approval
+    const hasRejectionPermission = ['Director', 'Senior Project Manager', 'Admin'].includes(user.role)
+    return hasRejectionPermission && hasPendingVersion.value
+  })
+  
+  const canDeleteDraft = computed(() => {
+    const user = authStore.currentUser
+    if (!user) return false
+    
+    // Can delete draft if user has permission and there's a draft version
+    const hasDeletePermission = ['Project Manager', 'Senior Project Manager', 'Director', 'Admin'].includes(user.role)
+    return hasDeletePermission && hasDraftVersion.value
+  })
+  
+  const canViewVersionHistory = computed(() => {
+    const user = authStore.currentUser
+    // All authenticated users can view version history
+    return !!user
   })
   
   const hasDraftVersion = computed(() => {
@@ -103,18 +149,43 @@ export function useProjectVersions() {
   const latestPending = computed(() => {
     return versions.value.find(v => v.status === 'PendingApproval')
   })
+
+  // FIXED: Added missing version arrays that were causing VersionsTab errors
+  const approvedVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'Approved')
+  })
+
+  const draftVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'Draft')
+  })
+
+  const submittedVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'PendingApproval')
+  })
+
+  const rejectedVersions = computed(() => {
+    return versions.value.filter(v => v.status === 'Rejected')
+  })
   
   // API Base URL
-  const API_BASE = 'http://localhost:3002/api/projects'
+  const API_BASE = '/api/phase2'
   
-  // Helper function to get auth headers
+  // Helper function to get auth headers using the same pattern as apiService
   const getAuthHeaders = () => {
-    // Use the same token that works for other API calls
-    const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU0MDg3NTQ0LCJleHAiOjE3NTQxNzM5NDR9.JNyjDGmBCT2B_CxW0mZWBlqkFhFEZ7vEnm7f5hDeyEs"
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+    const currentUser = authStore.currentUser
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
     }
+    
+    // Add user context headers (same pattern as apiService.ts)
+    if (currentUser) {
+      headers['X-User-Id'] = currentUser.id.toString()
+      headers['X-User-Role'] = currentUser.role
+      headers['X-User-Name'] = currentUser.name
+    }
+    
+    return headers
   }
   
   // API Functions
@@ -149,11 +220,15 @@ export function useProjectVersions() {
     error.value = null
     
     try {
-      const response = await fetch(`${API_BASE}/${projectId}`, {
+      // Use the main projects API endpoint, not phase2
+      const response = await fetch(`/api/projects/${projectId}`, {
         headers: getAuthHeaders()
       })
       
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Project not found')
+        }
         const errorData = await response.json()
         throw new Error(errorData.error?.message || 'Failed to get project')
       }
@@ -191,10 +266,67 @@ export function useProjectVersions() {
   }
   
   const getVersionHistory = async (projectId: number) => {
-    // Skip version history for now since the endpoint doesn't exist
-    // This allows the project detail page to load without the versioning features
-    versions.value = []
-    return []
+    loading.value = true
+    error.value = null
+    
+    try {
+      const response = await fetch(`${API_BASE}/projects/${projectId}/versions`, {
+        headers: getAuthHeaders()
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || 'Failed to get version history')
+      }
+      
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        // Transform backend data to match frontend interface
+        const transformedVersions: ProjectVersion[] = result.data.map((v: any) => ({
+          projectVersionId: v.id,
+          projectId: v.project_id,
+          versionNumber: v.version_number,
+          status: v.status,
+          createdBy: v.created_by,
+          createdAt: v.created_at,
+          updatedAt: v.updated_at,
+          submittedBy: v.submitted_by,
+          submittedAt: v.submitted_at,
+          approvedBy: v.approved_by,
+          approvedAt: v.approved_at,
+          rejectedBy: v.rejected_by,
+          rejectedAt: v.rejected_at,
+          rejectionReason: v.rejection_reason,
+          
+          // Extract project data from version_data JSON
+          ...(v.version_data || {}),
+          
+          // Ensure required fields have defaults
+          name: v.version_data?.name || v.version_data?.project_name || 'Project',
+          description: v.version_data?.description || '',
+          reportStatus: v.version_data?.report_status || 'Active',
+          projectStatus: v.version_data?.project_status || v.version_data?.status || 'Active',
+          projectPhase: v.version_data?.project_phase || v.version_data?.phase || 'Planning',
+          totalApprovedFunding: v.version_data?.total_approved_funding || v.version_data?.totalApprovedFunding || 0,
+          currentBudget: v.version_data?.current_budget || v.version_data?.currentBudget || 0,
+          eac: v.version_data?.eac || 0,
+          amountSpent: v.version_data?.amount_spent || v.version_data?.amountSpent || 0
+        }))
+        
+        versions.value = transformedVersions
+        return transformedVersions
+      }
+      
+      versions.value = []
+      return []
+    } catch (err: any) {
+      error.value = err.message
+      versions.value = []
+      return []
+    } finally {
+      loading.value = false
+    }
   }
   
   const createDraftVersion = async (projectId: number) => {
@@ -202,9 +334,27 @@ export function useProjectVersions() {
     error.value = null
     
     try {
-      const response = await fetch(`${API_BASE}/${projectId}/versions/draft`, {
-        method: 'POST',
+      // Get current project data to create version snapshot
+      const projectResponse = await fetch(`/api/projects/${projectId}`, {
         headers: getAuthHeaders()
+      })
+      
+      let dataSnapshot = {}
+      if (projectResponse.ok) {
+        const projectResult = await projectResponse.json()
+        if (projectResult.success && projectResult.data?.project) {
+          dataSnapshot = projectResult.data.project
+        }
+      }
+      
+      const response = await fetch(`${API_BASE}/projects/${projectId}/versions`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          versionNumber: versions.value.length + 1,
+          dataSnapshot,
+          changeSummary: 'Draft version created'
+        })
       })
       
       if (!response.ok) {
@@ -261,8 +411,8 @@ export function useProjectVersions() {
     error.value = null
     
     try {
-      const response = await fetch(`${API_BASE}/${projectId}/versions/${versionId}/submit`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE}/versions/${versionId}/submit`, {
+        method: 'PUT',
         headers: getAuthHeaders()
       })
       
@@ -291,8 +441,8 @@ export function useProjectVersions() {
     error.value = null
     
     try {
-      const response = await fetch(`${API_BASE}/${projectId}/versions/${versionId}/approve`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE}/versions/${versionId}/approve`, {
+        method: 'PUT',
         headers: getAuthHeaders()
       })
       
@@ -321,10 +471,10 @@ export function useProjectVersions() {
     error.value = null
     
     try {
-      const response = await fetch(`${API_BASE}/${projectId}/versions/${versionId}/reject`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE}/versions/${versionId}/reject`, {
+        method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ rejectionReason: reason })
       })
       
       if (!response.ok) {
@@ -405,7 +555,7 @@ export function useProjectVersions() {
     
     try {
       const response = await fetch(
-        `${API_BASE}/${projectId}/versions/compare?version1Id=${version1Id}&version2Id=${version2Id}`,
+        `${API_BASE}/projects/${projectId}/versions/compare?currentVersionId=${version1Id}&compareVersionId=${version2Id}`,
         {
           headers: getAuthHeaders()
         }
@@ -434,13 +584,26 @@ export function useProjectVersions() {
     versions,
     pendingApprovals,
     
-    // Computed
+    // Computed - Role-based permissions
     canCreateDraft,
+    canEdit,
+    canSubmitForApproval,
     canApprove,
+    canReject,
+    canDeleteDraft,
+    canViewVersionHistory,
+    
+    // Computed - Version state
     hasDraftVersion,
     hasPendingVersion,
     latestDraft,
     latestPending,
+    
+    // FIXED: Added missing version arrays that were causing VersionsTab errors
+    approvedVersions,
+    draftVersions,
+    submittedVersions,
+    rejectedVersions,
     
     // Actions
     createProject,
