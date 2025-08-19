@@ -255,6 +255,9 @@ describe('useGateMeetings', () => {
       ;(global.fetch as any).mockResolvedValueOnce({
         json: async () => ({ success: true })
       })
+      ;(global.fetch as any).mockResolvedValueOnce({
+        json: async () => ({ success: true, data: [] })
+      })
 
       const { createMeeting } = useGateMeetings()
       const result = await createMeeting({
@@ -269,6 +272,9 @@ describe('useGateMeetings', () => {
     it('should handle creation errors', async () => {
       ;(global.fetch as any).mockResolvedValueOnce({
         json: async () => ({ success: false, message: 'Creation failed' })
+      })
+      ;(global.fetch as any).mockResolvedValueOnce({
+        json: async () => ({ success: true, data: [] })
       })
 
       const { createMeeting, error } = useGateMeetings()
@@ -288,6 +294,9 @@ describe('useGateMeetings', () => {
       ;(global.fetch as any).mockResolvedValueOnce({
         json: async () => ({ success: true })
       })
+      ;(global.fetch as any).mockResolvedValueOnce({
+        json: async () => ({ success: true, data: [] })
+      })
 
       const { updateMeeting } = useGateMeetings()
       const result = await updateMeeting('meeting1', {
@@ -302,6 +311,9 @@ describe('useGateMeetings', () => {
     it('should reschedule a meeting successfully', async () => {
       ;(global.fetch as any).mockResolvedValueOnce({
         json: async () => ({ success: true })
+      })
+      ;(global.fetch as any).mockResolvedValueOnce({
+        json: async () => ({ success: true, data: [] })
       })
 
       const { rescheduleMeeting } = useGateMeetings()
@@ -326,6 +338,9 @@ describe('useGateMeetings', () => {
       ;(global.fetch as any).mockResolvedValueOnce({
         json: async () => ({ success: true })
       })
+      ;(global.fetch as any).mockResolvedValueOnce({
+        json: async () => ({ success: true, data: [] })
+      })
 
       const { cancelMeeting } = useGateMeetings()
       const result = await cancelMeeting('meeting1', 'Resource unavailable')
@@ -348,6 +363,9 @@ describe('useGateMeetings', () => {
     it('should complete a meeting successfully', async () => {
       ;(global.fetch as any).mockResolvedValueOnce({
         json: async () => ({ success: true })
+      })
+      ;(global.fetch as any).mockResolvedValueOnce({
+        json: async () => ({ success: true, data: [] })
       })
 
       const { completeMeeting } = useGateMeetings()
