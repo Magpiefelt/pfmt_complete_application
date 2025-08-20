@@ -144,7 +144,7 @@ router.post('/', async (req, res) => {
             });
         }
 
-        const userId = req.user?.id || req.headers['x-user-id'];
+        const userId = req.user?.id;
         await setUserContext(userId);
 
         const id = uuidv4();
@@ -195,7 +195,7 @@ router.put('/:id', async (req, res) => {
             status
         } = req.body;
 
-        const userId = req.user?.id || req.headers['x-user-id'];
+        const userId = req.user?.id;
         await setUserContext(userId);
 
         // Build dynamic update query
@@ -294,7 +294,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?.id || req.headers['x-user-id'];
+        const userId = req.user?.id;
         await setUserContext(userId);
 
         const result = await query(

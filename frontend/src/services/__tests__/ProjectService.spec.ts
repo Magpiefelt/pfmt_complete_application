@@ -26,7 +26,7 @@ describe('ProjectService', () => {
 
       const result = await ProjectService.getAll()
 
-      expect(result).toEqual(mockProjects)
+      expect(result.projects).toEqual(mockProjects)
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/projects'),
         expect.objectContaining({
@@ -61,7 +61,7 @@ describe('ProjectService', () => {
       await ProjectService.getAll(filters)
 
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('status=active&search=Project%201&page=1&limit=10'),
+        expect.stringContaining('status=active&search=Project+1&page=1&limit=10'),
         expect.any(Object)
       )
     })
@@ -99,7 +99,7 @@ describe('ProjectService', () => {
         ok: true,
         json: async () => ({
           success: true,
-          data: { project: mockProject }
+          data: mockProject
         })
       })
 
@@ -146,7 +146,7 @@ describe('ProjectService', () => {
         ok: true,
         json: async () => ({
           success: true,
-          data: { project: mockCreatedProject }
+          data: mockCreatedProject
         })
       })
 
@@ -219,7 +219,7 @@ describe('ProjectService', () => {
         ok: true,
         json: async () => ({
           success: true,
-          data: { project: mockUpdatedProject }
+          data: mockUpdatedProject
         })
       })
 
@@ -329,15 +329,15 @@ describe('ProjectService', () => {
         ok: true,
         json: async () => ({
           success: true,
-          data: mockProjects
+          data: { projects: mockProjects }
         })
       })
 
       const result = await ProjectService.search('test query')
 
-      expect(result).toEqual(mockProjects)
+      expect(result.projects).toEqual(mockProjects)
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('search=test%20query'),
+        expect.stringContaining('q=test+query'),
         expect.any(Object)
       )
     })

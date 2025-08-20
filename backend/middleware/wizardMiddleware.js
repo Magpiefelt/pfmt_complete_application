@@ -447,7 +447,40 @@ initializeCache().catch(error => {
   logger.error('Failed to initialize cache', { error: error.message });
 });
 
+// HP-2: Server-Side Wizard Step Gating
+const { getProgressForProject } = require('../services/wizardProgress');
+const { query } = require('../config/database-enhanced');
+
+async function resolveProjectIdFromSession(sessionId) {
+  // implement actual lookup based on your schema
+  const r = await query('SELECT project_id FROM project_wizard_sessions WHERE session_id = $1 OR id = $1 ORDER BY updated_at DESC LIMIT 1', [sessionId]);
+  return r.rows[0]?.project_id;
+}
+
+function requireWizardStep(stepOrResolver){
+  return async (req, res, next) => {
+    try {
+      const step = typeof stepOrResolver === 'function' ? Number(stepOrResolver(req)) : Number(stepOrResolver);
+      const sessionId = req.params.sessionId || req.body.sessionId;
+      if (!sessionId) return res.status(400).json({ success:false, code:'MISSING_SESSION_ID' });
+
+      const projectId = await resolveProjectIdFromSession(sessionId);
+      if (!projectId) return res.status(404).json({ success:false, code:'SESSION_OR_PROJECT_NOT_FOUND' });
+
+      const { nextAllowed } = await getProgressForProject(projectId);
+      if (step > nextAllowed) {
+        return res.status(409).json({ success:false, code:'STEP_BLOCKED', nextAllowed });
+      }
+      next();
+    } catch (err) {
+      req.log?.error?.({ err }, 'Wizard gating error');
+      return res.status(500).json({ success:false, code:'WIZARD_GATING_FAILED' });
+    }
+  };
+}
+
 module.exports = {
+  initializeCache,
   cacheUtils,
   performanceMonitoring,
   requestValidation,
@@ -456,6 +489,6 @@ module.exports = {
   dbMonitoring,
   errorHandling,
   metricsCollector,
-  logger
+  logger,
+  requireWizardStep
 };
-

@@ -25,10 +25,10 @@ export default defineConfig({
       host: 'localhost'
     },
     // Proxy API calls to backend service
-    // Use BACKEND_PORT env variable if provided, default to 3002
+    // Backend runs on port 3001 to avoid conflicts
     proxy: {
       '/api': {
-        target: `http://localhost:${process.env.BACKEND_PORT || '3002'}`,
+        target: `http://localhost:${process.env.BACKEND_PORT || '3001'}`,
         changeOrigin: true,
         secure: false,
       },

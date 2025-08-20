@@ -85,6 +85,12 @@ class ApiService {
       })
     }
 
+    // Add Bearer token if available
+    const token = (typeof window !== 'undefined')
+      ? (localStorage.getItem('token') || sessionStorage.getItem('token'))
+      : null;
+    if (token) (headers as any)['Authorization'] = `Bearer ${token}`;
+
     const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
 
     if (!isFormData) {
@@ -105,15 +111,17 @@ class ApiService {
       try {
         const response = await fetch(url, config)
         
+        // Capture raw body once
+        const raw = await response.text();
+        let data: any = null;
+        try { 
+          data = raw ? JSON.parse(raw) : null; 
+        } catch { 
+          data = null; 
+        }
+        
         if (!response.ok) {
-          let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-          
-          try {
-            const errorData = await response.json()
-            errorMessage = errorData.message || errorData.error || errorMessage
-          } catch (parseError) {
-            // If we can't parse the error response, use the status text
-          }
+          const errorMessage = (data && (data.error || data.message)) || response.statusText
           
           // Don't retry on client errors (4xx), only on server errors (5xx) or network issues
           if (response.status >= 400 && response.status < 500) {
@@ -130,8 +138,7 @@ class ApiService {
           throw new Error(errorMessage)
         }
 
-        const data = await response.json()
-        return data
+        return data ?? { success: true, data: null }
       } catch (error: any) {
         // Network errors or other exceptions
         if (attempt < this.retryAttempts && (error.name === 'TypeError' || error.message.includes('fetch'))) {

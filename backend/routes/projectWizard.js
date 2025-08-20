@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { ProjectWizardController, wizardRateLimit } = require('../controllers/projectWizardController');
 const { flexibleAuth } = require('../middleware/flexibleAuth');
+const { authorizeRoles } = require('../middleware/authorize');
+const { requireWizardStep } = require('../middleware/wizardMiddleware');
+const { validateUUID } = require('../middleware/validation');
+const { authorizeProjectFromSession } = require('../middleware/authorizeProject');
 const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
@@ -48,31 +52,7 @@ router.use(compression({
   threshold: 1024
 }));
 
-// CORS configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow all origins in development
-    if (process.env.NODE_ENV === 'development') {
-      return callback(null, true);
-    }
-    
-    // In production, check against allowed origins
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:8080'];
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-correlation-id']
-};
-
-router.use(cors(corsOptions));
+// HP-3: CORS configuration removed - handled centrally by app.js
 
 // Request logging middleware
 router.use((req, res, next) => {
@@ -212,10 +192,14 @@ router.use(requirePMRole);
 
 // Wizard session management routes
 router.post('/init', validateJsonBody, ProjectWizardController.initializeWizard);
-router.get('/session/:sessionId', validateSession, ProjectWizardController.getWizardSession);
+router.get('/session/:sessionId', validateUUID('sessionId'), validateSession, ProjectWizardController.getWizardSession);
 
 // Step data management routes
 router.post('/session/:sessionId/step/:stepId', 
+  validateUUID('sessionId'),
+  authorizeProjectFromSession('sessionId'),
+  authorizeRoles('PM','SPM','DIRECTOR','ADMIN'),
+  requireWizardStep(req => req.params.stepId),
   validateSession, 
   validateJsonBody, 
   ProjectWizardController.saveStepData
@@ -223,7 +207,32 @@ router.post('/session/:sessionId/step/:stepId',
 
 // Wizard completion route
 router.post('/session/:sessionId/complete', 
+  validateUUID('sessionId'),
+  authorizeProjectFromSession('sessionId'),
+  authorizeRoles('PM','SPM','DIRECTOR','ADMIN'),
+  requireWizardStep(3), // Final step
   validateSession, 
+  ProjectWizardController.completeWizard
+);
+
+// Session-based validation route (HP-2 spec requirement)
+router.post('/session/:sessionId/validate',
+  validateUUID('sessionId'),
+  authorizeProjectFromSession('sessionId'),
+  authorizeRoles('PM','SPM','DIRECTOR','ADMIN'),
+  requireWizardStep(3), // Final step validation
+  validateSession,
+  validateJsonBody,
+  ProjectWizardController.validateStep
+);
+
+// Alias for finalize (HP-2 spec mentions finalize)
+router.post('/session/:sessionId/finalize',
+  validateUUID('sessionId'),
+  authorizeProjectFromSession('sessionId'),
+  authorizeRoles('PM','SPM','DIRECTOR','ADMIN'),
+  requireWizardStep(3), // Final step
+  validateSession,
   ProjectWizardController.completeWizard
 );
 
@@ -391,7 +400,11 @@ router.get('/team-members', async (req, res) => {
 });
 
 // Validation endpoint for step data
-router.post('/validate/step/:stepId', validateJsonBody, async (req, res) => {
+router.post('/validate/step/:stepId', 
+  authorizeRoles('PM','SPM','DIRECTOR','ADMIN'),
+  requireWizardStep(req => req.params.stepId),
+  validateJsonBody, 
+  async (req, res) => {
   try {
     const { stepId } = req.params;
     const stepData = req.body || {}; // Allow empty body with fallback
@@ -566,6 +579,192 @@ router.get('/analytics', async (req, res) => {
     });
   }
 });
+
+// P0-1: Wizard progress route for server-side step gating
+router.get('/progress/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    logger.info('Getting wizard progress', {
+      correlationId: req.correlationId,
+      projectId: projectId,
+      userId: req.user?.id
+    });
+
+    // Validate projectId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(projectId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project ID format',
+        correlationId: req.correlationId
+      });
+    }
+
+    // Get wizard session for this project
+    const sessionQuery = `
+      SELECT 
+        id,
+        project_id,
+        current_step,
+        status,
+        step_data,
+        created_at,
+        updated_at
+      FROM wizard_sessions 
+      WHERE project_id = $1 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `;
+    
+    const sessionResult = await query(sessionQuery, [projectId]);
+    
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No wizard session found for this project',
+        correlationId: req.correlationId
+      });
+    }
+
+    const session = sessionResult.rows[0];
+    const currentStep = session.current_step || 1;
+    const maxSteps = 6; // Based on wizard implementation
+    
+    // Calculate next allowed step
+    let nextAllowed = currentStep;
+    if (session.status === 'completed') {
+      nextAllowed = maxSteps;
+    } else if (session.status === 'in_progress') {
+      // Allow current step and next step if current is complete
+      const stepData = session.step_data || {};
+      const currentStepComplete = stepData[`step_${currentStep}`]?.completed || false;
+      nextAllowed = currentStepComplete ? Math.min(currentStep + 1, maxSteps) : currentStep;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        projectId: projectId,
+        sessionId: session.id,
+        currentStep: currentStep,
+        nextAllowed: nextAllowed,
+        maxSteps: maxSteps,
+        status: session.status,
+        completed: session.status === 'completed',
+        stepData: session.step_data || {},
+        lastUpdated: session.updated_at
+      },
+      correlationId: req.correlationId
+    });
+
+  } catch (error) {
+    logger.error('Failed to get wizard progress', {
+      correlationId: req.correlationId,
+      error: error.message,
+      stack: error.stack,
+      projectId: req.params.projectId
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve wizard progress',
+      correlationId: req.correlationId
+    });
+  }
+});
+
+// Middleware to require specific wizard step access
+const requireWizardStep = (requiredStep) => {
+  return async (req, res, next) => {
+    try {
+      const { sessionId } = req.params;
+      const stepId = parseInt(req.params.stepId);
+      
+      if (!sessionId || !stepId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Session ID and step ID are required',
+          correlationId: req.correlationId
+        });
+      }
+
+      // Get session progress
+      const sessionQuery = `
+        SELECT current_step, status, step_data, project_id
+        FROM wizard_sessions 
+        WHERE id = $1
+      `;
+      
+      const sessionResult = await query(sessionQuery, [sessionId]);
+      
+      if (sessionResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Wizard session not found',
+          correlationId: req.correlationId
+        });
+      }
+
+      const session = sessionResult.rows[0];
+      const currentStep = session.current_step || 1;
+      const stepData = session.step_data || {};
+      
+      // Calculate next allowed step
+      let nextAllowed = currentStep;
+      if (session.status === 'completed') {
+        nextAllowed = 6; // All steps allowed if completed
+      } else {
+        // Check if previous steps are completed
+        for (let i = 1; i < stepId; i++) {
+          if (!stepData[`step_${i}`]?.completed) {
+            return res.status(409).json({
+              success: false,
+              message: `Step ${i} must be completed before accessing step ${stepId}`,
+              code: 'STEP_OUT_OF_ORDER',
+              nextAllowed: i,
+              currentStep: currentStep,
+              correlationId: req.correlationId
+            });
+          }
+        }
+        nextAllowed = stepId;
+      }
+
+      // Allow access if step is within allowed range
+      if (stepId <= nextAllowed) {
+        req.wizardSession = session;
+        next();
+      } else {
+        return res.status(409).json({
+          success: false,
+          message: `Access denied. Complete previous steps first.`,
+          code: 'STEP_ACCESS_DENIED',
+          nextAllowed: nextAllowed,
+          currentStep: currentStep,
+          correlationId: req.correlationId
+        });
+      }
+
+    } catch (error) {
+      logger.error('Wizard step validation error', {
+        correlationId: req.correlationId,
+        error: error.message,
+        sessionId: req.params.sessionId,
+        stepId: req.params.stepId
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to validate wizard step access',
+        correlationId: req.correlationId
+      });
+    }
+  };
+};
+
+// Apply step gating to existing step routes
+// Note: This would require modifying the existing step route to use requireWizardStep middleware
 
 // Error handling middleware
 router.use((error, req, res, next) => {

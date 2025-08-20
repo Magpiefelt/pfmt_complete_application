@@ -3,9 +3,10 @@ const router = express.Router();
 const { query, transaction, setUserContext } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
+const { validatePagination } = require('../middleware/validation');
 
 // Get all vendors
-router.get('/', async (req, res) => {
+router.get('/', validatePagination(100), async (req, res) => {
     try {
         const { limit = 50, offset = 0, search, status, capability } = req.query;
         
@@ -160,7 +161,7 @@ router.post('/', async (req, res) => {
             });
         }
 
-        const userId = req.user?.id || req.headers['x-user-id'];
+        const userId = req.user?.id;
         await setUserContext(userId);
 
         const id = uuidv4();
@@ -214,7 +215,7 @@ router.put('/:id', async (req, res) => {
             status
         } = req.body;
 
-        const userId = req.user?.id || req.headers['x-user-id'];
+        const userId = req.user?.id;
         await setUserContext(userId);
 
         // Build dynamic update query
@@ -318,7 +319,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?.id || req.headers['x-user-id'];
+        const userId = req.user?.id;
         await setUserContext(userId);
 
         const result = await query(
@@ -419,7 +420,7 @@ projectVendorRouter.post('/', async (req, res) => {
         const { projectId } = req.params;
         const { vendorId, role, contractValue, startDate, endDate } = req.body;
 
-        const userId = req.user?.id || req.headers['x-user-id'];
+        const userId = req.user?.id;
         await setUserContext(userId);
 
         const id = uuidv4();

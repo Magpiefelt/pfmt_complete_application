@@ -1,24 +1,36 @@
 const { body, param, query, validationResult } = require('express-validator');
+const { formatValidationErrors } = require('../utils/validation');
 
 /**
- * Middleware to handle validation errors
+ * Middleware to handle validation errors with consistent formatting (P1-6)
  */
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        message: 'Validation failed',
-        details: errors.array().map(error => ({
-          field: error.path,
-          message: error.msg,
-          value: error.value
-        }))
-      }
-    });
+    // Convert express-validator errors to our standard format
+    const formattedErrors = errors.array().map(error => ({
+      field: error.path || error.param,
+      message: error.msg,
+      code: 'VALIDATION_ERROR',
+      value: error.value
+    }));
+    
+    const response = formatValidationErrors(formattedErrors);
+    return res.status(400).json(response);
   }
   next();
+};
+
+/**
+ * Create a validation middleware for UUID parameters
+ * @param {string} paramName - Name of the parameter to validate
+ * @returns {Function} Express middleware
+ */
+const validateUUIDParam = (paramName = 'id') => {
+  return [
+    param(paramName).isUUID().withMessage(`${paramName} must be a valid UUID`),
+    handleValidationErrors
+  ];
 };
 
 /**
@@ -136,8 +148,35 @@ const validateGateMeetingId = [
   handleValidationErrors
 ];
 
+// HP-4: Uniform Request & UUID Validation
+const { validate: validateUuid } = require('uuid');
+
+const validateUUID = (paramName) => (req, res, next) => {
+  const v = req.params[paramName];
+  if (!validateUuid(v)) return res.status(400).json({ success:false, code:'INVALID_UUID', fieldErrors:[{ field:paramName, message:'invalid uuid' }] });
+  next();
+};
+
+const validateUUIDInBody = (field) => (req, res, next) => {
+  const v = req.body[field];
+  if (v && !validateUuid(v)) return res.status(400).json({ success:false, code:'INVALID_UUID', fieldErrors:[{ field, message:'invalid uuid' }] });
+  next();
+};
+
+const validatePagination = (max = 100) => (req, res, next) => {
+  const page = Number(req.query.page || 1);
+  const limit = Number(req.query.limit || 25);
+  if (page < 1 || limit < 1 || limit > max) {
+    return res.status(422).json({ success:false, code:'INVALID_PAGINATION', fieldErrors:[
+      { field:'page', message:'>=1' }, { field:'limit', message:`1..${max}` }
+    ]});
+  }
+  next();
+};
+
 module.exports = {
   handleValidationErrors,
+  validateUUIDParam,
   validateCreateVersion,
   validateSubmitVersion,
   validateApproveVersion,
@@ -149,6 +188,10 @@ module.exports = {
   validateNotificationAction,
   validateProjectId,
   validateVersionId,
-  validateGateMeetingId
+  validateGateMeetingId,
+  // HP-4: New validation functions
+  validateUUID,
+  validateUUIDInBody,
+  validatePagination
 };
 

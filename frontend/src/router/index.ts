@@ -35,8 +35,15 @@ const router = createRouter({
       beforeEnter: (to, from, next) => {
         const authStore = useAuthStore()
         const currentUser = authStore.currentUser
-        
-        if (currentUser?.role === ROLES.VENDOR) {
+
+        // When no user is authenticated, allow access to the home page
+        // rather than redirecting and causing an infinite navigation loop
+        if (!authStore.isAuthenticated || !currentUser) {
+          next()
+          return
+        }
+
+        if (currentUser.role === ROLES.VENDOR) {
           next('/vendor')
         } else {
           next('/staff')

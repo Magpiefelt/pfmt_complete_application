@@ -1,6 +1,15 @@
 const { Pool } = require('pg');
-const { queryLogger } = require('../middleware/logging');
 require('dotenv').config();
+
+// Simple query logger to avoid circular dependencies
+const queryLogger = (text, params, duration) => {
+    if (process.env.NODE_ENV === 'development' && process.env.LOG_QUERIES === 'true') {
+        console.log(`🔍 Query executed in ${duration}ms:`, {
+            query: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+            params: params.length > 0 ? `${params.length} parameters` : 'no parameters'
+        });
+    }
+};
 
 // Enhanced database configuration with monitoring and optimization
 const dbConfig = {

@@ -3,6 +3,9 @@
  * Validates UUID format in request parameters and returns 400 for invalid formats
  */
 
+const { param, header, body, validationResult } = require('express-validator');
+const { validate: uuidValidate } = require('uuid');
+
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
@@ -14,11 +17,86 @@ const isValidUUID = (uuid) => {
     if (!uuid || typeof uuid !== 'string') {
         return false;
     }
-    return uuidRegex.test(uuid);
+    return uuidValidate(uuid) || uuidRegex.test(uuid);
 };
 
 /**
- * Middleware to validate UUID parameters in routes
+ * Middleware to handle express-validator validation errors
+ */
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        message: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: errors.array().map(error => ({
+          field: error.path,
+          message: error.msg,
+          value: error.value,
+          location: error.location
+        }))
+      }
+    });
+  }
+  next();
+};
+
+/**
+ * Express-validator based UUID validation for path parameters
+ */
+const validateUUIDParam = (paramName = 'id') => [
+  param(paramName)
+    .custom(isValidUUID)
+    .withMessage(`${paramName} must be a valid UUID`),
+  handleValidationErrors
+];
+
+/**
+ * Express-validator based UUID validation for request body
+ */
+const validateUUIDInBodyField = (fieldName) => [
+  body(fieldName)
+    .custom(isValidUUID)
+    .withMessage(`${fieldName} must be a valid UUID`),
+  handleValidationErrors
+];
+
+/**
+ * Express-validator based optional UUID validation for request body
+ */
+const validateOptionalUUIDInBody = (fieldName) => [
+  body(fieldName)
+    .optional()
+    .custom(isValidUUID)
+    .withMessage(`${fieldName} must be a valid UUID`),
+  handleValidationErrors
+];
+
+/**
+ * Express-validator based user ID header validation
+ */
+const validateUserIDHeader = [
+  header('x-user-id')
+    .optional()
+    .custom(isValidUUID)
+    .withMessage('x-user-id header must be a valid UUID'),
+  handleValidationErrors
+];
+
+// Specific parameter validators using express-validator
+const validateProjectId = validateUUIDParam('projectId');
+const validateVendorId = validateUUIDParam('vendorId');
+const validateCompanyId = validateUUIDParam('companyId');
+const validateUserId = validateUUIDParam('userId');
+const validateSessionId = validateUUIDParam('sessionId');
+const validateMeetingId = validateUUIDParam('meetingId');
+const validateVersionId = validateUUIDParam('versionId');
+const validateNotificationId = validateUUIDParam('notificationId');
+
+/**
+ * Middleware to validate UUID parameters in routes (legacy method)
  * @param {string|string[]} paramNames - Parameter name(s) to validate
  * @returns {Function} Express middleware function
  */
@@ -44,7 +122,7 @@ const validateUUID = (paramNames) => {
 };
 
 /**
- * Middleware to validate UUID in request body fields
+ * Middleware to validate UUID in request body fields (legacy method)
  * @param {string|string[]} fieldNames - Field name(s) to validate
  * @param {boolean} required - Whether the fields are required
  * @returns {Function} Express middleware function
@@ -106,7 +184,7 @@ const validateUUIDInQuery = (queryNames) => {
 };
 
 /**
- * Validates user ID from headers (x-user-id)
+ * Validates user ID from headers (x-user-id) (legacy method)
  * @param {boolean} required - Whether user ID is required
  * @returns {Function} Express middleware function
  */
@@ -150,11 +228,29 @@ const validateUUIDOrThrow = (uuid, fieldName = 'id') => {
 };
 
 module.exports = {
+    // Core validation functions
     isValidUUID,
+    validateUUIDOrThrow,
+    handleValidationErrors,
+    
+    // Express-validator based validators (recommended)
+    validateUUIDParam,
+    validateUUIDInBodyField,
+    validateOptionalUUIDInBody,
+    validateUserIDHeader,
+    validateProjectId,
+    validateVendorId,
+    validateCompanyId,
+    validateUserId,
+    validateSessionId,
+    validateMeetingId,
+    validateVersionId,
+    validateNotificationId,
+    
+    // Legacy middleware functions (for backward compatibility)
     validateUUID,
     validateUUIDInBody,
     validateUUIDInQuery,
-    validateUserID,
-    validateUUIDOrThrow
+    validateUserID
 };
 

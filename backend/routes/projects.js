@@ -4,6 +4,8 @@ const Project = require('../models/Project');
 const { query } = require('../config/database');
 const { authenticateToken, requirePMOrPMI } = require('../middleware/auth');
 const { auditLog, captureOriginalData, getAuditLogs } = require('../middleware/audit');
+const { validateUUID, validateUUIDInBody } = require('../middleware/validation');
+const authorizeProject = require('../middleware/authorizeProject');
 
 const router = express.Router();
 
@@ -399,7 +401,7 @@ function presentProject(p = {}) {
 }
 
 // Get project by ID with comprehensive fallback handling
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', validateUUID('id'), authorizeProject('id'), authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         console.log('🔍 GET /projects/:id - Fetching project:', id, 'for user:', req.user?.id);
@@ -578,6 +580,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Create new project
 router.post('/', authenticateToken, requirePMOrPMI, [
+    validateUUIDInBody('project_manager_id'),
+    validateUUIDInBody('sr_project_manager_id'),
+    validateUUIDInBody('assigned_pm'),
+    validateUUIDInBody('assigned_spm'),
     body('project_name').notEmpty().withMessage('Project name is required'),
     body('project_description').notEmpty().withMessage('Project description is required'),
     body('project_status').isIn(['planning', 'underway', 'complete', 'on_hold']).withMessage('Invalid project status'),
@@ -625,7 +631,11 @@ router.post('/', authenticateToken, requirePMOrPMI, [
 });
 
 // Update project
-router.put('/:id', authenticateToken, requirePMOrPMI, [
+router.put('/:id', validateUUID('id'), authorizeProject('id'), authenticateToken, requirePMOrPMI, [
+    validateUUIDInBody('project_manager_id'),
+    validateUUIDInBody('sr_project_manager_id'),
+    validateUUIDInBody('assigned_pm'),
+    validateUUIDInBody('assigned_spm'),
     body('project_name').optional().notEmpty().withMessage('Project name cannot be empty'),
     body('project_description').optional().notEmpty().withMessage('Project description cannot be empty'),
     body('project_status').optional().isIn(['planning', 'underway', 'complete', 'on_hold']).withMessage('Invalid project status'),
@@ -681,7 +691,7 @@ router.put('/:id', authenticateToken, requirePMOrPMI, [
 });
 
 // Delete project
-router.delete('/:id', authenticateToken, requirePMOrPMI, captureOriginalData, async (req, res) => {
+router.delete('/:id', validateUUID('id'), authorizeProject('id'), authenticateToken, requirePMOrPMI, captureOriginalData, async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -715,7 +725,7 @@ router.delete('/:id', authenticateToken, requirePMOrPMI, captureOriginalData, as
 });
 
 // Get project vendors
-router.get('/:id/vendors', authenticateToken, async (req, res) => {
+router.get('/:id/vendors', validateUUID('id'), authorizeProject('id'), authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         console.log('🔍 GET /projects/:id/vendors - Fetching vendors for project:', id);
@@ -767,7 +777,7 @@ router.get('/:id/vendors', authenticateToken, async (req, res) => {
 });
 
 // Get project milestones
-router.get('/:id/milestones', authenticateToken, async (req, res) => {
+router.get('/:id/milestones', validateUUID('id'), authorizeProject('id'), authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         console.log('🔍 GET /projects/:id/milestones - Fetching milestones for project:', id);
@@ -822,7 +832,7 @@ router.get('/:id/milestones', authenticateToken, async (req, res) => {
 });
 
 // Get project budget details
-router.get('/:id/budget', authenticateToken, async (req, res) => {
+router.get('/:id/budget', validateUUID('id'), authorizeProject('id'), authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         console.log('🔍 GET /projects/:id/budget - Fetching budget details for project:', id);

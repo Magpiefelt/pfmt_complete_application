@@ -17,6 +17,7 @@ services:
       # Optional: follow-on migrations (if you want them applied on first boot)
       - ./database/migrations/001_add_lifecycle_status.sql:/docker-entrypoint-initdb.d/02-001_lifecycle.sql:ro
       - ./database/migrations/002_complete_docker_fix.sql:/docker-entrypoint-initdb.d/03-002_docker_fix.sql:ro
+      - ./database/migrations/004_project_version_uniqueness.sql:/docker-entrypoint-initdb.d/04-004_version_unique.sql:ro
 
       # Seed after schema/migrations
       - ./database/seed.sql:/docker-entrypoint-initdb.d/99-seed.sql:ro
@@ -63,7 +64,8 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      # P0-4: Use /ready endpoint for better readiness probing (checks DB connectivity)
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/ready', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
       interval: 15s
       timeout: 5s
       retries: 5

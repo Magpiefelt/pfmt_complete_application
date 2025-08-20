@@ -276,6 +276,11 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
     }
   })
 
+  // Legacy compatibility boolean flags
+  const canSubmitInitiation = computed(() => isInitiationValid.value.isValid)
+  const canSubmitAssignment = computed(() => isAssignmentValid.value.isValid)
+  const canSubmitFinalization = computed(() => isFinalizationValid.value.isValid)
+
   // Actions
   const markDirty = (section: string) => {
     dirty.value.add(section)
@@ -652,6 +657,9 @@ export const useProjectWizardStore = defineStore('projectWizard', () => {
     isInitiationValid,
     isAssignmentValid,
     isFinalizationValid,
+    canSubmitInitiation,
+    canSubmitAssignment,
+    canSubmitFinalization,
     
     // Actions
     markDirty,

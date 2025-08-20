@@ -14,9 +14,14 @@ const pool = new Pool({
 
 class DatabaseMigrator {
     constructor() {
-        // Look for SQL under the repo-root /database folder
-        this.schemaPath = path.resolve(__dirname, '..', '..', 'database');
+        // Look for SQL under the repo-root /database folder (P1-5 fix)
+        this.schemaPath = path.resolve(process.cwd(), 'database');
         this.migrationsPath = path.join(this.schemaPath, 'migrations');
+        
+        console.log('🔧 Database migrator paths:');
+        console.log(`   Schema path: ${this.schemaPath}`);
+        console.log(`   Migrations path: ${this.migrationsPath}`);
+        console.log(`   Current working directory: ${process.cwd()}`);
     }
 
     /**

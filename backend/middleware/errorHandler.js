@@ -103,8 +103,10 @@ const handleApplicationError = (error) => {
  * @param {Function} next - Express next function
  */
 const errorHandler = (err, req, res, next) => {
-    // Log the error for debugging
-    console.error('Error occurred:', {
+    const correlationId = req.correlationId || 'unknown';
+    
+    // Log the error for debugging with correlation ID
+    console.error(`[${correlationId}] Error occurred:`, {
         message: err.message,
         stack: err.stack,
         url: req.url,
@@ -151,11 +153,12 @@ const errorHandler = (err, req, res, next) => {
         };
     }
     
-    // Send error response
+    // Send error response with correlation ID
     res.status(errorResponse.status).json({
         error: {
             message: errorResponse.message,
             status: errorResponse.status,
+            correlationId: correlationId,
             timestamp: new Date().toISOString(),
             ...(process.env.NODE_ENV !== 'production' && {
                 code: errorResponse.code,

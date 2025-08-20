@@ -66,20 +66,22 @@ export abstract class BaseService {
         throw await ApiError.fromResponse(response)
       }
 
-      const data = await response.json()
+      // Handle empty/204 responses safely
+      const raw = await response.text()
+      const responseData = raw && raw.trim().length ? JSON.parse(raw) : null
       
       // Handle API response format
-      if (data.success === false) {
+      if (responseData && responseData.success === false) {
         throw new ApiError(
-          data.error?.message || data.message || 'API request failed',
+          responseData.error?.message || responseData.message || 'API request failed',
           response.status,
           response.statusText,
-          data
+          responseData
         )
       }
 
-      // Return the data directly if it exists, otherwise return the whole response
-      return data.data !== undefined ? data.data : data
+      // Return the data directly if it exists, otherwise return the whole response or fallback
+      return responseData ? (responseData.data !== undefined ? responseData.data : responseData) : { success: true, data: null }
     } catch (error) {
       if (error instanceof ApiError) {
         throw error

@@ -16,7 +16,7 @@ const routeConfigs = [
     { path: './routes/auth', name: 'auth', mount: '/api/auth', description: 'Authentication endpoints' },
     { path: './routes/users', name: 'users', mount: '/api/users', description: 'User management' },
     
-    // Core project management (Team B)
+    // Core project management (existing routes)
     { path: './routes/projects', name: 'projects', mount: '/api/projects', description: 'Project management' },
     { path: './routes/projectWorkflow', name: 'project-workflow', mount: '/api/project-workflow', description: 'Project workflow management' },
     { path: './routes/companies', name: 'companies', mount: '/api/companies', description: 'Company management' },
@@ -24,19 +24,16 @@ const routeConfigs = [
     { path: './routes/budget', name: 'budget', mount: '/api/budget', description: 'Budget management' },
     { path: './routes/reporting', name: 'reporting', mount: '/api/reporting', description: 'Reporting system' },
     { path: './routes/projectWizard', name: 'project-wizard', mount: '/api/project-wizard', description: 'Project creation wizard' },
+    { path: './routes/wizard', name: 'wizard', mount: '/api/wizard', description: 'Wizard progress endpoints' },
     
-    // Team A features (integrated)
+    // Additional existing routes
     { path: './routes/contracts', name: 'contracts', mount: '/api/contracts', description: 'Contract management' },
     { path: './routes/team-a-reports', name: 'team-a-reports', mount: '/api/team-a-reports', description: 'Team A report management' },
     { path: './routes/gate-meetings', name: 'gate-meetings', mount: '/api/gate-meetings', description: 'Gate meeting management' },
     { path: './routes/tasks', name: 'tasks', mount: '/api/tasks', description: 'Enhanced task management' },
     { path: './routes/change-orders', name: 'change-orders', mount: '/api/change-orders', description: 'Change order management' },
     { path: './routes/file-uploads', name: 'file-uploads', mount: '/api/file-uploads', description: 'File upload management' },
-    
-    // Additional routes
-    { path: './routes/notifications', name: 'notifications', mount: '/api/notifications', description: 'Notification system' },
-    { path: './routes/audit', name: 'audit', mount: '/api/audit', description: 'Audit logging' },
-    { path: './routes/admin', name: 'admin', mount: '/api/admin', description: 'Administrative functions' }
+    { path: './routes/notifications', name: 'notifications', mount: '/api/notifications', description: 'Notification system' }
 ];
 
 /**

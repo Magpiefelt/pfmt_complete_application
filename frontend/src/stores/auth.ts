@@ -2,17 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { UserAPI } from '@/services/apiService'
 import { useProjectStore } from './project'
-import { 
-  ROLES, 
-  Role, 
-  normalizeRole, 
-  isValidRole, 
+import {
+  ROLES,
+  normalizeRole,
+  isValidRole,
   ROLE_DISPLAY_NAMES,
   ROLE_GROUPS,
   isInRoleGroup,
   hasRoleOrHigher,
   getRolesForFeature
 } from '@/constants/roles'
+import type { Role } from '@/constants/roles'
 
 export interface User {
   id: string | number
@@ -55,7 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // State
   const currentUser = ref<User>(initializeUser())
-  const isAuthenticated = ref(true)
+  const isAuthenticated = ref(false)
   const users = ref<User[]>([])
   const loadingUsers = ref(false)
 

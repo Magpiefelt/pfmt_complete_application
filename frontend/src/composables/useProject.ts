@@ -1,5 +1,6 @@
-import { ref, computed } from 'vue'
-import { ProjectService } from '@/services/projectService'
+import { ref, type Ref } from 'vue'
+// Use typed ProjectService implementation
+import { ProjectService } from '@/services/ProjectService'
 
 interface Project {
   id: string | number
@@ -80,7 +81,8 @@ export function useProject(): UseProjectReturn {
 
       console.log('Loading project:', id)
 
-      const response = await ProjectService.getProject(id)
+      // Fetch project details using typed service
+      const response = await ProjectService.getById(id)
       
       if (!response) {
         throw new Error('Project not found')
@@ -125,7 +127,7 @@ export function useProject(): UseProjectReturn {
 
       console.log('Updating project:', id, data)
 
-      const response = await ProjectService.updateProject(id, data)
+      const response = await ProjectService.update(id, data)
       
       if (response) {
         // Update local project data
@@ -169,92 +171,5 @@ export function useProject(): UseProjectReturn {
   }
 }
 
-// Project service wrapper with better error handling
-class ProjectServiceWrapper {
-  static async getProject(id: string): Promise<Project | null> {
-    try {
-      const response = await fetch(`/api/projects/${id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add auth headers if needed
-        },
-      })
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Project not found')
-        } else if (response.status === 403) {
-          throw new Error('Access denied')
-        } else {
-          throw new Error(`Failed to load project: ${response.statusText}`)
-        }
-      }
-
-      const data = await response.json()
-      return data
-
-    } catch (error) {
-      console.error('ProjectService.getProject error:', error)
-      throw error
-    }
-  }
-
-  static async updateProject(id: string, data: Partial<Project>): Promise<Project | null> {
-    try {
-      const response = await fetch(`/api/projects/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add auth headers if needed
-        },
-        body: JSON.stringify(data)
-      })
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Project not found')
-        } else if (response.status === 403) {
-          throw new Error('Access denied')
-        } else {
-          throw new Error(`Failed to update project: ${response.statusText}`)
-        }
-      }
-
-      const updatedProject = await response.json()
-      return updatedProject
-
-    } catch (error) {
-      console.error('ProjectService.updateProject error:', error)
-      throw error
-    }
-  }
-
-  static async createProject(data: Partial<Project>): Promise<Project | null> {
-    try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add auth headers if needed
-        },
-        body: JSON.stringify(data)
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to create project: ${response.statusText}`)
-      }
-
-      const newProject = await response.json()
-      return newProject
-
-    } catch (error) {
-      console.error('ProjectService.createProject error:', error)
-      throw error
-    }
-  }
-}
-
-// Export the service for direct use if needed
-export const ProjectService = ProjectServiceWrapper
+// Deprecated wrapper removed in favor of typed ProjectService implementation
 
